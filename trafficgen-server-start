@@ -1,0 +1,120 @@
+#!/bin/bash
+exec >trafficgen-server-start-stderrout.txt 
+exec 2>&1
+echo "args; $@"
+echo
+echo "pwd:"
+/bin/pwd
+echo
+echo "ls -alR:"
+ls -alR
+echo
+if [ -z "$RS_CS_LABEL" ]; then
+    echo "RS_CS_LABEL not defined, exiting"
+    exit 1
+else
+    echo "RS_CS_LABEL: $RS_CS_LABEL"
+fi
+echo "hostname: `hostname`"
+echo
+id=`echo $RS_CS_LABEL | awk -F- '{print $2}'`
+re='^[1-9][0-9]*$'
+if [[ ! "$id" =~ $re ]]; then
+    echo "ID must a be a positive interger, exiting"
+    exit 1
+fi
+
+# defaults
+forwarder=testpmd
+devices=""
+queues=1
+
+longopts="client-devices:,server-devices:,max-loss-pct:,rate:,rate-unit:,one-shot:"
+opts=$(getopt -q -o "" --longoptions "$longopts" -n "getopt.sh" -- "$@");
+if [ $? -ne 0 ]; then
+    printf -- "\tUnrecognized option specified\n\n"
+    exit 1
+fi
+eval set -- "$opts";
+while true; do
+    case "$1" in
+        --server-devices)
+            shift;
+            devices="$1"
+            shift
+            ;;
+        --client-devices|--one-shot|--rate|--rate-unit)
+            # We don't need these on the server
+            shift;
+            shift
+            ;;
+        --)
+            shift;
+            break
+            ;;
+        *)
+            echo "Invalid option: $1"
+            exit 1
+    esac
+done
+
+id=`echo $RS_CS_LABEL | awk -F- '{print $2}'`
+re='^[1-9][0-9]*$'
+if [[ ! "$id" =~ $re ]]; then
+    echo "ID must a be a positive interger, exiting"
+    exit 1
+fi
+
+echo filesystems:
+mount
+echo
+
+echo "ls -l /dev/hugepages"
+/bin/ls -l /dev/hugepages
+echo
+
+echo "/proc/meminfo"
+cat /proc/meminfo
+echo
+
+echo "These files exist in ./msgs/rx:"
+/bin/ls -l msgs/rx
+file="msgs/rx/infra-start:1"
+if [ -e "$file" ]; then
+    echo "Found $file"
+    peermac0=`jq -r '.macs[0]' $file`
+    if [ ! -z "$peermac0" ]; then
+        echo "Found eth-peer MAC0 $peermac0"
+    fi
+    peermac1=`jq -r '.macs[1]' $file`
+    if [ ! -z "$peermac1" ]; then
+        echo "Found eth-peer MAC1 $peermac1"
+    fi
+fi
+
+#testpmd_bin=`which testpmd`
+#if [ -z "$testpmd_bin" -o ! -x $testpmd_bin ]; then
+    #echo "ERROR: $testpmd_bin is not executable or not present"
+#fi
+
+# build cmdline opts for device selection
+devs=""
+for i in `echo $devices | sed -e 's/,/ /g'`; do
+    devs+=" -w $i"
+done
+
+testpmd_bin=/usr/bin/testpmd
+testpmd_opts="--huge-dir /dev/hugepages --socket-mem=1024 -l 10,12,14 $devs"
+testpmd_opts+=" -- --nb-cores 2 -a --stats-period=5"
+testpmd_opts+=" --eth-peer 0,$peermac0 --eth-peer 1,$peermac1 --forward-mode mac"
+
+echo "Going to run: $testpmd_bin $testpmd_opts"
+$testpmd_bin $testpmd_opts >trafficgen-server-stderrout.txt &
+echo $! >> trafficgen-server.pid
+sleep 5
+mac0=`grep "Port 0:" trafficgen-server-stderrout.txt | awk -F"0: " '{print $2}'`
+mac1=`grep "Port 1:" trafficgen-server-stderrout.txt | awk -F"1: " '{print $2}'`
+echo "MAC0: $mac0"
+echo "MAC1: $mac1"
+# MAC info, to be sent to endpoint and then forwarded to the client
+echo '{"recipient":{"type":"all","id":"all"},"user-object":{"macs":["'$mac0'","'$mac1'"]}}' >msgs/tx/svc

@@ -1,0 +1,44 @@
+{
+    "rickshaw-benchmark": {
+        "schema": {
+            "version": "2020.05.18"
+        }
+    },
+    "benchmark": "trafficgen",
+    "controller": {
+        "post-script": "%bench-dir%trafficgen-post-process"
+    },
+    "client": {
+        "files-from-controller": [
+            {
+                "src": "%bench-dir%/trafficgen-get-runtime",
+                "dest": "/usr/bin/"
+            },
+            {
+                "src": "%bench-dir%/trafficgen-infra",
+                "dest": "/usr/bin/"
+            },
+            {
+                "src": "%bench-dir%/trafficgen-client",
+                "dest": "/usr/bin/"
+            }
+        ],
+        "runtime": "trafficgen-get-runtime",
+        "infra": "trafficgen-infra",
+        "start": "trafficgen-client"
+    },
+    "server": {
+        "files-from-controller": [
+            {
+                "src": "%bench-dir%/trafficgen-server-start",
+                "dest": "/usr/bin/"
+            },
+            {
+                "src": "%bench-dir%/trafficgen-server-stop",
+                "dest": "/usr/bin/"
+            }
+        ],
+        "start": "trafficgen-server-start",
+        "stop": "trafficgen-server-stop"
+    }
+}

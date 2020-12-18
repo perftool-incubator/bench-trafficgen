@@ -1,0 +1,134 @@
+#!/bin/bash
+exec >trafficgen-client-stderrout.txt
+exec 2>&1
+
+echo "args: $@"
+echo
+if [ -z "$RS_CS_LABEL" ]; then
+    echo "RS_CS_LABEL is not defined, exiting"
+    exit 1
+else
+    echo "RS_CS_LABEL: $RS_CS_LABEL"
+    echo
+fi
+echo "hostname: `hostname`"
+echo
+echo "pwd:"
+/bin/pwd
+echo
+echo "ls -alR:"
+/bin/ls -alR
+echo
+# defaults
+tgen_dir=/opt/trafficgen
+max_loss_pct=0.002
+rate=100
+rate_unit="%"
+one_shot="0"
+longopts="client-devices:,server-devices:,cpus:,max-loss-pct:,rate:,rate-unit:,one-shot:"
+opts=$(getopt -q -o "" --longoptions "$longopts" -n "getopt.sh" -- "$@");
+if [ $? -ne 0 ]; then
+    printf -- "\tUnrecognized option specified\n\n"
+    exit 1
+fi
+eval set -- "$opts";
+while true; do
+    case "$1" in
+        --client-devices)
+            shift;
+            devices=$1
+            shift;
+            ;;
+        --server-devices)
+            # We don't need these for the client
+            shift;
+            shift;
+            ;;
+        --cpus)
+            shift;
+            cpus=$1
+            shift;
+            ;;
+        --max-loss-pct)
+            shift;
+            max_loss_pct=$1
+            shift
+            ;;
+        --rate)
+            shift;
+            rate=$1
+            shift
+            ;;
+        --rate-unit)
+            shift;
+            rate_unit=$1
+            shift
+            ;;
+        --one-shot)
+            shift;
+            one_shot="$1"
+            shift
+            ;;
+        --)
+            shift;
+            break
+            ;;
+        *)
+            echo "Invalid option: $1"
+            exit 1
+    esac
+done
+
+id=`echo $RS_CS_LABEL | awk -F- '{print $2}'`
+re='^[1-9][0-9]*$'
+if [[ ! "$id" =~ $re ]]; then
+    echo "ID must a be a positive interger, exiting"
+    exit 1
+fi
+
+echo "These files exist in ./msgs/rx:"
+/bin/ls -l msgs/rx
+file="msgs/rx/endpoint-start:1"
+if [ -e "$file" ]; then
+    echo "Found $file"
+    dstmac0=`jq -r '.macs[0]' $file`
+    if [ ! -z "$dstmac0" ]; then
+        echo "Found MAC0 $dstmac0"
+    fi
+    dstmac1=`jq -r '.macs[1]' $file`
+    if [ ! -z "$dstmac1" ]; then
+        echo "Found MAC1 $dstmac1"
+    fi
+fi
+
+
+if [ ! -e $tgen_dir ]; then
+    echo "ERROR: $tgen_dir not found"
+    exit 1
+fi
+pushd $tgen_dir
+git remote update
+git branch -a
+git checkout crucible1
+git status
+if [ ! -x binary-search.py ]; then
+    echo "ERROR: binary-search.py is missing or not executable"
+    exit 1
+fi
+if [ ! -e /usr/bin/python ]; then
+    echo "/usr/bin/python not found"
+    if [ -e /usr/bin/python3 ]; then
+        echo "creating symlink from /usr/bin/python3"
+        ln -sf /usr/bin/python3 /usr/bin/python
+        /bin/ls -l /usr/bin/python
+    else
+        echo "can't find /usr/bin/python3 either, exiting"
+        exit 1
+    fi
+fi
+
+echo "Starting binary-search.sh"
+./binary-search.py --device-pairs 0:1 --max-loss-pct 1  --measure-latency 1 --use-src-mac-flows 0 --use-dst-mac-flows 0 --no-promisc --dst-macs $dstmac0,$dstmac1
+echo "Shutting down TRex"
+kill `pgrep _t-rex-64`
+exit 0

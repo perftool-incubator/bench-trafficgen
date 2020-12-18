@@ -1,0 +1,95 @@
+#!/usr/bin/perl
+## -*- mode: perl; indent-tabs-mode: t; perl-indent-level: 4 -*-
+## vim: autoindent tabstop=4 shiftwidth=4 expandtab softtabstop=4 filetype=perl
+
+use strict;
+use warnings;
+use JSON::XS;
+use Data::Dumper;
+use Getopt::Long;
+
+my $client_devices;
+my $server_devices;
+my $one_shot;
+my $test_type;
+my $nthreads;
+
+GetOptions ("client-devices=s" => \$client_devices,
+            "server-devices=s" => \$server_devices,
+            "one-shot=i" => \$one_shot
+            );
+
+my @metrics;
+my %metric_types;
+my $primary_metric = 'Mpps';
+my $result_file = "trafficgen-client-stderrout.txt";
+if ( -e $result_file) {
+    open(FH, $result_file) || die "Could not open file " . $result_file;
+    my $ts, my $prev_ts, my $bytes, my $prev_bytes, my $ops, my $prev_ops;;
+    while (<FH>) {
+        # below is from uperf, need to change
+        if ( /^timestamp_ms:(\d+)\.\d+\s+name:Txn2\s+nr_bytes:(\d+)\s+nr_ops:(\d+)/ ) {
+            $ts = $1, $bytes = $2, $ops = $3;
+            if (defined $prev_ts and ((my $ts_diff = ($ts - $prev_ts) / 1000) > 0)) {
+                {
+                    my %s = ('end' => int $ts,
+                             'value' =>  8.0 * ($bytes - $prev_bytes) / 1000000000 / $ts_diff);
+                    push(@{ $metric_types{'Gbps'}{'data'} }, \%s);
+                }
+                if ($test_type eq "rr") {
+                    $primary_metric = 'transactions-sec';
+                    # RR transactions are two operations
+                    my $tps = ($ops - $prev_ops) / $ts_diff / 2;
+                    {
+                        my %s = ('end' => int $ts, 'value' => 0.0 + $tps);
+                        push(@{ $metric_types{'transactions-sec'}{'data'} }, \%s);
+                    }
+                    if ($tps > 0) {
+                        my %s = ('end' => int $ts, 'value' => 0.0 + $nthreads / $tps *1000000);
+                        push(@{ $metric_types{'round-trip-usec'}{'data'} }, \%s);
+                    }
+                }
+            }
+            $prev_ts = $ts;
+            $prev_bytes = $bytes;
+            $prev_ops = $ops;
+        }
+    }
+    close(FH);
+    # Assign meta-data to any metric data we found and push the data & metadata to the
+    # metrics array
+    for my $type (keys %metric_types) {
+        if (scalar @{ $metric_types{$type}{'data'} } > 0) {
+            my %desc = ('source' => 'uperf', 'type' => $type, 'name-format' => '');
+            if ($type eq "round-trip-usec") {
+                $desc{'class'} = 'count';
+            } else {
+                $desc{'class'} = 'throughput';
+            }
+            if ($type eq "Gbps") {
+                $desc{'name-format'} = "%cmd%";
+                my %names = ('cmd' => 'readandwrite');
+                $metric_types{$type}{'names'} = \%names;
+            }
+            $metric_types{$type}{'desc'} = \%desc;
+            push(@metrics, \%{ $metric_types{$type}});
+        }
+    }
+}
+# Associate the metrics with a benchmark-period (in this case "measurement")
+my %sample;
+my @periods;
+my %period = ('name' => 'measurement');
+$sample{'rickshaw-bench-metric'}{'schema'}{'version'} = "2020.03.18";
+$period{'metrics'} = \@metrics;
+push(@periods, \%period);
+$sample{'periods'} = \@periods;
+$sample{'primary-period'} = 'measurement';
+$sample{'primary-metric'} = $primary_metric;
+if (scalar @metrics > 0) {
+    my $coder = JSON::XS->new;
+    open(JSON_FH, ">post-process-data.json") ||
+        die("Could not open file post-process-data.json for writing\n");
+    print JSON_FH $coder->encode(\%sample);
+    close JSON_FH;
+}

@@ -1,48 +1,53 @@
 {
-    "workshop": {
-	"schema": {
-	    "version": "2020.03.02"
-	}
+  "workshop": {
+    "schema": {
+      "version": "2020.03.02"
+    }
+  },
+  "userenvs": [
+    {
+      "name": "centos8",
+      "requirements": [
+        "dependencies",
+        "trafficgen",
+        "trex",
+        "jq",
+        "dpdk",
+        "dpdk-tools"
+      ]
+    }
+  ],
+  "requirements": [
+    {
+      "name": "dependencies",
+      "type": "distro",
+      "distro_info": {
+        "packages": [
+          "git",
+          "dpdk-tools",
+          "python3",
+          "tmux",
+          "net-tools"
+        ]
+      }
     },
-    "userenvs": [
-	{
-	    "name": "centos8",
-	    "requirements": [
-		"dependencies",
-		"trafficgen",
-		"trex"
-	    ]
-	}
-    ],
-    "requirements": [
-	{
-	    "name": "dependencies",
-	    "type": "distro",
-	    "distro_info": {
-		"packages": [
-		    "git",
-		    "dpdk-tools",
-		    "python3"
-		]
-	    }
-	},
-	{
-	    "name": "trafficgen",
-	    "type": "manual",
-	    "manual_info": {
-		"commands": [
-		    "git clone https://github.com/atheurer/trafficgen.git /opt/trafficgen"
-		]
-	    }
-	},
-	{
-	    "name": "trex",
-	    "type": "manual",
-	    "manual_info": {
-		"commands": [
-		    "/opt/trafficgen/install-trex.sh --insecure"
-		]
-	    }
-	}
-    ]
+    {
+      "name": "trafficgen",
+      "type": "manual",
+      "manual_info": {
+        "commands": [
+          "git clone https://github.com/atheurer/trafficgen.git /opt/trafficgen"
+        ]
+      }
+    },
+    {
+      "name": "trex",
+      "type": "manual",
+      "manual_info": {
+        "commands": [
+          "/opt/trafficgen/install-trex.sh --insecure"
+        ]
+      }
+    }
+  ]
 }
