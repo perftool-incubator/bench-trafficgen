@@ -1,0 +1,132 @@
+#!/bin/bash
+exec >trafficgen-infra-stderrout.txt
+exec 2>&1
+
+echo "args: $@"
+echo
+if [ -z "$RS_CS_LABEL" ]; then
+    echo "RS_CS_LABEL is not defined, exiting"
+    exit 1
+else
+    echo "RS_CS_LABEL: $RS_CS_LABEL"
+    echo
+fi
+echo "hostname: `hostname`"
+echo
+echo "pwd:"
+/bin/pwd
+echo
+echo "ls -alR:"
+/bin/ls -alR
+echo
+# defaults
+tgen_dir=/opt/trafficgen
+max_loss_pct=0.002
+rate=100
+rate_unit="%"
+one_shot="0"
+longopts="client-devices:,server-devices:,cpus:,max-loss-pct:,rate:,rate-unit:,one-shot:"
+opts=$(getopt -q -o "" --longoptions "$longopts" -n "getopt.sh" -- "$@");
+if [ $? -ne 0 ]; then
+    printf -- "\tUnrecognized option specified\n\n"
+    exit 1
+fi
+eval set -- "$opts";
+while true; do
+    case "$1" in
+        --client-devices)
+            shift;
+            devices=$1
+            shift;
+            ;;
+        --server-devices)
+            # We don't need these for the client
+            shift;
+            shift;
+            ;;
+        --cpus)
+            shift;
+            cpus=$1
+            shift;
+            ;;
+        --max-loss-pct)
+            shift;
+            max_loss_pct=$1
+            shift
+            ;;
+        --rate)
+            shift;
+            rate=$1
+            shift
+            ;;
+        --rate-unit)
+            shift;
+            rate_unit=$1
+            shift
+            ;;
+        --one-shot)
+            shift;
+            one_shot="$1"
+            shift
+            ;;
+        --)
+            shift;
+            break
+            ;;
+        *)
+            echo "Invalid option: $1"
+            exit 1
+    esac
+done
+
+id=`echo $RS_CS_LABEL | awk -F- '{print $2}'`
+re='^[1-9][0-9]*$'
+if [[ ! "$id" =~ $re ]]; then
+    echo "ID must a be a positive interger, exiting"
+    exit 1
+fi
+
+if [ ! -e $tgen_dir ]; then
+    echo "ERROR: $tgen_dir not found"
+    exit 1
+fi
+pushd $tgen_dir >/dev/null
+git remote update
+git branch -a
+git checkout crucible1
+git status
+if [ ! -x binary-search.py ]; then
+    echo "ERROR: binary-search.py is missing or not executable"
+    exit 1
+fi
+echo "Laucnhing TRex"
+if [ ! -x launch-trex.sh ]; then
+    echo "ERROR: luanch-trex.sh is missing or not executable"
+    exit 1
+fi
+if [ ! -e /usr/bin/python ]; then
+    echo "/usr/bin/python not found"
+    if [ -e /usr/bin/python3 ]; then
+        echo "creating symlink from /usr/bin/python3"
+        ln -sf /usr/bin/python3 /usr/bin/python
+        /bin/ls -l /usr/bin/python
+    else
+        echo "can't finf /usr/bin/python3 either, exiting"
+        exit 1
+    fi
+fi
+./launch-trex.sh --devices=$devices
+echo "/tmp/trex.server.out:"
+cat /tmp/trex.server.out
+echo
+echo MAC info:
+/usr/bin/python3 ./trex-query.py --device 0 2>&1 | grep "PARSABLE PORT INFO" | sed -e 's/PARSABLE PORT INFO: //' | jq -r '.[0].hw_mac'
+/usr/bin/python3 ./trex-query.py --device 1 2>&1 | grep "PARSABLE PORT INFO" | sed -e 's/PARSABLE PORT INFO: //' | jq -r '.[0].hw_mac'
+echo
+srcmac0=`/usr/bin/python3 ./trex-query.py --device 0 2>&1 | grep "PARSABLE PORT INFO" | sed -e 's/PARSABLE PORT INFO: //' | jq -r '.[0].hw_mac'`
+srcmac1=`/usr/bin/python3 ./trex-query.py --device 1 2>&1 | grep "PARSABLE PORT INFO" | sed -e 's/PARSABLE PORT INFO: //' | jq -r '.[0].hw_mac'`
+echo "TRex source MACs: $srcmac0, $srcmac1"
+# MAC info, to be sent to endpoint and then forwarded to the server 
+popd >/dev/null # back to main client dir where ./msgs is
+echo '{"recipient":{"type":"all","id":"all"},"user-object":{"macs":["'$srcmac0'","'$srcmac1'"]}}' >msgs/tx/macs
+
