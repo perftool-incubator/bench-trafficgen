@@ -11,6 +11,10 @@
     "client": {
         "files-from-controller": [
             {
+                "src": "%bench-dir%/trafficgen-base",
+                "dest": "/usr/bin/"
+            },
+            {
                 "src": "%bench-dir%/trafficgen-get-runtime",
                 "dest": "/usr/bin/"
             },
@@ -29,6 +33,10 @@
     },
     "server": {
         "files-from-controller": [
+            {
+                "src": "%bench-dir%/trafficgen-base",
+                "dest": "/usr/bin/"
+            },
             {
                 "src": "%bench-dir%/trafficgen-server-start",
                 "dest": "/usr/bin/"

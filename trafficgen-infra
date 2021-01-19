@@ -2,95 +2,56 @@
 exec >trafficgen-infra-stderrout.txt
 exec 2>&1
 
-echo "args: $@"
-echo
-if [ -z "$RS_CS_LABEL" ]; then
-    echo "RS_CS_LABEL is not defined, exiting"
-    exit 1
-else
-    echo "RS_CS_LABEL: $RS_CS_LABEL"
-    echo
-fi
-echo "hostname: `hostname`"
-echo
-echo "pwd:"
-/bin/pwd
-echo
-echo "ls -alR:"
-/bin/ls -alR
-echo
+. /usr/bin/trafficgen-base || (echo "/usr/bin/trafficgen-base not found"; exit 1)
+
+dump_runtime
+validate_label
+
 # defaults
 tgen_dir=/opt/trafficgen
+sample_dir="`/bin/pwd`"
+trex_cfg="$sample_dir/trex_cfg.yaml"
 max_loss_pct=0.002
 rate=100
 rate_unit="%"
 one_shot="0"
-longopts="client-devices:,server-devices:,cpus:,max-loss-pct:,rate:,rate-unit:,one-shot:"
-opts=$(getopt -q -o "" --longoptions "$longopts" -n "getopt.sh" -- "$@");
-if [ $? -ne 0 ]; then
-    printf -- "\tUnrecognized option specified\n\n"
-    exit 1
-fi
+longopts="active-client-devices:,client-devices:,client-cpus:"
+opts=$(getopt -q -o "" --longoptions "$longopts" -- "$@");
 eval set -- "$opts";
 while true; do
     case "$1" in
+        --active-client-devices)
+            shift
+            active_devices=$1
+            shift
+            ;;
         --client-devices)
-            shift;
+            shift
             devices=$1
-            shift;
+            shift
             ;;
-        --server-devices)
-            # We don't need these for the client
-            shift;
-            shift;
-            ;;
-        --cpus)
-            shift;
+        --client-cpus)
+            shift
             cpus=$1
-            shift;
-            ;;
-        --max-loss-pct)
-            shift;
-            max_loss_pct=$1
-            shift
-            ;;
-        --rate)
-            shift;
-            rate=$1
-            shift
-            ;;
-        --rate-unit)
-            shift;
-            rate_unit=$1
-            shift
-            ;;
-        --one-shot)
-            shift;
-            one_shot="$1"
             shift
             ;;
         --)
-            shift;
+            shift
             break
             ;;
         *)
-            echo "Invalid option: $1"
-            exit 1
+            echo "Ignoring option: $1"
+            shift
+            shift
+            ;;
     esac
 done
-
-id=`echo $RS_CS_LABEL | awk -F- '{print $2}'`
-re='^[1-9][0-9]*$'
-if [[ ! "$id" =~ $re ]]; then
-    echo "ID must a be a positive interger, exiting"
-    exit 1
-fi
 
 if [ ! -e $tgen_dir ]; then
     echo "ERROR: $tgen_dir not found"
     exit 1
 fi
-pushd $tgen_dir >/dev/null
+pushd $tgen_dir
 git remote update
 git branch -a
 git checkout crucible1
@@ -111,13 +72,111 @@ if [ ! -e /usr/bin/python ]; then
         ln -sf /usr/bin/python3 /usr/bin/python
         /bin/ls -l /usr/bin/python
     else
-        echo "can't finf /usr/bin/python3 either, exiting"
+        echo "can't find /usr/bin/python3 either, exiting"
         exit 1
     fi
 fi
-./launch-trex.sh --devices=$devices
-echo "/tmp/trex.server.out:"
-cat /tmp/trex.server.out
+popd
+
+if [ -z "$cpus" ]; then
+    # User did not specify CPUs, so use what's available
+    # If this is run on a bare-metal host set up with
+    # cpu-partitioning, this is not going to work.  The
+    # user needs to specify what CPUs to use for TRex.
+    cpus=`get_cpus_allowed`
+fi
+cpus_expanded="`expand_number_list $cpus`"
+cpus_separated="`separate_comma_list $cpus_expanded`"
+echo
+echo "TRex cpus: $cpus_separated"
+
+trex_dir=/opt/trex/current
+mem_limit=2048
+
+pushd $trex_dir
+interface_state_cmd="./dpdk_setup_ports.py -t"
+echo "interface status: $interface_state_cmd"
+${interface_state_cmd}
+echo; echo
+echo "Resolving devices for trex based on devices [$devices]"
+trex_dev_opt=""
+for dev in `echo $devices | sed -e 's/,/ /g'`; do
+    res_dev=""
+    resolve_device res_dev $dev
+    trex_dev_opt+=" $res_dev"
+done
+if [ -z "$trex_dev_opt" ]; then
+    "TRex devices could not be found, exiting"
+    exit 1
+fi
+# Infra script does not need to use "active" devices, but
+# we might as well validate it now.
+echo "Resolving *active* devices for trex based on [$active_devices]"
+trex_active_dev_opt=""
+for dev in `echo $active_devices | sed -e 's/,/ /g'`; do
+    res_dev=""
+    resolve_device res_dev $dev
+    trex_active_dev_opt+=" $res_dev"
+done
+if [ -z "$trex_active_dev_opt" ]; then
+    "TRex active devices could not be found, exiting"
+    exit 1
+fi
+
+trex_dumppci_cmd="./dpdk_setup_ports.py --dump-pci-description"
+echo "getting pci configuration with: $trex_dumppci_cmd"
+$trex_dumppci_cmd
+echo; echo
+trex_config_cmd="./dpdk_setup_ports.py -c $trex_dev_opt --cores-include  $cpus_separated -o $trex_cfg"
+echo "configuring trex with: $trex_config_cmd"
+$trex_config_cmd
+if [ ! -e $trex_cfg ]; then
+    echo "$trex_cfg not found, dpdk_setup_ports.py probably failed, exiting"
+    exit 1
+fi
+echo "ls -l $trex_cfg"
+/bin/ls -l $trex_cfg
+echo
+# set the memory limit so that trex doesn't consume all available hugepages
+sed -i -e '/interfaces.*/a\' -e "  limit_memory: $mem_limit" $trex_cfg
+
+trex_cpus=14
+for cpu_block in $(cat $trex_cfg | grep threads | sed -e "s/\s//g" -e "s/threads://"); do
+    yaml_cpus=$(echo "$cpu_block" | sed -e 's/.*\[\(.*\)\]/\1/' -e 's/,/ /g' | wc -w)
+    if [ $yaml_cpus -lt $trex_cpus ]; then
+        trex_cpus=$yaml_cpus
+    fi
+done
+
+trex_server_cmd="./_t-rex-64-o -i -c $trex_cpus --checksum-offload --cfg $trex_cfg --iom 0 -v 4 --prefix trafficgen_trex_ --mlx5-so"
+echo "about to run: $trex_server_cmd"
+$trex_server_cmd 2>&1 >$sample_dir/trex-server-stderrout.txt &
+echo $! >$sample_dir/trex-server-pid.txt
+popd
+
+count=0
+secs=0
+trex_ready=0
+interval=5
+while [ $trex_ready -eq 0 -a $count -lt 10 ]; do
+    sleep $interval
+    echo "checking for TRex server"
+    ss -tlnp
+    ss -tlnp | grep -q ":4500" && trex_ready=1
+    let count=$count+1
+    let sec=$sec+$interval
+done
+if [ $trex_ready -eq 1 ]; then
+    echo "Trex server up after $sec seconds"
+else
+    echo "Trex server failed to start"
+    exit 1
+fi
+# wait for Trex devices to initialize
+# TODO: find a more accurate wait algorithm
+sleep 20
+
+pushd $tgen_dir
 echo
 echo MAC info:
 /usr/bin/python3 ./trex-query.py --device 0 2>&1 | grep "PARSABLE PORT INFO" | sed -e 's/PARSABLE PORT INFO: //' | jq -r '.[0].hw_mac'
@@ -127,6 +186,6 @@ srcmac0=`/usr/bin/python3 ./trex-query.py --device 0 2>&1 | grep "PARSABLE PORT 
 srcmac1=`/usr/bin/python3 ./trex-query.py --device 1 2>&1 | grep "PARSABLE PORT INFO" | sed -e 's/PARSABLE PORT INFO: //' | jq -r '.[0].hw_mac'`
 echo "TRex source MACs: $srcmac0, $srcmac1"
 # MAC info, to be sent to endpoint and then forwarded to the server 
-popd >/dev/null # back to main client dir where ./msgs is
-echo '{"recipient":{"type":"all","id":"all"},"user-object":{"macs":["'$srcmac0'","'$srcmac1'"]}}' >msgs/tx/macs
 
+popd  # back to main client dir where ./msgs is
+echo '{"recipient":{"type":"all","id":"all"},"user-object":{"macs":["'$srcmac0'","'$srcmac1'"]}}' >msgs/tx/macs
