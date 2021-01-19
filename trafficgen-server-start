@@ -1,87 +1,58 @@
 #!/bin/bash
 exec >trafficgen-server-start-stderrout.txt 
 exec 2>&1
-echo "args; $@"
-echo
-echo "pwd:"
-/bin/pwd
-echo
-echo "ls -alR:"
-ls -alR
-echo
-if [ -z "$RS_CS_LABEL" ]; then
-    echo "RS_CS_LABEL not defined, exiting"
-    exit 1
-else
-    echo "RS_CS_LABEL: $RS_CS_LABEL"
-fi
-echo "hostname: `hostname`"
-echo
-id=`echo $RS_CS_LABEL | awk -F- '{print $2}'`
-re='^[1-9][0-9]*$'
-if [[ ! "$id" =~ $re ]]; then
-    echo "ID must a be a positive interger, exiting"
-    exit 1
-fi
+
+. /usr/bin/trafficgen-base || (echo "/usr/bin/trafficgen-base not found"; exit 1)
+
+dump_runtime
+validate_label
 
 # defaults
-forwarder=testpmd
 devices=""
-queues=1
-
-longopts="client-devices:,server-devices:,max-loss-pct:,rate:,rate-unit:,one-shot:"
-opts=$(getopt -q -o "" --longoptions "$longopts" -n "getopt.sh" -- "$@");
-if [ $? -ne 0 ]; then
-    printf -- "\tUnrecognized option specified\n\n"
-    exit 1
-fi
-eval set -- "$opts";
-while true; do
-    case "$1" in
+re='^(--[^=]+)=([^=]+)'
+while [ $# -gt 0 ]; do
+    if [[ "$1" =~ $re ]]; then
+        arg="${BASH_REMATCH[1]}"
+        val="${BASH_REMATCH[2]}"
+        shift
+    else
+        arg="$1"
+        shift
+        val="$1"
+        shift
+    fi
+    case "$arg" in
+        # The following two are needed to determine DPDK device IDs (0,1,2...)
         --server-devices)
-            shift;
-            devices="$1"
-            shift
+            devices="$val"
             ;;
-        --client-devices|--one-shot|--rate|--rate-unit)
-            # We don't need these on the server
-            shift;
-            shift
+        # Skip options not intended for binary-search
+        --client-devices|--active-client-devices|--client-cpus)
             ;;
-        --)
-            shift;
-            break
-            ;;
-        *)
-            echo "Invalid option: $1"
-            exit 1
     esac
 done
 
-id=`echo $RS_CS_LABEL | awk -F- '{print $2}'`
-re='^[1-9][0-9]*$'
-if [[ ! "$id" =~ $re ]]; then
-    echo "ID must a be a positive interger, exiting"
+if [ -z "$devices" ]; then
+    echo "Value for --server-devices was not found, exiting"
     exit 1
 fi
 
-echo filesystems:
-mount
-echo
+# If --server-devices is "none", then this indicates that the client
+# is not testing a device-under-test, but is confgiured to be in 
+# loopback: the traffic-generators' interfaces are connected directly
+# to itself.  This is used for sanity checks.
+if [ "$devices" == "none" ]; then
+    echo "Will not start testpmd because this is a traffic-generator loopback test"
+    exit 0
+fi
 
-echo "ls -l /dev/hugepages"
-/bin/ls -l /dev/hugepages
-echo
-
-echo "/proc/meminfo"
-cat /proc/meminfo
-echo
-
+# trafficgen-server may receive a message about MACs from the traffic-generator
 echo "These files exist in ./msgs/rx:"
 /bin/ls -l msgs/rx
 file="msgs/rx/infra-start:1"
 if [ -e "$file" ]; then
-    echo "Found $file"
+    echo "Found $file:"
+    cat $file
     peermac0=`jq -r '.macs[0]' $file`
     if [ ! -z "$peermac0" ]; then
         echo "Found eth-peer MAC0 $peermac0"
@@ -92,26 +63,30 @@ if [ -e "$file" ]; then
     fi
 fi
 
-#testpmd_bin=`which testpmd`
-#if [ -z "$testpmd_bin" -o ! -x $testpmd_bin ]; then
-    #echo "ERROR: $testpmd_bin is not executable or not present"
-#fi
-
-# build cmdline opts for device selection
-devs=""
-for i in `echo $devices | sed -e 's/,/ /g'`; do
-    devs+=" -w $i"
+# Build testpmd cmdline opts for device selection
+echo "Resolving devices for testpmd based on devices [$devices]"
+testpmd_dev_opt=""
+for dev in `echo $devices | sed -e 's/,/ /g'`; do
+    res_dev=""
+    resolve_device res_dev $dev
+    testpmd_dev_opt+=" -w $res_dev"
 done
+if [ -z "$testpmd_dev_opt" ]; then
+    "Testpmd devices could not be found, exiting"
+    exit 1
+fi
 
 testpmd_bin=/usr/bin/testpmd
-testpmd_opts="--huge-dir /dev/hugepages --socket-mem=1024 -l 10,12,14 $devs"
+testpmd_opts="--huge-dir /dev/hugepages $testpmd_dev_opt"
 testpmd_opts+=" -- --nb-cores 2 -a --stats-period=5"
+# TODO: Opt in/out of mac forward mode and eth-peer
 testpmd_opts+=" --eth-peer 0,$peermac0 --eth-peer 1,$peermac1 --forward-mode mac"
+# TODO: Support other testpmd options
 
 echo "Going to run: $testpmd_bin $testpmd_opts"
 $testpmd_bin $testpmd_opts >trafficgen-server-stderrout.txt &
 echo $! >> trafficgen-server.pid
-sleep 5
+sleep 5 # TODO: need a better wait
 mac0=`grep "Port 0:" trafficgen-server-stderrout.txt | awk -F"0: " '{print $2}'`
 mac1=`grep "Port 1:" trafficgen-server-stderrout.txt | awk -F"1: " '{print $2}'`
 echo "MAC0: $mac0"

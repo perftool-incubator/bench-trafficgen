@@ -1,0 +1,127 @@
+#!/bin/bash
+
+function dump_runtime() {
+    echo env:
+    env
+    echo
+    echo "args; $@"
+    echo
+    echo "pwd:"
+    /bin/pwd
+    echo
+    echo "ls -alR:"
+    ls -alR
+    echo
+    echo "hostname: `hostname`"
+    echo
+    echo filesystems:
+    mount
+    echo
+    echo "ls -l /dev/hugepages"
+    /bin/ls -l /dev/hugepages
+    echo
+    echo "/proc/meminfo"
+    cat /proc/meminfo
+    echo
+    echo DPDK devices:
+    dpdk-devbind -s
+    echo
+    echo netdevs:
+    ls -l /sys/class/net
+    echo
+    echo ip a:
+    ip a
+    echo
+    echo "per-node-hugepages:"
+    for n in 0 1; do
+        path="/sys/devices/system/node/node$n/hugepages/hugepages-1048576kB"
+        echo $path
+        for i in `/bin/ls -1 $path`; do
+            echo $i:
+            cat $path/$i
+        done
+    done
+}
+
+function validate_label() {
+    id=`echo $RS_CS_LABEL | awk -F- '{print $2}'`
+    re='^[1-9][0-9]*$'
+    if [[ ! "$id" =~ $re ]]; then
+        echo "ID must a be a positive interger, exiting"
+        exit 1
+    fi
+}
+
+function get_cpus_allowed() {
+    echo "$(grep Cpus_allowed_list /proc/self/status | cut -f 2)"
+}
+
+function expand_number_list() {
+    # expand a list of numbers to no longer include a range
+    # ie. "1-3,5" becomes "1,2,3,5"
+    local range=$1
+    local list=""
+    local items=""
+    local item=""
+    for items in $(echo "$range" | sed -e "s/,/ /g"); do
+	if echo $items | grep -q -- "-"; then
+	    items=$(echo "$items" | sed -e "s/-/ /")
+	    items=$(seq $items)
+	fi
+	for item in $items; do
+	    list="$list,$item"
+	done
+    done
+    list=$(echo "$list" | sed -e "s/^,//")
+    echo "$list"
+}
+
+function separate_comma_list() {
+    echo "$1" | sed -e "s/,/ /g"
+}
+
+function resolve_device() {
+    typeset -n resolved_dev=$1; shift # caller-provided variable name (call-by-reference)
+    resolved_dev=""
+    dev=$1; shift
+    pciloc_re='^[0-9,a-f]{4}:[0-9,a-f]{2}:[0-9,a-f]{2}\.[0-9,a-f]{1}$' # 0001:0a.b
+    envvar_re='^VAR:(\w+)' # VAR:SOME_ENV_VAR
+    devtype_re='^([virtio|vf]-\d+)$' # virtio-2
+    echo "Resolving device [$dev]"
+    if [[ "$dev" =~ $envvar_re ]]; then
+        envvar="${BASH_REMATCH[1]}"
+        echo "Device [$dev] matched for environment variable pattern"
+        echo "Looking for environment varible [$envvar]"
+        # On some endpoints (k8s/openshift) the device is described as a
+        # environment variable.  Users can specify which variable this is
+        # in the benchmark params with
+        #    "client-devices": "VAR:<varname>,VAR:<varname>"
+        # Addtionally, when specifying the k8s enpoint for a trafficgen
+        # client, the user must include a annotation for the pod which
+        # ensures the pass-through device(s) are provisioned to the pod.
+        # This of course requires that MULTUS networking is configured
+        # for the cluster.
+        if env | grep -q "^${envvar}="; then
+            dev=`env | grep "^${envvar}=" | awk -F= '{print $2}'`
+            echo "device [$dev] found in environment variable [$envvar]"
+        else
+            echo "The variable string [$envvar] does not match any environment variable"
+            echo "Here are all of the envronment variables:"
+            env
+            echo -e "\n\nExiting"
+            exit 1
+        fi
+    elif [[ "$dev" =~ $devtype_re ]]; then
+        echo "Searching for the Nth virtio or VF device is not yet supported, exiting"
+        exit 1
+    else
+        echo "Device [$dev] did not match regex for environemnt variable [$envvar_re] or devtype [$devtype_re]"
+    fi
+    # At this point $dev should only be a PCI location ID
+    if [[ "$dev" =~ $pciloc_re ]]; then
+        resolved_dev="$dev"
+    else
+        echo "The device [$dev] did not match the regex for a PCI location ID [$pciloc_re], exiting"
+        exit 1
+    fi
+}

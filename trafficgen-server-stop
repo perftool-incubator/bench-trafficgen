@@ -1,7 +1,8 @@
 #!/bin/bash
 exec >trafficgen-server-stop-stderrout.txt 
 exec 2>&1
-echo "args; $@"
+
+. /usr/bin/trafficgen-base || (echo "/usr/bin/trafficgen-base not found"; exit 1)
 
 if [ -e trafficgen-server.pid ]; then
     pid=`cat trafficgen-server.pid`

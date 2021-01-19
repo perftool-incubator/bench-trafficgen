@@ -10,10 +10,7 @@
       "requirements": [
         "dependencies",
         "trafficgen",
-        "trex",
-        "jq",
-        "dpdk",
-        "dpdk-tools"
+        "trex"
       ]
     }
   ],
@@ -23,11 +20,10 @@
       "type": "distro",
       "distro_info": {
         "packages": [
-          "git",
+          "rdma-core-devel",
           "dpdk-tools",
-          "python3",
-          "tmux",
-          "net-tools"
+          "net-tools",
+          "which"
         ]
       }
     },
@@ -36,7 +32,8 @@
       "type": "manual",
       "manual_info": {
         "commands": [
-          "git clone https://github.com/atheurer/trafficgen.git /opt/trafficgen"
+          "git clone https://github.com/atheurer/trafficgen.git /opt/trafficgen",
+          "cd /opt/trafficgen; git remote update; git checkout crucible1"
         ]
       }
     },
