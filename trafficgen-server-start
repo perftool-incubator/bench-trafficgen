@@ -7,8 +7,11 @@ exec 2>&1
 dump_runtime
 validate_label
 
-# defaults
+# Defaults
 devices=""
+testpmd_forward_mode="mac"
+
+# Options processing
 re='^(--[^=]+)=([^=]+)'
 while [ $# -gt 0 ]; do
     if [[ "$1" =~ $re ]]; then
@@ -25,6 +28,9 @@ while [ $# -gt 0 ]; do
         # The following two are needed to determine DPDK device IDs (0,1,2...)
         --server-devices)
             devices="$val"
+            ;;
+        --testpmd-forward-mode)
+            testpmd_forward_mode="$val"
             ;;
         # Skip options not intended for binary-search
         --client-devices|--active-client-devices|--client-cpus)
@@ -76,20 +82,29 @@ if [ -z "$testpmd_dev_opt" ]; then
     exit 1
 fi
 
+testpmd_output="trafficgen-testpmd-stderrout.txt"
 testpmd_bin=/usr/bin/testpmd
 testpmd_opts="--huge-dir /dev/hugepages $testpmd_dev_opt"
 testpmd_opts+=" -- --nb-cores 2 -a --stats-period=5"
-# TODO: Opt in/out of mac forward mode and eth-peer
-testpmd_opts+=" --eth-peer 0,$peermac0 --eth-peer 1,$peermac1 --forward-mode mac"
+# TODO: Auto CPU allocation for all endpoints/osruntimes
+#       (put in trafficgen-base and use for client as well)
+if [ "$testpmd_forward_mode" == "mac" ]; then
+    testpmd_opts+=" --eth-peer 0,$peermac0 --eth-peer 1,$peermac1 --forward-mode mac"
+else
+    testpmd_opts+=" "
+fi
 # TODO: Support other testpmd options
 
 echo "Going to run: $testpmd_bin $testpmd_opts"
-$testpmd_bin $testpmd_opts >trafficgen-server-stderrout.txt &
+$testpmd_bin $testpmd_opts 2>&1 >$testpmd_output &
 echo $! >> trafficgen-server.pid
 sleep 5 # TODO: need a better wait
-mac0=`grep "Port 0:" trafficgen-server-stderrout.txt | awk -F"0: " '{print $2}'`
-mac1=`grep "Port 1:" trafficgen-server-stderrout.txt | awk -F"1: " '{print $2}'`
+mac0=`grep "Port 0:" $testpmd_output | awk -F"0: " '{print $2}'`
+mac1=`grep "Port 1:" $testpmd_output | awk -F"1: " '{print $2}'`
 echo "MAC0: $mac0"
 echo "MAC1: $mac1"
-# MAC info, to be sent to endpoint and then forwarded to the client
-echo '{"recipient":{"type":"all","id":"all"},"user-object":{"macs":["'$mac0'","'$mac1'"]}}' >msgs/tx/svc
+# TODO: fail is MACs are not found in testpmd output
+if [ "$testpmd_forward_mode" == "mac" ]; then
+    # MAC info, to be sent to endpoint and then forwarded to the client
+    echo '{"recipient":{"type":"all","id":"all"},"user-object":{"macs":["'$mac0'","'$mac1'"]}}' >msgs/tx/svc
+fi

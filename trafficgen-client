@@ -36,7 +36,7 @@ while [ $# -gt 0 ]; do
             devices="$val"
             ;;
         # Skip options not intended for binary-search
-        --server-devices|--client-cpus)
+        --server-devices|--client-cpus|--testpmd-forward-mode)
             ;;
         # All other options should be supported natively by binary-search
         *)
@@ -179,7 +179,7 @@ if [ ! -e /usr/bin/python ]; then
     fi
 fi
 
-cmd="./binary-search.py ${passthru_args[@]} --output-dir $client_dir $device_pairs_opt"
+cmd="./binary-search.py ${passthru_args[@]} --output-dir $client_dir $device_pairs_opt --send-teaching-warmup --send-teaching-measurement"
 echo "About to run: $cmd"
 $cmd
 popd

@@ -47,6 +47,10 @@ while true; do
     esac
 done
 
+if [ -z "$active_devices" ]; then
+    active_devices="$devices"
+fi
+
 if [ ! -e $tgen_dir ]; then
     echo "ERROR: $tgen_dir not found"
     exit 1
@@ -91,7 +95,8 @@ echo
 echo "TRex cpus: $cpus_separated"
 
 trex_dir=/opt/trex/current
-mem_limit=2048
+# TODO: Auto adjust limit based on actual requirement (which is probably number of interfaces)
+mem_limit=4096
 
 pushd $trex_dir
 interface_state_cmd="./dpdk_setup_ports.py -t"
