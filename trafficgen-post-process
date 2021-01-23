@@ -7,86 +7,440 @@ use warnings;
 use JSON::XS;
 use Data::Dumper;
 use Getopt::Long;
+use File::Basename;
+
+BEGIN {
+    if (!(exists $ENV{'TOOLBOX_HOME'} && -d "$ENV{'TOOLBOX_HOME'}/perl")) {
+    print "This script requires libraries that are provided by the toolbox project.\n";
+    print "Toolbox can be acquired from https://github.com/perftool-incubator/toolbox and\n";
+    print "then use 'export TOOLBOX_HOME=/path/to/toolbox' so that it can be located.\n";
+    exit 1;
+    }
+}
+use lib "$ENV{'TOOLBOX_HOME'}/perl";
+use toolbox::json;
 
 my $client_devices;
 my $server_devices;
 my $one_shot;
-my $test_type;
-my $nthreads;
 
 GetOptions ("client-devices=s" => \$client_devices,
             "server-devices=s" => \$server_devices,
             "one-shot=i" => \$one_shot
             );
 
-my @metrics;
-my %metric_types;
-my $primary_metric = 'Mpps';
-my $result_file = "trafficgen-client-stderrout.txt";
-if ( -e $result_file) {
-    open(FH, $result_file) || die "Could not open file " . $result_file;
-    my $ts, my $prev_ts, my $bytes, my $prev_bytes, my $ops, my $prev_ops;;
-    while (<FH>) {
-        # below is from uperf, need to change
-        if ( /^timestamp_ms:(\d+)\.\d+\s+name:Txn2\s+nr_bytes:(\d+)\s+nr_ops:(\d+)/ ) {
-            $ts = $1, $bytes = $2, $ops = $3;
-            if (defined $prev_ts and ((my $ts_diff = ($ts - $prev_ts) / 1000) > 0)) {
-                {
-                    my %s = ('end' => int $ts,
-                             'value' =>  8.0 * ($bytes - $prev_bytes) / 1000000000 / $ts_diff);
-                    push(@{ $metric_types{'Gbps'}{'data'} }, \%s);
-                }
-                if ($test_type eq "rr") {
-                    $primary_metric = 'transactions-sec';
-                    # RR transactions are two operations
-                    my $tps = ($ops - $prev_ops) / $ts_diff / 2;
-                    {
-                        my %s = ('end' => int $ts, 'value' => 0.0 + $tps);
-                        push(@{ $metric_types{'transactions-sec'}{'data'} }, \%s);
-                    }
-                    if ($tps > 0) {
-                        my %s = ('end' => int $ts, 'value' => 0.0 + $nthreads / $tps *1000000);
-                        push(@{ $metric_types{'round-trip-usec'}{'data'} }, \%s);
-                    }
-                }
+my $script_name = basename($0);
+
+my @trial_metrics = (
+    { 'key' => 'flubberbubbles',
+      'class' => 'pass/fail',
+      'type' => 'trial-result',
+      'name_format' => '',
+      'altkey' => 'result',
+      'altvalue' => 'status' }
+    );
+
+my @trial_stats_metrics = (
+    { 'key' => 'global',
+      'field' => 'runtime',
+      'class' => 'count',
+      'type' => 'trial-runtime-in-seconds',
+      'name_format' => '' }
+    );
+
+my @trial_stats_device_metrics = (
+    { 'key' => 'rx',
+      'field' => 'rx_latency_maximum',
+      'class' => 'count',
+      'type' => 'max-roundtrip-usec',
+      'name_format' => '%port_pair%-%rx_port%' },
+
+    { 'key' => 'rx',
+      'field' => 'rx_latency_average',
+      'class' => 'count',
+      'type' => 'mean-roundtrip-usec',
+      'name_format' => '%port_pair%-%rx_port%' },
+
+    { 'key' => 'tx',
+      'field' => 'tx_l2_bps',
+      'class' => 'throughput',
+      'type' => 'l2-tx-bps',
+      'name_format' => '%port_pair%-%tx_port%' },
+    
+    { 'key' => 'tx',
+      'field' => 'tx_l1_bps',
+      'class' => 'throughput',
+      'type' => 'l1-tx-bps',
+      'name_format' => '%port_pair%-%tx_port%' },
+
+    { 'key' => 'rx',
+      'field' => 'rx_l2_bps',
+      'class' => 'throughput',
+      'type' => 'l2-rx-bps',
+      'name_format' => '%port_pair%-%rx_port%' },
+    
+    { 'key' => 'rx',
+      'field' => 'rx_l1_bps',
+      'class' => 'throughput',
+      'type' => 'l1-rx-bps',
+      'name_format' => '%port_pair%-%rx_port%' },
+
+    { 'key' => 'rx',
+      'field' => 'rx_pps',
+      'class' => 'throughput',
+      'type' => 'rx-pps',
+      'name_format' => '%port_pair%-%rx_port%' },
+
+    { 'key' => 'tx',
+      'field' => 'tx_pps',
+      'class' => 'throughput',
+      'type' => 'tx-pps',
+      'name_format' => '%port_pair%-%tx_port%' },
+
+    { 'key' => 'rx',
+      'field' => 'rx_lost_pps',
+      'class' => 'throughput',
+      'type' => 'lost-rx-pps',
+      'name_format' => '%port_pair%-%rx_port%' },
+    );
+
+my @trial_profiler_metrics = (
+    { 'key' => '',
+      'subkey' => '',
+      'field' => '',
+      'class' => '',
+      'type' => '',
+      'name_format' => '',
+      'extra_field' => '',
+      'cumulative' => 0 },
+
+    { 'key' => 'global',
+      'subkey' => 'rx',
+      'field' => 'pps',
+      'class' => 'throughput',
+      'type' => 'rx-pps',
+      'name_format' => '',
+      'extra_field' => '',
+      'cumulative' => 0 },
+
+    { 'key' => 'global',
+      'subkey' => 'tx',
+      'field' => 'pps',
+      'class' => 'throughput',
+      'type' => 'tx-pps',
+      'name_format' => '',
+      'extra_field' => '',
+      'cumulative' => 0 },
+
+    { 'key' => 'global',
+      'subkey' => 'rx',
+      'field' => 'bps',
+      'class' => 'througput',
+      'type' => 'rx-bps',
+      'name_format' => '',
+      'extra_field' => '',
+      'cumulative' => 0 },
+
+    { 'key' => 'global',
+      'subkey' => 'tx',
+      'field' => 'bps',
+      'class' => 'throughput',
+      'type' => 'tx-bps',
+      'name_format' => '',
+      'extra_field' => '',
+      'cumulative' => 0 },
+
+    { 'key' => 'global',
+      'subkey' => 'rx',
+      'field' => 'drop_bps',
+      'class' => 'throughput',
+      'type' => 'dropped-rx-bps',
+      'name_format' => '',
+      'extra_field' => '',
+      'cumulative' => 0 },
+
+    { 'key' => 'global',
+      'subkey' => 'misc',
+      'field' => 'cpu_util',
+      'class' => 'count',
+      'type' => 'tx-cores-cpu-util',
+      'name_format' => '',
+      'extra_field' => '',
+      'cumulative' => 0 },
+
+    { 'key' => 'global',
+      'subkey' => 'rx',
+      'field' => 'cpu_util',
+      'class' => 'count',
+      'type' => 'rx-core-cpu-util',
+      'name_format' => '',
+      'extra_field' => '',
+      'cumulative' => 0 },
+
+    { 'key' => 'global',
+      'subkey' => 'misc',
+      'field' => 'bw_per_core',
+      'class' => 'throughput',
+      'type' => 'per-core-Gbps',
+      'name_format' => '',
+      'extra_field' => '',
+      'cumulative' => 0 },
+
+    { 'key' => 'global',
+      'subkey' => 'misc',
+      'field' => 'queue_full',
+      'class' => 'count',
+      'type' => 'queue-full-events',
+      'name_format' => '',
+      'extra_field' => '',
+      'cumulative' => 1 },
+
+    { 'key' => 'ports',
+      'subkey' => 'rx',
+      'field' => 'pps',
+      'class' => 'throughput',
+      'type' => 'rx-pps',
+      'name_format' => '%rx_port%',
+      'extra_field' => 'rx_port',
+      'cumulative' => 0 },
+
+    { 'key' => 'ports',
+      'subkey' => 'tx',
+      'field' => 'pps',
+      'class' => 'throughput',
+      'type' => 'tx-pps',
+      'name_format' => '%tx_port%',
+      'extra_field' => 'tx_port',
+      'cumulative' => 0 },
+
+    { 'key' => 'ports',
+      'subkey' => 'rx',
+      'field' => 'bps_l1',
+      'class' => 'throughput',
+      'type' => 'rx-l1-bps',
+      'name_format' => '%rx_port%',
+      'extra_field' => 'rx_port',
+      'cumulative' => 0 },
+
+    { 'key' => 'ports',
+      'subkey' => 'tx',
+      'field' => 'bps_l1',
+      'class' => 'throughput',
+      'type' => 'tx-l1-bps',
+      'name_format' => '%tx_port%',
+      'extra_field' => 'tx_port',
+      'cumulative' => 0 },
+
+    { 'key' => 'ports',
+      'subkey' => 'rx',
+      'field' => 'bps',
+      'class' => 'throughput',
+      'type' => 'rx-l2-bps',
+      'name_format' => '%rx_port%',
+      'extra_field' => 'rx_port',
+      'cumulative' => 0 },
+
+    { 'key' => 'ports',
+      'subkey' => 'tx',
+      'field' => 'bps',
+      'class' => 'throughput',
+      'type' => 'tx-l2-bps',
+      'name_format' => '%tx_port%',
+      'extra_field' => 'tx_port',
+      'cumulative' => 0 },
+
+    { 'key' => 'ports',
+      'subkey' => 'rx',
+      'field' => 'util',
+      'class' => 'count',
+      'type' => 'rx-port-util',
+      'name_format' => '%rx_port%',
+      'extra_field' => 'rx_port',
+      'cumulative' => 0 },
+
+    { 'key' => 'ports',
+      'subkey' => 'tx',
+      'field' => 'util',
+      'class' => 'count',
+      'type' => 'tx-port-util',
+      'name_format' => '%tx_port%',
+      'extra_field' => 'tx_port',
+      'cumulative' => 0 },
+
+    { 'key' => 'pgids',
+      'subkey' => 'latency',
+      'field' => 'average',
+      'class' => 'count',
+      'type' => 'mean-round-trip-usec',
+      'name_format' => '%stream_id%',
+      'extra_field' => 'stream_id',
+      'cumulative' => 0 },
+
+    { 'key' => 'pgids',
+      'subkey' => 'latency',
+      'field' => 'total_max',
+      'class' => 'count',
+      'type' => 'max-round-trip-usec',
+      'name_format' => '%stream_id%',
+      'extra_field' => 'stream_id',
+      'cumulative' => 0 },
+
+    { 'key' => 'pgids',
+      'subkey' => 'latency',
+      'field' => 'total_min',
+      'class' => 'count',
+      'type' => 'min-round-trip-usec',
+      'name_format' => '%stream_id%',
+      'extra_field' => 'stream_id',
+      'cumulative' => 0 },
+
+    { 'key' => 'pgids',
+      'subkey' => 'latency',
+      'field' => 'duplicate',
+      'class' => 'count',
+      'type' => 'duplicate-latency-packets',
+      'name_format' => '%stream_id%',
+      'extra_field' => 'stream_id',
+      'cumulative' => 0 },
+
+    { 'key' => 'pgids',
+      'subkey' => 'latency',
+      'field' => 'dropped',
+      'class' => 'count',
+      'type' => 'dropped-latency-packets',
+      'name_format' => '%stream_id%',
+      'extra_field' => 'stream_id',
+      'cumulative' => 0 },
+
+    { 'key' => 'pgids',
+      'subkey' => 'latency',
+      'field' => 'out_of_order',
+      'class' => 'count',
+      'type' => 'out-of-order-latency-packets',
+      'name_format' => '%stream_id%',
+      'extra_field' => 'stream_id',
+      'cumulative' => 0 },
+
+    { 'key' => 'pgids',
+      'subkey' => 'latency',
+      'field' => 'seq_too_high',
+      'class' => 'count',
+      'type' => 'before-expected-latency-packets',
+      'name_format' => '%stream_id%',
+      'extra_field' => 'stream_id',
+      'cumulative' => 0 },
+
+    { 'key' => 'pgids',
+      'subkey' => 'latency',
+      'field' => 'seq_too_low',
+      'class' => 'count',
+      'type' => 'after-expected-latency-packets',
+      'name_format' => '%stream_id%',
+      'extra_field' => 'stream_id',
+      'cumulative' => 0 },
+
+    { 'key' => 'pgids',
+      'subkey' => 'tx_pps',
+      'field' => 'stream_id',
+      'class' => 'throughput',
+      'type' => 'tx-pps',
+      'name_format' => '%tx_port%%stream_id%',
+      'extra_field' => 'tx_port',
+      'cumulative' => 0 },
+
+    { 'key' => 'pgids',
+      'subkey' => 'rx_pps',
+      'field' => 'stream_id',
+      'class' => 'throughput',
+      'type' => 'rx-pps',
+      'name_format' => '%rx_port%%stream_id%',
+      'extra_field' => 'rx_port',
+      'cumulative' => 0 },
+
+    );
+
+my %sample;
+$sample{'rickshaw-bench-metric'}{'schema'}{'version'} = "2020.03.18";
+$sample{'primary-period'} = 'measurement';
+$sample{'primary-metric'} = 'rx-pps';
+my @periods;
+my $bs_json_ref = get_json_file("binary-search.json");
+for (my $index=0; $index<scalar(@{ $$bs_json_ref{'trials'} }); $index++) {
+    my %trial = %{ $$bs_json_ref{'trials'}[$index] };
+    printf "Processing new period: Trial %d\n", $trial{'trial'};
+    my $period_name = "trial-" . $trial{'trial'};
+    if ($index == (scalar(@{ $$bs_json_ref{'trials'} }) - 1)) {
+        $period_name = "measurement";
+    }
+    my %period = ('name' => $period_name);
+    my @metrics;
+    $period{'metrics'} = \@metrics;
+    my $trial_end = int $trial{'stats'}{'trial_stop'};
+    my $trial_begin = int $trial{'stats'}{'trial_start'};
+
+    print "Processing trial pass/fail metrics\n";
+    for my $trial_metric ( @trial_metrics ) {
+        my $metric_type = $$trial_metric{'type'};
+        my $metric_value;
+        my %metric_types;
+        my %desc = ('class' => $$trial_metric{'class'},
+                    'source' => 'trafficgen',
+                    'type' => $metric_type,
+                    'name-format' => $$trial_metric{'name_format'});
+        if (exists($$trial_metric{'altvalue'}) && exists($$trial_metric{'altkey'})) {
+            $desc{'value-format'} = 'status';
+            my %values = ('fail' => 0, 'pass' => 1);
+            $metric_types{$metric_type}{'values'} = \%values;
+            if ( $trial{$$trial_metric{'altkey'}} eq "pass" ) {
+                $metric_value = 1;
+            } else {
+                $metric_value = 0;
             }
-            $prev_ts = $ts;
-            $prev_bytes = $bytes;
-            $prev_ops = $ops;
+        } elsif (exists($trial{$$trial_metric{'key'}})) {
+            $metric_value = $trial{$$trial_metric{'key'}};
+        } else {
+            $metric_value = 0.0;
+        }
+        my %s = ('end' => int $trial_end,
+                 'begin' => int $trial_begin,
+                 'value' =>  $metric_value);
+        push(@{ $metric_types{$metric_type}{'data'} }, \%s);
+        $metric_types{$metric_type}{'desc'} = \%desc;
+        push(@metrics, \%{ $metric_types{$metric_type}});
+
+    print "Processing trial device-pair metrics\n";
+    foreach my $dev_pair ( @{ $trial{'trial_params'}{'test_dev_pairs'} } ) {
+        print "Processing device-pair " . $$dev_pair{'tx'} . ":" . $$dev_pair{'rx'} . "\n";
+        for my $trial_stats_device_metric ( @trial_stats_device_metrics ) {
+            my $metric_type = $$trial_stats_device_metric{'type'};
+            my $metric_value;
+            my %metric_types;
+            my %desc = ('class' => $$trial_metric{'class'},
+                        'source' => 'trafficgen',
+                        'type' => $metric_type,
+                        'name-format' => $$trial_stats_device_metric{'name_format'});
+            my %s = ('end' => int $trial_begin,
+                    'begin' => int $trial_end,
+                    'value' =>  $trial{'stats'}{$$dev_pair{$$trial_stats_device_metric{'key'}}}{$$trial_stats_device_metric{'field'}});
+            my %names = ('tx_port' => $$dev_pair{'tx'}, 'rx_port' => $$dev_pair{'rx'}, 'port_pair' => $$dev_pair{'dev_pair'});
+            $metric_types{$metric_type}{'names'} = \%names;
+            #$desc{'names'} = \%names;
+            push(@{ $metric_types{$metric_type}{'data'} }, \%s);
+            $metric_types{$metric_type}{'desc'} = \%desc;
+            push(@metrics, \%{ $metric_types{$metric_type}});
         }
     }
-    close(FH);
-    # Assign meta-data to any metric data we found and push the data & metadata to the
-    # metrics array
-    for my $type (keys %metric_types) {
-        if (scalar @{ $metric_types{$type}{'data'} } > 0) {
-            my %desc = ('source' => 'uperf', 'type' => $type, 'name-format' => '');
-            if ($type eq "round-trip-usec") {
-                $desc{'class'} = 'count';
-            } else {
-                $desc{'class'} = 'throughput';
-            }
-            if ($type eq "Gbps") {
-                $desc{'name-format'} = "%cmd%";
-                my %names = ('cmd' => 'readandwrite');
-                $metric_types{$type}{'names'} = \%names;
-            }
-            $metric_types{$type}{'desc'} = \%desc;
-            push(@metrics, \%{ $metric_types{$type}});
-        }
+
+        # Add other metric_types here
+
+    }
+    if (scalar @metrics > 0) {
+        $period{'metrics'} = \@metrics;
+        push(@periods, \%period);
     }
 }
-# Associate the metrics with a benchmark-period (in this case "measurement")
-my %sample;
-my @periods;
-my %period = ('name' => 'measurement');
-$sample{'rickshaw-bench-metric'}{'schema'}{'version'} = "2020.03.18";
-$period{'metrics'} = \@metrics;
-push(@periods, \%period);
-$sample{'periods'} = \@periods;
-$sample{'primary-period'} = 'measurement';
-$sample{'primary-metric'} = $primary_metric;
-if (scalar @metrics > 0) {
+if (scalar @periods > 0) {
+    $sample{'periods'} = \@periods;
     my $coder = JSON::XS->new;
     open(JSON_FH, ">post-process-data.json") ||
         die("Could not open file post-process-data.json for writing\n");
