@@ -55,7 +55,7 @@ fi
 # trafficgen-server may receive a message about MACs from the traffic-generator
 echo "These files exist in ./msgs/rx:"
 /bin/ls -l msgs/rx
-file="msgs/rx/infra-start:1"
+file="msgs/rx/server-start:1"
 if [ -e "$file" ]; then
     echo "Found $file:"
     cat $file
@@ -89,6 +89,11 @@ testpmd_opts+=" -- --nb-cores 2 -a --stats-period=5"
 # TODO: Auto CPU allocation for all endpoints/osruntimes
 #       (put in trafficgen-base and use for client as well)
 if [ "$testpmd_forward_mode" == "mac" ]; then
+    # TODO: use regex instead:
+    if [ -z "$peermac0" -o -z "$peermac1" ]; then
+        echo "[ERROR] Using forware-mode = mac, but did not get MAC addresses from TREX"
+        exit 1
+    fi
     testpmd_opts+=" --eth-peer 0,$peermac0 --eth-peer 1,$peermac1 --forward-mode mac"
 else
     testpmd_opts+=" "
@@ -103,7 +108,7 @@ mac0=`grep "Port 0:" $testpmd_output | awk -F"0: " '{print $2}'`
 mac1=`grep "Port 1:" $testpmd_output | awk -F"1: " '{print $2}'`
 echo "MAC0: $mac0"
 echo "MAC1: $mac1"
-# TODO: fail is MACs are not found in testpmd output
+# TODO: fail if MACs are not found in testpmd output
 if [ "$testpmd_forward_mode" == "mac" ]; then
     # MAC info, to be sent to endpoint and then forwarded to the client
     echo '{"recipient":{"type":"all","id":"all"},"user-object":{"macs":["'$mac0'","'$mac1'"]}}' >msgs/tx/svc

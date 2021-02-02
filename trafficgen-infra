@@ -6,6 +6,8 @@ exec 2>&1
 
 dump_runtime
 validate_label
+validate_sw_prereqs
+validate_other_prereqs
 
 # defaults
 tgen_dir=/opt/trafficgen
@@ -15,7 +17,9 @@ max_loss_pct=0.002
 rate=100
 rate_unit="%"
 one_shot="0"
-longopts="active-client-devices:,client-devices:,client-cpus:"
+# TODO: Auto adjust limit based on actual requirement (which is probably number of interfaces)
+mem_limit=2048
+longopts="active-client-devices:,client-devices:,client-cpus:,client-mem-limit:"
 opts=$(getopt -q -o "" --longoptions "$longopts" -- "$@");
 eval set -- "$opts";
 while true; do
@@ -23,6 +27,11 @@ while true; do
         --active-client-devices)
             shift
             active_devices=$1
+            shift
+            ;;
+        --client-mem-limit)
+            shift
+            mem_limit=$1
             shift
             ;;
         --client-devices)
@@ -95,8 +104,6 @@ echo
 echo "TRex cpus: $cpus_separated"
 
 trex_dir=/opt/trex/current
-# TODO: Auto adjust limit based on actual requirement (which is probably number of interfaces)
-mem_limit=4096
 
 pushd $trex_dir
 interface_state_cmd="./dpdk_setup_ports.py -t"
@@ -118,9 +125,10 @@ fi
 # we might as well validate it now.
 echo "Resolving *active* devices for trex based on [$active_devices]"
 trex_active_dev_opt=""
+position=1
 for dev in `echo $active_devices | sed -e 's/,/ /g'`; do
     res_dev=""
-    resolve_device res_dev $dev
+    resolve_device res_dev $dev $position
     trex_active_dev_opt+=" $res_dev"
 done
 if [ -z "$trex_active_dev_opt" ]; then
@@ -144,6 +152,9 @@ echo "ls -l $trex_cfg"
 echo
 # set the memory limit so that trex doesn't consume all available hugepages
 sed -i -e '/interfaces.*/a\' -e "  limit_memory: $mem_limit" $trex_cfg
+echo "Contents of $trex_cfg:"
+cat $trex_cfg
+echo
 
 trex_cpus=14
 for cpu_block in $(cat $trex_cfg | grep threads | sed -e "s/\s//g" -e "s/threads://"); do

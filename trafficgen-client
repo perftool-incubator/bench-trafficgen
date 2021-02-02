@@ -36,7 +36,7 @@ while [ $# -gt 0 ]; do
             devices="$val"
             ;;
         # Skip options not intended for binary-search
-        --server-devices|--client-cpus|--testpmd-forward-mode)
+        --server-devices|--client-cpus|--testpmd-forward-mode|--client-mem-limit)
             ;;
         # All other options should be supported natively by binary-search
         *)
@@ -182,7 +182,11 @@ fi
 cmd="./binary-search.py ${passthru_args[@]} --output-dir $client_dir $device_pairs_opt --send-teaching-warmup --send-teaching-measurement"
 echo "About to run: $cmd"
 $cmd
+rc=$?
 popd
+if [ $rc != 0 ]; then
+    exit $rc
+fi
 
 echo "Shutting down TRex"
 kill `pgrep _t-rex-64`

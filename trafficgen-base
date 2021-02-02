@@ -52,6 +52,25 @@ function validate_label() {
     fi
 }
 
+function validate_sw_prereqs() {
+    local missing=""
+    local bail=0
+    for bin in getopt ip ss jq git; do
+        $bin -h 2>&1 >/dev/null || (bail=1 && missing+=" $bin")
+    done
+    if [ "$bail" == "1" ]; then
+        echo "ERROR: could not find utility: $missing"
+        exit 1
+    fi
+}
+
+function validate_other_prereqs() {
+    if [ ! -e /dev/hugepages ]; then
+        echo "ERROR: could not find /dev/hugepages"
+        exit 1
+    fi
+}
+
 function get_cpus_allowed() {
     echo "$(grep Cpus_allowed_list /proc/self/status | cut -f 2)"
 }
@@ -83,13 +102,19 @@ function separate_comma_list() {
 function resolve_device() {
     typeset -n resolved_dev=$1; shift # caller-provided variable name (call-by-reference)
     resolved_dev=""
-    dev=$1; shift
+    local dev=$1; shift
+    local count=$1; shift
     pciloc_re='^[0-9,a-f]{4}:[0-9,a-f]{2}:[0-9,a-f]{2}\.[0-9,a-f]{1}$' # 0001:0a.b
-    envvar_re='^VAR:(\w+)' # VAR:SOME_ENV_VAR
+    #envvar_re='^VAR:(\w+)[:(\d+)]{0,1}' # VAR:SOME_ENV_VAR or VAR:SOME_ENV_VAR:<number>
+    envvar_re='^VAR:(\w+)(:(.+)){0,1}' # VAR:SOME_ENV_VAR or VAR:SOME_ENV_VAR:<number>
     devtype_re='^([virtio|vf]-\d+)$' # virtio-2
     echo "Resolving device [$dev]"
     if [[ "$dev" =~ $envvar_re ]]; then
         envvar="${BASH_REMATCH[1]}"
+        position="${BASH_REMATCH[3]}"
+        if [ -z "$position" ]; then
+            position=1
+        fi
         echo "Device [$dev] matched for environment variable pattern"
         echo "Looking for environment varible [$envvar]"
         # On some endpoints (k8s/openshift) the device is described as a
@@ -102,8 +127,14 @@ function resolve_device() {
         # This of course requires that MULTUS networking is configured
         # for the cluster.
         if env | grep -q "^${envvar}="; then
-            dev=`env | grep "^${envvar}=" | awk -F= '{print $2}'`
+            # There may be multiple devices listed.  Take the first and leave the rest.
+            # If a user specifies this env var for multple devices, then they will
+            # be used in order of appearance in the env var's value.
+            dev=`env | grep "^${envvar}=" | awk -F= '{print $2}' | cut -d, -f$position`
             echo "device [$dev] found in environment variable [$envvar]"
+            #local remaining=`env | grep "^${envvar}=" | awk -F= '{print $2}' | sed -e s/^$dev// -e s/^,//`
+            #echo "$envvar is now: $remaining"
+            #export $envvar="$remaining"
         else
             echo "The variable string [$envvar] does not match any environment variable"
             echo "Here are all of the envronment variables:"

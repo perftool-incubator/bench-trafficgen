@@ -23,10 +23,20 @@ use toolbox::json;
 my $client_devices;
 my $server_devices;
 my $one_shot;
+my $unused;
+my $script = "trafficgen-post-process";
 
 GetOptions ("client-devices=s" => \$client_devices,
             "server-devices=s" => \$server_devices,
-            "one-shot=i" => \$one_shot
+            "one-shot=i" => \$one_shot,
+            "client-mem-limit=s" => \$unused,
+            "use-src-mac-flows=s" => \$unused,
+            "use-dst-mac-flows=s" => \$unused,
+            "rate=s" => \$unused,
+            "validation-runtime=s" => \$unused,
+            "frame-size=s" => \$unused,
+            "rate-unit=s" => \$unused,
+            "client-mem-limit=s" => \$unused
             );
 
 my $script_name = basename($0);
@@ -359,12 +369,25 @@ my @trial_profiler_metrics = (
 
     );
 
+printf "RS_CS_LABEL: %s\n", $ENV{'RS_CS_LABEL'};
+if ($ENV{'RS_CS_LABEL'} =~ /^(client|server)-(\d+)$/) {
+    if ($1 eq "server") {
+        print "No server post-processing required, exiting\n";
+        exit 0;
+    }
+};
+
 my %sample;
 $sample{'rickshaw-bench-metric'}{'schema'}{'version'} = "2020.03.18";
 $sample{'primary-period'} = 'measurement';
 $sample{'primary-metric'} = 'rx-pps';
 my @periods;
-my $bs_json_ref = get_json_file("binary-search.json");
+my $result_file = "binary-search.json";
+if (! -f $result_file) {
+    printf "Could not find file %s in directory %s\n", $result_file, `/bin/pwd`;
+    exit 1;
+}
+my $bs_json_ref = get_json_file($result_file);
 for (my $index=0; $index<scalar(@{ $$bs_json_ref{'trials'} }); $index++) {
     my %trial = %{ $$bs_json_ref{'trials'}[$index] };
     printf "Processing new period: Trial %d\n", $trial{'trial'};
