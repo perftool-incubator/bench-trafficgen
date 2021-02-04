@@ -80,8 +80,7 @@ if [ ! -z "$devices" ]; then
     total_devices=$(echo $devices | sed -e "s/,/ /g" | wc -w)
     #if [ $(echo "${total_devices} % 2" | bc) != 0 ]; then
     if [ $(($total_devices % 2)) != 0 ]; then
-        echo "devices must be supplied in quantities of 2, exiting"
-        exit 1
+        exit_error "devices must be supplied in quantities of 2"
     else
         #total_device_pairs=$(echo "${total_devices} / 2" | bc)
         total_device_pairs=$(($total_devices / 2))
@@ -99,23 +98,18 @@ if [ ! -z "$devices" ]; then
             done
         else
             if [ "${total_device_pairs}" -gt 1 ]; then
-                echo "only the trex-txrx* traffic generators support more than 1 pair of devices, exiting"
-                exit 1
+                exit_error "only the trex-txrx* traffic generators support more than 1 pair of devices"
             fi
         fi
     fi
     total_active_devices=$(echo ${active_devices} | sed -e "s/,/ /g" | wc -w)
-    #if [ $(echo "${total_active_devices} % 2" | bc) -ne 0 ]; then
     if [ $(($total_active_devices % 2)) -ne 0 ]; then
-        echo "active devices must be supplied in quantities of 2, exiting"
-        exit 1
+        exit_error "active devices must be supplied in quantities of 2"
     else
         if [ $traffic_generator != "trex-txrx" -a \
              $traffic_generator != "trex-txrx-profile" -a \
              "${devices}" != "${active_devices}" ]; then
-        #if $(echo $traffic_generator | grep -eq "^trex-txrx") && [ "${devices}" != "${active_devices}" ]; then
-            echo "only the trex-txrx* traffic generators support --client-devices != --active-client-devices, exiting"
-            exit 1
+            exit_error "only the trex-txrx* traffic generators support --client-devices != --active-client-devices"
         else
             if [ $traffic_generator == "trex-txrx" -o $traffic_generator == "trex-txrx-profile" ]; then
                 active_device_pair_index=0
@@ -144,8 +138,7 @@ if [ ! -z "$devices" ]; then
                             fi
                         fi
                     else
-                        echo "couldn't find an active device [${active_device}] in the list of devices [${devices}], exiting"
-                        exit 1
+                        exit_error "Couldn't find an active device [${active_device}] in the list of devices [${devices}]"
                     fi
                 done
             fi
@@ -155,8 +148,7 @@ fi
 
 
 if [ ! -e $tgen_dir ]; then
-    echo "ERROR: $tgen_dir not found"
-    exit 1
+    exit_error "ERROR: $tgen_dir not found"
 fi
 pushd $tgen_dir
 git remote update
@@ -164,8 +156,7 @@ git branch -a
 git checkout crucible1
 git status
 if [ ! -x binary-search.py ]; then
-    echo "ERROR: binary-search.py is missing or not executable"
-    exit 1
+    exit_error "ERROR: binary-search.py is missing or not executable"
 fi
 if [ ! -e /usr/bin/python ]; then
     echo "/usr/bin/python not found"
@@ -174,8 +165,7 @@ if [ ! -e /usr/bin/python ]; then
         ln -sf /usr/bin/python3 /usr/bin/python
         /bin/ls -l /usr/bin/python
     else
-        echo "can't find /usr/bin/python3 either, exiting"
-        exit 1
+        exit_error "can't find /usr/bin/python3, exiting"
     fi
 fi
 
@@ -185,9 +175,27 @@ $cmd
 rc=$?
 popd
 if [ $rc != 0 ]; then
-    exit $rc
+    exit_error "binary-search.py failed"
 fi
 
+if [ "$endpoint" == "k8s" -a "$osruntime" == "pod" ]; then
+    # Don't shutdown TRex, as we can't remove the hugepages in /dev/hugepages after
+    # when using a pod.
+    exit 0
+fi
 echo "Shutting down TRex"
-kill `pgrep _t-rex-64`
-exit 0
+pid_file="$client_dir/trex-server-pid.txt"
+if [ ! -e $pid_file ]; then
+    exit_error "[ERROR] could not find TRex pid file: $pid_file"
+    exit 1
+fi
+pid=`cat $pid_file`
+if [ ! -z "$pid" ]; then
+    kill -s SIGINT $pid || kill -s SIGTERM $pid
+    rc=$?
+    if [ $rc -gt 0 ]; then
+        exit_error "kill of TRex pid $pid failed" $rc
+    fi
+else
+    exit_error "[ERROR] could not find TRex PID in $pid_file"
+fi
