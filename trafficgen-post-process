@@ -369,10 +369,8 @@ my @trial_profiler_metrics = (
 
     );
 
-printf "RS_CS_LABEL: %s\n", $ENV{'RS_CS_LABEL'};
 if ($ENV{'RS_CS_LABEL'} =~ /^(client|server)-(\d+)$/) {
     if ($1 eq "server") {
-        print "No server post-processing required, exiting\n";
         exit 0;
     }
 };
@@ -390,7 +388,6 @@ if (! -f $result_file) {
 my $bs_json_ref = get_json_file($result_file);
 for (my $index=0; $index<scalar(@{ $$bs_json_ref{'trials'} }); $index++) {
     my %trial = %{ $$bs_json_ref{'trials'}[$index] };
-    printf "Processing new period: Trial %d\n", $trial{'trial'};
     my $period_name = "trial-" . $trial{'trial'};
     if ($index == (scalar(@{ $$bs_json_ref{'trials'} }) - 1)) {
         $period_name = "measurement";
@@ -401,7 +398,6 @@ for (my $index=0; $index<scalar(@{ $$bs_json_ref{'trials'} }); $index++) {
     my $trial_end = int $trial{'stats'}{'trial_stop'};
     my $trial_begin = int $trial{'stats'}{'trial_start'};
 
-    print "Processing trial pass/fail metrics\n";
     for my $trial_metric ( @trial_metrics ) {
         my $metric_type = $$trial_metric{'type'};
         my $metric_value;
@@ -431,9 +427,7 @@ for (my $index=0; $index<scalar(@{ $$bs_json_ref{'trials'} }); $index++) {
         $metric_types{$metric_type}{'desc'} = \%desc;
         push(@metrics, \%{ $metric_types{$metric_type}});
 
-    print "Processing trial device-pair metrics\n";
     foreach my $dev_pair ( @{ $trial{'trial_params'}{'test_dev_pairs'} } ) {
-        print "Processing device-pair " . $$dev_pair{'tx'} . ":" . $$dev_pair{'rx'} . "\n";
         for my $trial_stats_device_metric ( @trial_stats_device_metrics ) {
             my $metric_type = $$trial_stats_device_metric{'type'};
             my $metric_value;

@@ -39,8 +39,7 @@ while [ $# -gt 0 ]; do
 done
 
 if [ -z "$devices" ]; then
-    echo "Value for --server-devices was not found, exiting"
-    exit 1
+    exit_error "Value for --server-devices was not found, exiting"
 fi
 
 # If --server-devices is "none", then this indicates that the client
@@ -78,8 +77,7 @@ for dev in `echo $devices | sed -e 's/,/ /g'`; do
     testpmd_dev_opt+=" -w $res_dev"
 done
 if [ -z "$testpmd_dev_opt" ]; then
-    "Testpmd devices could not be found, exiting"
-    exit 1
+    exit_error "Testpmd devices could not be found, exiting"
 fi
 
 testpmd_output="trafficgen-testpmd-stderrout.txt"
@@ -91,8 +89,7 @@ testpmd_opts+=" -- --nb-cores 2 -a --stats-period=5"
 if [ "$testpmd_forward_mode" == "mac" ]; then
     # TODO: use regex instead:
     if [ -z "$peermac0" -o -z "$peermac1" ]; then
-        echo "[ERROR] Using forware-mode = mac, but did not get MAC addresses from TREX"
-        exit 1
+        exit_error  "[ERROR] Using forware-mode = mac, but did not get MAC addresses from TREX"
     fi
     testpmd_opts+=" --eth-peer 0,$peermac0 --eth-peer 1,$peermac1 --forward-mode mac"
 else

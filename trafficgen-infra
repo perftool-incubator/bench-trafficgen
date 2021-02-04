@@ -10,6 +10,7 @@ validate_sw_prereqs
 validate_other_prereqs
 
 # defaults
+trex_bin="_t-rex-64-o"
 tgen_dir=/opt/trafficgen
 sample_dir="`/bin/pwd`"
 trex_cfg="$sample_dir/trex_cfg.yaml"
@@ -61,8 +62,7 @@ if [ -z "$active_devices" ]; then
 fi
 
 if [ ! -e $tgen_dir ]; then
-    echo "ERROR: $tgen_dir not found"
-    exit 1
+    exit_error "$tgen_dir not found"
 fi
 pushd $tgen_dir
 git remote update
@@ -70,13 +70,7 @@ git branch -a
 git checkout crucible1
 git status
 if [ ! -x binary-search.py ]; then
-    echo "ERROR: binary-search.py is missing or not executable"
-    exit 1
-fi
-echo "Laucnhing TRex"
-if [ ! -x launch-trex.sh ]; then
-    echo "ERROR: luanch-trex.sh is missing or not executable"
-    exit 1
+    exit_error "binary-search.py is missing or not executable"
 fi
 if [ ! -e /usr/bin/python ]; then
     echo "/usr/bin/python not found"
@@ -85,90 +79,93 @@ if [ ! -e /usr/bin/python ]; then
         ln -sf /usr/bin/python3 /usr/bin/python
         /bin/ls -l /usr/bin/python
     else
-        echo "can't find /usr/bin/python3 either, exiting"
-        exit 1
+        exit_error "cannot find /usr/bin/python3 either, exiting"
     fi
 fi
 popd
 
-if [ -z "$cpus" ]; then
-    # User did not specify CPUs, so use what's available
-    # If this is run on a bare-metal host set up with
-    # cpu-partitioning, this is not going to work.  The
-    # user needs to specify what CPUs to use for TRex.
-    cpus=`get_cpus_allowed`
-fi
-cpus_expanded="`expand_number_list $cpus`"
-cpus_separated="`separate_comma_list $cpus_expanded`"
-echo
-echo "TRex cpus: $cpus_separated"
 
-trex_dir=/opt/trex/current
-
-pushd $trex_dir
-interface_state_cmd="./dpdk_setup_ports.py -t"
-echo "interface status: $interface_state_cmd"
-${interface_state_cmd}
-echo; echo
-echo "Resolving devices for trex based on devices [$devices]"
-trex_dev_opt=""
-for dev in `echo $devices | sed -e 's/,/ /g'`; do
-    res_dev=""
-    resolve_device res_dev $dev
-    trex_dev_opt+=" $res_dev"
-done
-if [ -z "$trex_dev_opt" ]; then
-    "TRex devices could not be found, exiting"
-    exit 1
-fi
-# Infra script does not need to use "active" devices, but
-# we might as well validate it now.
-echo "Resolving *active* devices for trex based on [$active_devices]"
-trex_active_dev_opt=""
-position=1
-for dev in `echo $active_devices | sed -e 's/,/ /g'`; do
-    res_dev=""
-    resolve_device res_dev $dev $position
-    trex_active_dev_opt+=" $res_dev"
-done
-if [ -z "$trex_active_dev_opt" ]; then
-    "TRex active devices could not be found, exiting"
-    exit 1
-fi
-
-trex_dumppci_cmd="./dpdk_setup_ports.py --dump-pci-description"
-echo "getting pci configuration with: $trex_dumppci_cmd"
-$trex_dumppci_cmd
-echo; echo
-trex_config_cmd="./dpdk_setup_ports.py -c $trex_dev_opt --cores-include  $cpus_separated -o $trex_cfg"
-echo "configuring trex with: $trex_config_cmd"
-$trex_config_cmd
-if [ ! -e $trex_cfg ]; then
-    echo "$trex_cfg not found, dpdk_setup_ports.py probably failed, exiting"
-    exit 1
-fi
-echo "ls -l $trex_cfg"
-/bin/ls -l $trex_cfg
-echo
-# set the memory limit so that trex doesn't consume all available hugepages
-sed -i -e '/interfaces.*/a\' -e "  limit_memory: $mem_limit" $trex_cfg
-echo "Contents of $trex_cfg:"
-cat $trex_cfg
-echo
-
-trex_cpus=14
-for cpu_block in $(cat $trex_cfg | grep threads | sed -e "s/\s//g" -e "s/threads://"); do
-    yaml_cpus=$(echo "$cpu_block" | sed -e 's/.*\[\(.*\)\]/\1/' -e 's/,/ /g' | wc -w)
-    if [ $yaml_cpus -lt $trex_cpus ]; then
-        trex_cpus=$yaml_cpus
+echo "Checking for TRex service"
+if pgrep $trex_bin; then
+    echo "TRex launched from previous test"
+else
+    echo "Starting TRex service"
+    if [ -z "$cpus" ]; then
+        # User did not specify CPUs, so use what's available
+        # If this is run on a bare-metal host set up with
+        # cpu-partitioning, this is not going to work.  The
+        # user needs to specify what CPUs to use for TRex.
+        cpus=`get_cpus_allowed`
     fi
-done
+    cpus_expanded="`expand_number_list $cpus`"
+    cpus_separated="`separate_comma_list $cpus_expanded`"
+    echo
+    echo "TRex cpus: $cpus_separated"
 
-trex_server_cmd="./_t-rex-64-o -i -c $trex_cpus --checksum-offload --cfg $trex_cfg --iom 0 -v 4 --prefix trafficgen_trex_ --mlx5-so"
-echo "about to run: $trex_server_cmd"
-$trex_server_cmd 2>&1 >$sample_dir/trex-server-stderrout.txt &
-echo $! >$sample_dir/trex-server-pid.txt
-popd
+    trex_dir=/opt/trex/current
+
+    pushd $trex_dir
+    interface_state_cmd="./dpdk_setup_ports.py -t"
+    echo "interface status: $interface_state_cmd"
+    ${interface_state_cmd}
+    echo; echo
+    echo "Resolving devices for trex based on devices [$devices]"
+    trex_dev_opt=""
+    for dev in `echo $devices | sed -e 's/,/ /g'`; do
+        res_dev=""
+        resolve_device res_dev $dev
+        trex_dev_opt+=" $res_dev"
+    done
+    if [ -z "$trex_dev_opt" ]; then
+        exit_error "TRex devices could not be found"
+    fi
+    # Infra script does not need to use "active" devices, but
+    # we might as well validate it now.
+    echo "Resolving *active* devices for trex based on [$active_devices]"
+    trex_active_dev_opt=""
+    position=1
+    for dev in `echo $active_devices | sed -e 's/,/ /g'`; do
+        res_dev=""
+        resolve_device res_dev $dev $position
+        trex_active_dev_opt+=" $res_dev"
+    done
+    if [ -z "$trex_active_dev_opt" ]; then
+        exit_error "TRex active devices could not be found"
+    fi
+
+    trex_dumppci_cmd="./dpdk_setup_ports.py --dump-pci-description"
+    echo "getting pci configuration with: $trex_dumppci_cmd"
+    $trex_dumppci_cmd
+    echo; echo
+    trex_config_cmd="./dpdk_setup_ports.py -c $trex_dev_opt --cores-include  $cpus_separated -o $trex_cfg"
+    echo "configuring trex with: $trex_config_cmd"
+    $trex_config_cmd
+    if [ ! -e $trex_cfg ]; then
+        exit_error "$trex_cfg not found, dpdk_setup_ports.py probably failed"
+    fi
+    echo "ls -l $trex_cfg"
+    /bin/ls -l $trex_cfg
+    echo
+    # set the memory limit so that trex doesn't consume all available hugepages
+    sed -i -e '/interfaces.*/a\' -e "  limit_memory: $mem_limit" $trex_cfg
+    echo "Contents of $trex_cfg:"
+    cat $trex_cfg
+    echo
+
+    trex_cpus=14
+    for cpu_block in $(cat $trex_cfg | grep threads | sed -e "s/\s//g" -e "s/threads://"); do
+        yaml_cpus=$(echo "$cpu_block" | sed -e 's/.*\[\(.*\)\]/\1/' -e 's/,/ /g' | wc -w)
+        if [ $yaml_cpus -lt $trex_cpus ]; then
+            trex_cpus=$yaml_cpus
+        fi
+    done
+
+    trex_server_cmd="./$trex_bin -i -c $trex_cpus --checksum-offload --cfg $trex_cfg --iom 0 -v 4 --prefix trafficgen_trex_ --mlx5-so --close-at-end"
+    echo "about to run: $trex_server_cmd"
+    $trex_server_cmd 2>&1 >$sample_dir/trex-server-stderrout.txt &
+    echo $! >$sample_dir/trex-server-pid.txt
+    popd
+fi
 
 count=0
 secs=0
@@ -185,13 +182,10 @@ done
 if [ $trex_ready -eq 1 ]; then
     echo "Trex server up after $sec seconds"
 else
-    echo "Trex server failed to start"
-    exit 1
+     exit_error "Trex server failed to start"
 fi
-# wait for Trex devices to initialize
-# TODO: find a more accurate wait algorithm
-sleep 20
 
+sleep 20 # Waiting for device to init
 pushd $tgen_dir
 echo
 echo MAC info:
