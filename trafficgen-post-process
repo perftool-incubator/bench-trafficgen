@@ -404,8 +404,7 @@ for (my $index=0; $index<scalar(@{ $$bs_json_ref{'trials'} }); $index++) {
         my %metric_types;
         my %desc = ('class' => $$trial_metric{'class'},
                     'source' => 'trafficgen',
-                    'type' => $metric_type,
-                    'name-format' => $$trial_metric{'name_format'});
+                    'type' => $metric_type);
         if (exists($$trial_metric{'altvalue'}) && exists($$trial_metric{'altkey'})) {
             $desc{'value-format'} = 'status';
             my %values = ('fail' => 0, 'pass' => 1);
@@ -434,14 +433,12 @@ for (my $index=0; $index<scalar(@{ $$bs_json_ref{'trials'} }); $index++) {
             my %metric_types;
             my %desc = ('class' => $$trial_metric{'class'},
                         'source' => 'trafficgen',
-                        'type' => $metric_type,
-                        'name-format' => $$trial_stats_device_metric{'name_format'});
+                        'type' => $metric_type);
             my %s = ('end' => int $trial_begin,
                     'begin' => int $trial_end,
                     'value' =>  $trial{'stats'}{$$dev_pair{$$trial_stats_device_metric{'key'}}}{$$trial_stats_device_metric{'field'}});
             my %names = ('tx_port' => $$dev_pair{'tx'}, 'rx_port' => $$dev_pair{'rx'}, 'port_pair' => $$dev_pair{'dev_pair'});
             $metric_types{$metric_type}{'names'} = \%names;
-            #$desc{'names'} = \%names;
             push(@{ $metric_types{$metric_type}{'data'} }, \%s);
             $metric_types{$metric_type}{'desc'} = \%desc;
             push(@metrics, \%{ $metric_types{$metric_type}});
