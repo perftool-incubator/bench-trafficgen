@@ -87,7 +87,7 @@ popd
 
 echo "Checking for TRex service"
 if pgrep $trex_bin; then
-    echo "TRex launched from previous test"
+    echo "TRex launched from previous test" | tee $sample_dir/trex-server-running.txt
 else
     echo "Starting TRex service"
     if [ -z "$cpus" ]; then

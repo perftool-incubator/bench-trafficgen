@@ -183,19 +183,24 @@ if [ "$endpoint" == "k8s" -a "$osruntime" == "pod" ]; then
     # when using a pod.
     exit 0
 fi
-echo "Shutting down TRex"
-pid_file="$client_dir/trex-server-pid.txt"
-if [ ! -e $pid_file ]; then
-    exit_error "[ERROR] could not find TRex pid file: $pid_file"
-    exit 1
-fi
-pid=`cat $pid_file`
-if [ ! -z "$pid" ]; then
-    kill -s SIGINT $pid || kill -s SIGTERM $pid
-    rc=$?
-    if [ $rc -gt 0 ]; then
-        exit_error "kill of TRex pid $pid failed" $rc
-    fi
+
+if [ -e $client_dir/trex-server-running.txt ]; then
+    echo "Skipping TRex shutdown since I did not start it"
 else
-    exit_error "[ERROR] could not find TRex PID in $pid_file"
+    echo "Shutting down TRex"
+    pid_file="$client_dir/trex-server-pid.txt"
+    if [ ! -e $pid_file ]; then
+	exit_error "[ERROR] could not find TRex pid file: $pid_file"
+	exit 1
+    fi
+    pid=`cat $pid_file`
+    if [ ! -z "$pid" ]; then
+	kill -s SIGINT $pid || kill -s SIGTERM $pid
+	rc=$?
+	if [ $rc -gt 0 ]; then
+            exit_error "kill of TRex pid $pid failed" $rc
+	fi
+    else
+	exit_error "[ERROR] could not find TRex PID in $pid_file"
+    fi
 fi
