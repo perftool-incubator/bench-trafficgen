@@ -376,7 +376,7 @@ if ($ENV{'RS_CS_LABEL'} =~ /^(client|server)-(\d+)$/) {
 };
 
 my %sample;
-$sample{'rickshaw-bench-metric'}{'schema'}{'version'} = "2020.03.18";
+$sample{'rickshaw-bench-metric'}{'schema'}{'version'} = "2021.03.02";
 $sample{'primary-period'} = 'measurement';
 $sample{'primary-metric'} = 'rx-pps';
 my @periods;
