@@ -434,8 +434,8 @@ for (my $index=0; $index<scalar(@{ $$bs_json_ref{'trials'} }); $index++) {
             my %desc = ('class' => $$trial_metric{'class'},
                         'source' => 'trafficgen',
                         'type' => $metric_type);
-            my %s = ('end' => int $trial_begin,
-                    'begin' => int $trial_end,
+            my %s = ('end' => int $trial_end,
+                    'begin' => int $trial_begin,
                     'value' =>  $trial{'stats'}{$$dev_pair{$$trial_stats_device_metric{'key'}}}{$$trial_stats_device_metric{'field'}});
             my %names = ('tx_port' => $$dev_pair{'tx'}, 'rx_port' => $$dev_pair{'rx'}, 'port_pair' => $$dev_pair{'dev_pair'});
             $metric_types{$metric_type}{'names'} = \%names;
