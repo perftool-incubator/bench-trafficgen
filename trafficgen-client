@@ -36,7 +36,7 @@ while [ $# -gt 0 ]; do
             devices="$val"
             ;;
         # Skip options not intended for binary-search
-        --server-devices|--client-cpus|--testpmd-forward-mode|--client-mem-limit)
+        --server-devices|--client-cpus|--testpmd-forward-mode|--client-mem-limit|--testpmd-queues|--testpmd-descriptors|--testpmd-smt|--testpmd-smt-mode)
             ;;
         # All other options should be supported natively by binary-search
         *)
