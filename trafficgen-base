@@ -82,10 +82,6 @@ function validate_other_prereqs() {
     fi
 }
 
-function get_cpus_allowed() {
-    echo "$(grep Cpus_allowed_list /proc/self/status | cut -f 2)"
-}
-
 function expand_number_list() {
     # expand a list of numbers to no longer include a range
     # ie. "1-3,5" becomes "1,2,3,5"

@@ -95,7 +95,7 @@ else
         # If this is run on a bare-metal host set up with
         # cpu-partitioning, this is not going to work.  The
         # user needs to specify what CPUs to use for TRex.
-        cpus=`get_cpus_allowed`
+        cpus=${WORKLOAD_CPUS}
     fi
     cpus_expanded="`expand_number_list $cpus`"
     cpus_separated="`separate_comma_list $cpus_expanded`"
