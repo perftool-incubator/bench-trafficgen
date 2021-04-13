@@ -161,6 +161,7 @@ function resolve_device() {
     fi
     # At this point $dev should only be a PCI location ID
     if [[ "$dev" =~ $pciloc_re ]]; then
+	echo "The device [$dev] matched the regex for a PCI location ID"
         resolved_dev="$dev"
     else
         echo "The device [$dev] did not match the regex for a PCI location ID [$pciloc_re], exiting"

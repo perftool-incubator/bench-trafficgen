@@ -172,11 +172,8 @@ fi
 cmd="./binary-search.py ${passthru_args[@]} --output-dir $client_dir $device_pairs_opt --send-teaching-warmup --send-teaching-measurement"
 echo "About to run: $cmd"
 $cmd
-rc=$?
+bs_rc=$?
 popd
-if [ $rc != 0 ]; then
-    exit_error "binary-search.py failed"
-fi
 
 if [ "$endpoint" == "k8s" -a "$osruntime" == "pod" ]; then
     # Don't shutdown TRex, as we can't remove the hugepages in /dev/hugepages after
@@ -203,4 +200,8 @@ else
     else
 	exit_error "[ERROR] could not find TRex PID in $pid_file"
     fi
+fi
+
+if [ $bs_rc != 0 ]; then
+    exit_error "binary-search.py failed"
 fi
