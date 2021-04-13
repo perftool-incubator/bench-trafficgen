@@ -189,14 +189,26 @@ fi
 sleep 20 # Waiting for device to init
 pushd $tgen_dir
 echo
-echo MAC info:
-/usr/bin/python3 ./trex-query.py --device 0 2>&1 | grep "PARSABLE PORT INFO" | sed -e 's/PARSABLE PORT INFO: //' | jq -r '.[0].hw_mac'
-/usr/bin/python3 ./trex-query.py --device 1 2>&1 | grep "PARSABLE PORT INFO" | sed -e 's/PARSABLE PORT INFO: //' | jq -r '.[0].hw_mac'
-echo
-srcmac0=`/usr/bin/python3 ./trex-query.py --device 0 2>&1 | grep "PARSABLE PORT INFO" | sed -e 's/PARSABLE PORT INFO: //' | jq -r '.[0].hw_mac'`
-srcmac1=`/usr/bin/python3 ./trex-query.py --device 1 2>&1 | grep "PARSABLE PORT INFO" | sed -e 's/PARSABLE PORT INFO: //' | jq -r '.[0].hw_mac'`
-echo "TRex source MACs: $srcmac0, $srcmac1"
+echo "Active Device MAC info:"
+mac_list=""
+for active_dev in $(echo ${active_devices} | sed -e 's/,/ /g'); do
+    dev_idx=0
+    for dev in $(echo ${devices} | sed -e 's/,/ /g'); do
+	if [ "${active_dev}" == "${dev}" ]; then
+	    echo "found ${active_dev} in device list at index ${dev_idx}"
+	    dev_mac=$(/usr/bin/python3 ./trex-query.py --device ${dev_idx} 2>&1 | grep "PARSABLE PORT INFO" | sed -e 's/PARSABLE PORT INFO: //' | jq -r '.[0].hw_mac')
+	    echo "${active_dev} has MAC=${dev_mac}"
+	    mac_list+="\"${dev_mac}\","
+	fi
+
+	(( dev_idx++ ))
+    done
+done
+mac_list=$(echo "${mac_list}" | sed -e 's/,$//')
+echo "TRex source MACs: ${mac_list}"
+
 # MAC info, to be sent to endpoint and then forwarded to the server 
 
+
 popd  # back to main client dir where ./msgs is
-echo '{"recipient":{"type":"all","id":"all"},"user-object":{"macs":["'$srcmac0'","'$srcmac1'"]}}' >msgs/tx/macs
+echo '{"recipient":{"type":"all","id":"all"},"user-object":{"macs":['${mac_list}']}}' >msgs/tx/macs
