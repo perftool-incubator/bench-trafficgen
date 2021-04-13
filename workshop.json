@@ -32,8 +32,8 @@
       "type": "manual",
       "manual_info": {
         "commands": [
-          "git clone https://github.com/atheurer/trafficgen.git /opt/trafficgen",
-          "cd /opt/trafficgen; git remote update; git checkout crucible1"
+          "git clone https://github.com/k-rister/trafficgen.git /opt/trafficgen",
+          "cd /opt/trafficgen; git remote update; git checkout crucible2  "
         ]
       }
     },
