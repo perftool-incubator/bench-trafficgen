@@ -19,6 +19,7 @@ BEGIN {
 }
 use lib "$ENV{'TOOLBOX_HOME'}/perl";
 use toolbox::json;
+use toolbox::metrics;
 
 my $client_devices;
 my $server_devices;
@@ -375,26 +376,22 @@ if ($ENV{'RS_CS_LABEL'} =~ /^(client|server)-(\d+)$/) {
     }
 };
 
-my %sample;
-$sample{'rickshaw-bench-metric'}{'schema'}{'version'} = "2021.03.02";
-$sample{'primary-period'} = 'measurement';
-$sample{'primary-metric'} = 'rx-pps';
-my @periods;
 my $result_file = "binary-search.json";
 if (! -f $result_file) {
     printf "Could not find file %s in directory %s\n", $result_file, `/bin/pwd`;
     exit 1;
 }
 my $bs_json_ref = get_json_file($result_file);
+my %sample; # The primary structure in which this benchmark sample is documented
+my @periods; # Each trial of binary-search is a period
 for (my $index=0; $index<scalar(@{ $$bs_json_ref{'trials'} }); $index++) {
     my %trial = %{ $$bs_json_ref{'trials'}[$index] };
     my $period_name = "trial-" . $trial{'trial'};
     if ($index == (scalar(@{ $$bs_json_ref{'trials'} }) - 1)) {
+        # binary-search's "final-validation", the last trial, gets the name "measurement" for this period
         $period_name = "measurement";
     }
     my %period = ('name' => $period_name);
-    my @metrics;
-    $period{'metrics'} = \@metrics;
     my $trial_end = int $trial{'stats'}{'trial_stop'};
     my $trial_begin = int $trial{'stats'}{'trial_start'};
 
@@ -402,6 +399,7 @@ for (my $index=0; $index<scalar(@{ $$bs_json_ref{'trials'} }); $index++) {
         my $metric_type = $$trial_metric{'type'};
         my $metric_value;
         my %metric_types;
+        my %names = ();
         my %desc = ('class' => $$trial_metric{'class'},
                     'source' => 'trafficgen',
                     'type' => $metric_type);
@@ -422,42 +420,36 @@ for (my $index=0; $index<scalar(@{ $$bs_json_ref{'trials'} }); $index++) {
         my %s = ('end' => int $trial_end,
                  'begin' => int $trial_begin,
                  'value' =>  $metric_value);
-        push(@{ $metric_types{$metric_type}{'data'} }, \%s);
-        $metric_types{$metric_type}{'desc'} = \%desc;
-        push(@metrics, \%{ $metric_types{$metric_type}});
+        log_sample($period_name, \%desc, \%names, \%s);
 
-    foreach my $dev_pair ( @{ $trial{'trial_params'}{'test_dev_pairs'} } ) {
-        for my $trial_stats_device_metric ( @trial_stats_device_metrics ) {
-            my $metric_type = $$trial_stats_device_metric{'type'};
-            my $metric_value;
-            my %metric_types;
-            my %desc = ('class' => $$trial_metric{'class'},
-                        'source' => 'trafficgen',
-                        'type' => $metric_type);
-            my %s = ('end' => int $trial_end,
-                    'begin' => int $trial_begin,
-                    'value' =>  $trial{'stats'}{$$dev_pair{$$trial_stats_device_metric{'key'}}}{$$trial_stats_device_metric{'field'}});
-            my %names = ('tx_port' => $$dev_pair{'tx'}, 'rx_port' => $$dev_pair{'rx'}, 'port_pair' => $$dev_pair{'dev_pair'});
-            $metric_types{$metric_type}{'names'} = \%names;
-            push(@{ $metric_types{$metric_type}{'data'} }, \%s);
-            $metric_types{$metric_type}{'desc'} = \%desc;
-            push(@metrics, \%{ $metric_types{$metric_type}});
+        foreach my $dev_pair ( @{ $trial{'trial_params'}{'test_dev_pairs'} } ) {
+            for my $trial_stats_device_metric ( @trial_stats_device_metrics ) {
+                my $metric_type = $$trial_stats_device_metric{'type'};
+                my $metric_value;
+                my %metric_types;
+                my %desc = ('class' => $$trial_metric{'class'},
+                            'source' => 'trafficgen',
+                            'type' => $metric_type);
+                my %s = ('end' => int $trial_end,
+                        'begin' => int $trial_begin,
+                        'value' =>  $trial{'stats'}{$$dev_pair{$$trial_stats_device_metric{'key'}}}{$$trial_stats_device_metric{'field'}});
+                my %names = ('tx_port' => $$dev_pair{'tx'}, 'rx_port' => $$dev_pair{'rx'}, 'port_pair' => $$dev_pair{'dev_pair'});
+                log_sample("0", \%desc, \%names, \%s);
+            }
         }
-    }
-
         # Add other metric_types here
-
     }
-    if (scalar @metrics > 0) {
-        $period{'metrics'} = \@metrics;
-        push(@periods, \%period);
-    }
+    my $metric_data_name = finish_samples(); # completes samples for this trial (period) with file name metric-data-$period_name.json.xz
+    my @metric_files = ( $metric_data_name );
+    $period{'metric-files'} = \@metric_files;
+    push(@periods, \%period);
 }
-if (scalar @periods > 0) {
-    $sample{'periods'} = \@periods;
-    my $coder = JSON::XS->new;
-    open(JSON_FH, ">post-process-data.json") ||
-        die("Could not open file post-process-data.json for writing\n");
-    print JSON_FH $coder->encode(\%sample);
-    close JSON_FH;
-}
+$sample{'rickshaw-bench-metric'}{'schema'}{'version'} = "2021.04.12";
+$sample{'periods'} = \@periods;
+$sample{'primary-period'} = 'measurement';
+$sample{'primary-metric'} = 'rx-pps';
+my $coder = JSON::XS->new;
+open(JSON_FH, ">post-process-data.json") ||
+    die("Could not open file post-process-data.json for writing\n");
+print JSON_FH $coder->encode(\%sample);
+close JSON_FH;
