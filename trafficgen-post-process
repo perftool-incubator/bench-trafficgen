@@ -21,25 +21,7 @@ use lib "$ENV{'TOOLBOX_HOME'}/perl";
 use toolbox::json;
 use toolbox::metrics;
 
-my $client_devices;
-my $server_devices;
-my $one_shot;
-my $unused;
 my $script = "trafficgen-post-process";
-
-GetOptions ("client-devices=s" => \$client_devices,
-            "server-devices=s" => \$server_devices,
-            "one-shot=i" => \$one_shot,
-            "client-mem-limit=s" => \$unused,
-            "use-src-mac-flows=s" => \$unused,
-            "use-dst-mac-flows=s" => \$unused,
-            "rate=s" => \$unused,
-            "validation-runtime=s" => \$unused,
-            "frame-size=s" => \$unused,
-            "rate-unit=s" => \$unused,
-            "client-mem-limit=s" => \$unused
-            );
-
 my $script_name = basename($0);
 
 my @trial_metrics = (
@@ -427,14 +409,14 @@ for (my $index=0; $index<scalar(@{ $$bs_json_ref{'trials'} }); $index++) {
                 my $metric_type = $$trial_stats_device_metric{'type'};
                 my $metric_value;
                 my %metric_types;
-                my %desc = ('class' => $$trial_metric{'class'},
+                my %desc = ('class' => $$trial_stats_device_metric{'class'},
                             'source' => 'trafficgen',
                             'type' => $metric_type);
                 my %s = ('end' => int $trial_end,
                         'begin' => int $trial_begin,
                         'value' =>  $trial{'stats'}{$$dev_pair{$$trial_stats_device_metric{'key'}}}{$$trial_stats_device_metric{'field'}});
                 my %names = ('tx_port' => $$dev_pair{'tx'}, 'rx_port' => $$dev_pair{'rx'}, 'port_pair' => $$dev_pair{'dev_pair'});
-                log_sample("0", \%desc, \%names, \%s);
+                log_sample($period_name, \%desc, \%names, \%s);
             }
         }
         # Add other metric_types here
@@ -444,6 +426,7 @@ for (my $index=0; $index<scalar(@{ $$bs_json_ref{'trials'} }); $index++) {
     $period{'metric-files'} = \@metric_files;
     push(@periods, \%period);
 }
+
 $sample{'rickshaw-bench-metric'}{'schema'}{'version'} = "2021.04.12";
 $sample{'periods'} = \@periods;
 $sample{'primary-period'} = 'measurement';
