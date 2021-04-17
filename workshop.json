@@ -23,7 +23,8 @@
           "rdma-core-devel",
           "dpdk-tools",
           "net-tools",
-          "which"
+          "which",
+          "python3-pyyaml"
         ]
       }
     },
