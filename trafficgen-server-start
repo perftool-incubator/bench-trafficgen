@@ -10,6 +10,10 @@ validate_label
 # Defaults
 devices=""
 testpmd_forward_mode="mac"
+testpmd_queues="1"
+testpmd_descriptors="2048"
+testpmd_smt_mode="grouped"
+testpmd_smt="on"
 
 # Options processing
 re='^(--[^=]+)=([^=]+)'
@@ -32,6 +36,18 @@ while [ $# -gt 0 ]; do
         --testpmd-forward-mode)
             testpmd_forward_mode="$val"
             ;;
+	--testpmd-queues)
+	    testpmd_queues="$val"
+	    ;;
+	--testpmd-descriptors)
+	    testpmd_descriptors="$val"
+	    ;;
+	--testpmd-smt-mode)
+	    testpmd_smt_mode="$val"
+	    ;;
+	--testpmd-smt)
+	    testpmd_smt="$val"
+	    ;;
         # Skip options not intended for binary-search
         --client-devices|--active-client-devices|--client-cpus)
             ;;
@@ -80,12 +96,92 @@ if [ -z "$testpmd_dev_opt" ]; then
     exit_error "Testpmd devices could not be found, exiting"
 fi
 
+# figure out the CPUs to use
+if [ -z "${HK_CPUS}" ] ; then
+    exit_error "There are no housekeeping CPUs to use for testpmd"
+else
+    echo "HK_CPUS=${HK_CPUS}"
+fi
+HK_CPUS_SEPARATED=$(echo "${HK_CPUS}" | sed -e "s/,/ /g")
+HK_CPUS_ARRAY=(${HK_CPUS_SEPARATED})
+if [ ${#HK_CPUS_ARRAY[@]} -lt 1 ]; then
+    exit_error "You must have at least 1 HK_CPUS"
+fi
+
+if [ -z "${WORKLOAD_CPUS}" ]; then
+    exit_error "There are no dedicated/isolated CPUs to use for testpmd"
+else
+    echo "WORKLOAD_CPUS=${WORKLOAD_CPUS}"
+fi
+WORKLOAD_CPUS_SEPARATED=$(echo "${WORKLOAD_CPUS}" | sed -e "s/,/ /g")
+
+cpu_str=""
+for cpu in $WORKLOAD_CPUS_SEPARATED; do
+    cpu_str+=" --cpu $cpu"
+done
+cmd="${TOOLBOX_HOME}/bin/get-cpus-ordered.py --smt ${testpmd_smt} --smt-enumeration ${testpmd_smt_mode} ${cpu_str}"
+echo "about to run: ${cmd}"
+CMD_OUTPUT=$(${cmd})
+echo -e "${CMD_OUTPUT}"
+WORKLOAD_CPUS_SEPARATED=$(echo -e "${CMD_OUTPUT}" | grep "final cpus:" | awk '{ print $3 }' | sed -e "s/,/ /g")
+WORKLOAD_CPUS_ARRAY=(${WORKLOAD_CPUS_SEPARATED})
+
+testpmd_cores=${#WORKLOAD_CPUS_ARRAY[@]}
+testpmd_cpus=""
+cpu_idx=0
+for cpu in $(echo "${HK_CPUS_ARRAY[0]} ${WORKLOAD_CPUS_SEPARATED}" | sed -e "s/\s+/ /g" -e "s/^\s//" -e "s/\s$//"); do
+    testpmd_cpus+="${cpu_idx}@${cpu},"
+    (( cpu_idx++ ))
+done
+testpmd_cpus=$(echo "${testpmd_cpus}" | sed -e "s/,$//")
+
+# autodetect what the testpmd numa memory configuration should be
+if pushd /sys/devices/system/node > /dev/null; then
+    testpmd_mem=""
+
+    for node in $(ls -1d node*); do
+	NODE_NUM=$(echo ${node} | sed -e "s/node//")
+	if pushd $node > /dev/null; then
+	    NODE_CPU_PRESENT=0
+
+	    for cpu in ${WORKLOAD_CPUS_SEPARATED}; do
+		if [ -d "cpu${cpu}" ]; then
+		    NODE_CPU_PRESENT=1
+		    break
+		fi
+	    done
+
+	    if [ "${NODE_CPU_PRESENT}" == "1" ]; then
+		testpmd_mem+="1024,"
+	    else
+		testpmd_mem+="0,"
+	    fi
+
+	    popd > /dev/null
+	fi
+    done
+
+    testpmd_mem=$(echo "${testpmd_mem}" | sed -e "s/,$//")
+
+    popd > /dev/null
+fi
+
+# if the memory autodetect code failed for some reason, try to use a
+# safe default and hope it works
+if [ -z "${testpmd_mem}" ]; then
+    testpmd_mem="1024,1024"
+fi
+
 testpmd_output="trafficgen-testpmd-stderrout.txt"
 testpmd_bin=/usr/bin/testpmd
-testpmd_opts="--huge-dir /dev/hugepages $testpmd_dev_opt"
-testpmd_opts+=" -- --nb-cores 2 -a --stats-period=5"
-# TODO: Auto CPU allocation for all endpoints/osruntimes
-#       (put in trafficgen-base and use for client as well)
+testpmd_opts=" --lcores ${testpmd_cpus}"
+testpmd_opts+=" --socket-mem ${testpmd_mem}"
+testpmd_opts+=" --huge-dir /dev/hugepages $testpmd_dev_opt"
+testpmd_opts+=" --"
+testpmd_opts+=" --nb-ports 2 --nb-cores ${testpmd_cores} --auto-start --stats-period=5"
+testpmd_opts+=" --rxq ${testpmd_queues} --txq ${testpmd_queues}"
+testpmd_opts+=" --rxd ${testpmd_descriptors} --txd ${testpmd_descriptors}"
+
 if [ "$testpmd_forward_mode" == "mac" ]; then
     # TODO: use regex instead:
     if [ -z "$peermac0" -o -z "$peermac1" ]; then
