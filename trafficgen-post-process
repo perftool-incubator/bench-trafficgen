@@ -366,11 +366,23 @@ if (! -f $result_file) {
 my $bs_json_ref = get_json_file($result_file);
 my %sample; # The primary structure in which this benchmark sample is documented
 my @periods; # Each trial of binary-search is a period
+
+my $measurement_trial_index = -1;
+for (my $index=scalar(@{ $$bs_json_ref{'trials'} }) - 1; $index>=0; $index--) {
+    my %trial = %{ $$bs_json_ref{'trials'}[$index] };
+
+    if (($trial{'trial_params'}{'trial_mode'} eq 'validation') &&
+	($trial{'result'} eq 'pass')) {
+	$measurement_trial_index = $index;
+	last;
+    }
+}
+
 for (my $index=0; $index<scalar(@{ $$bs_json_ref{'trials'} }); $index++) {
     my %trial = %{ $$bs_json_ref{'trials'}[$index] };
     my $period_name = "trial-" . $trial{'trial'};
-    if ($index == (scalar(@{ $$bs_json_ref{'trials'} }) - 1)) {
-        # binary-search's "final-validation", the last trial, gets the name "measurement" for this period
+    if ($index == $measurement_trial_index) {
+        # binary-search's "final-validation" gets the name "measurement" for this period
         $period_name = "measurement";
     }
     my %period = ('name' => $period_name);
