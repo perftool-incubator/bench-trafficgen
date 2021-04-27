@@ -66,8 +66,8 @@ if [ ! -e $tgen_dir ]; then
 fi
 pushd $tgen_dir
 git remote update
-git branch -a
-git checkout crucible2
+git branch --all
+git pull --ff-only
 git status
 if [ ! -x binary-search.py ]; then
     exit_error "binary-search.py is missing or not executable"
