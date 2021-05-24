@@ -29,7 +29,10 @@
         ],
         "runtime": "trafficgen-get-runtime",
         "infra": "trafficgen-infra",
-        "start": "trafficgen-client"
+        "start": "trafficgen-client",
+        "param_regex": [ "s/(\\s--[^\\s]+)=ON/$1/g",
+                         "s/\\s--[^\\s]+=OFF//g"
+                       ]
     },
     "server": {
         "files-from-controller": [
