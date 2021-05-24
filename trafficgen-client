@@ -169,7 +169,7 @@ if [ ! -e /usr/bin/python ]; then
     fi
 fi
 
-cmd="./binary-search.py ${passthru_args[@]} --output-dir $client_dir $device_pairs_opt --send-teaching-warmup --send-teaching-measurement"
+cmd="./binary-search.py ${passthru_args[@]} --output-dir $client_dir $device_pairs_opt"
 echo "About to run: $cmd"
 $cmd
 bs_rc=$?
