@@ -14,6 +14,7 @@ testpmd_queues="1"
 testpmd_descriptors="2048"
 testpmd_smt_mode="grouped"
 testpmd_smt="on"
+testpmd_mtu="1518"
 
 # Options processing
 re='^(--[^=]+)=([^=]+)'
@@ -47,6 +48,9 @@ while [ $# -gt 0 ]; do
 	    ;;
 	--testpmd-smt)
 	    testpmd_smt="$val"
+	    ;;
+	--testpmd-mtu)
+	    testpmd_mtu="$val"
 	    ;;
         # Skip options not intended for binary-search
         --client-devices|--active-client-devices|--client-cpus)
@@ -172,6 +176,7 @@ if [ -z "${testpmd_mem}" ]; then
     testpmd_mem="1024,1024"
 fi
 
+
 testpmd_output="trafficgen-testpmd-stderrout.txt"
 testpmd_bin=/usr/bin/testpmd
 testpmd_opts=" --lcores ${testpmd_cpus}"
@@ -181,6 +186,14 @@ testpmd_opts+=" --"
 testpmd_opts+=" --nb-ports 2 --nb-cores ${testpmd_cores} --auto-start --stats-period=5"
 testpmd_opts+=" --rxq ${testpmd_queues} --txq ${testpmd_queues}"
 testpmd_opts+=" --rxd ${testpmd_descriptors} --txd ${testpmd_descriptors}"
+testpmd_opts+=" --max-pkt-len=${testpmd_mtu}"
+
+if [ "${testpmd_mtu}" -gt 2048 ]; then
+    testpmd_mbuf_size=16384
+    testpmd_mbufs=27242
+    testpmd_opts+=" --mbuf-size=${testpmd_mbuf_size}"
+    testpmd_opts+=" --total-num-mbufs=${testpmd_mbufs}"
+fi
 
 if [ "$testpmd_forward_mode" == "mac" ]; then
     # TODO: use regex instead:
