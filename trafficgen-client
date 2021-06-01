@@ -29,14 +29,14 @@ while [ $# -gt 0 ]; do
     fi
     case "$arg" in
         # The following two are needed to determine DPDK device IDs (0,1,2...)
-        --active-client-devices)
+        --active-devices)
             active_devices="$val"
             ;;
-        --client-devices)
+        --devices)
             devices="$val"
             ;;
         # Skip options not intended for binary-search
-        --server-devices|--client-cpus|--testpmd-forward-mode|--client-mem-limit|--testpmd-queues|--testpmd-descriptors|--testpmd-smt|--testpmd-smt-mode)
+        --cpus|--mem-limit)
             ;;
         # All other options should be supported natively by binary-search
         *)

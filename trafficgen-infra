@@ -20,27 +20,27 @@ rate_unit="%"
 one_shot="0"
 # TODO: Auto adjust limit based on actual requirement (which is probably number of interfaces)
 mem_limit=2048
-longopts="active-client-devices:,client-devices:,client-cpus:,client-mem-limit:"
+longopts="active-devices:,devices:,cpus:,mem-limit:"
 opts=$(getopt -q -o "" --longoptions "$longopts" -- "$@");
 eval set -- "$opts";
 while true; do
     case "$1" in
-        --active-client-devices)
+        --active-devices)
             shift
             active_devices=$1
             shift
             ;;
-        --client-mem-limit)
+        --mem-limit)
             shift
             mem_limit=$1
             shift
             ;;
-        --client-devices)
+        --devices)
             shift
             devices=$1
             shift
             ;;
-        --client-cpus)
+        --cpus)
             shift
             cpus=$1
             shift
