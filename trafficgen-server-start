@@ -173,9 +173,8 @@ if [ -z "${testpmd_mem}" ]; then
     testpmd_mem="1024,1024"
 fi
 
-
 testpmd_output="trafficgen-testpmd-stderrout.txt"
-testpmd_bin=/usr/bin/testpmd
+testpmd_bin=$( command -v dpdk-testpmd || command -v testpmd )
 testpmd_opts=" --lcores ${testpmd_cpus}"
 testpmd_opts+=" --socket-mem ${testpmd_mem}"
 testpmd_opts+=" --huge-dir /dev/hugepages $testpmd_dev_opt"
