@@ -10,7 +10,6 @@ validate_label
 # defaults
 client_dir=`/bin/pwd`
 traffic_generator=trex-txrx # TODO: get trex-txrx-profile to be the default
-tgen_dir=/opt/trafficgen
 devices=""
 active_devices=""
 device_pairs_opt="" # The device IDs to pass to binary-search.  If empty, binary-search assumes 0 and 1
@@ -147,16 +146,8 @@ if [ ! -z "$devices" ]; then
 fi
 
 
-if [ ! -e $tgen_dir ]; then
-    exit_error "ERROR: $tgen_dir not found"
-fi
-pushd $tgen_dir
-git remote update
-git branch --all
-git pull --ff-only
-git status
-if [ ! -x binary-search.py ]; then
-    exit_error "ERROR: binary-search.py is missing or not executable"
+if [ -z "$(command -v binary-search.py)" ]; then
+    exit_error "ERROR: binary-search.py is missing"
 fi
 if [ ! -e /usr/bin/python ]; then
     echo "/usr/bin/python not found"
@@ -169,11 +160,10 @@ if [ ! -e /usr/bin/python ]; then
     fi
 fi
 
-cmd="./binary-search.py ${passthru_args[@]} --output-dir $client_dir $device_pairs_opt"
+cmd="binary-search.py ${passthru_args[@]} --output-dir $client_dir $device_pairs_opt"
 echo "About to run: $cmd"
 $cmd
 bs_rc=$?
-popd
 
 if [ "$endpoint" == "k8s" -a "$osruntime" == "pod" ]; then
     # Don't shutdown TRex, as we can't remove the hugepages in /dev/hugepages after

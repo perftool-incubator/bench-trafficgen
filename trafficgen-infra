@@ -61,16 +61,8 @@ if [ -z "$active_devices" ]; then
     active_devices="$devices"
 fi
 
-if [ ! -e $tgen_dir ]; then
-    exit_error "$tgen_dir not found"
-fi
-pushd $tgen_dir
-git remote update
-git branch --all
-git pull --ff-only
-git status
-if [ ! -x binary-search.py ]; then
-    exit_error "binary-search.py is missing or not executable"
+if [ -z "$(command -v binary-search.py)" ]; then
+    exit_error "binary-search.py is missing"
 fi
 if [ ! -e /usr/bin/python ]; then
     echo "/usr/bin/python not found"
@@ -82,8 +74,6 @@ if [ ! -e /usr/bin/python ]; then
         exit_error "cannot find /usr/bin/python3 either, exiting"
     fi
 fi
-popd
-
 
 echo "Checking for TRex service"
 if pgrep $trex_bin; then
@@ -138,17 +128,20 @@ else
     echo "getting pci configuration with: $trex_dumppci_cmd"
     $trex_dumppci_cmd
     echo; echo
-    trex_config_cmd="${tgen_dir}/gen-trex-cfg.py --output-file ${trex_cfg} --memory-limit ${mem_limit}"
+    if [ -z "$(command -v gen-trex-cfg.py)" ]; then
+        exit_error "gen-trex-cfg.py is missing"
+    fi
+    trex_config_cmd="gen-trex-cfg.py --output-file ${trex_cfg} --memory-limit ${mem_limit}"
     for trex_dev in ${trex_dev_opt}; do
-	trex_config_cmd+=" --device ${trex_dev}"
+        trex_config_cmd+=" --device ${trex_dev}"
     done
     for trex_cpu in ${cpus_separated}; do
-	trex_config_cmd+=" --cpu ${trex_cpu}"
+        trex_config_cmd+=" --cpu ${trex_cpu}"
     done
     echo "configuring trex with: ${trex_config_cmd}"
     ${trex_config_cmd}
     if [ ! -e ${trex_cfg} ]; then
-	exit_error "${trex_cfg} not found, gen-trex-cfg.py probably failed"
+        exit_error "${trex_cfg} not found, gen-trex-cfg.py probably failed"
     fi
     echo "ls -l $trex_cfg"
     /bin/ls -l $trex_cfg
@@ -183,28 +176,28 @@ else
 fi
 
 sleep 20 # Waiting for device to init
-pushd $tgen_dir
+trex_query_bin=$(command -v trex-query.py)
+if [ -z "${trex_query_bin}" ]; then
+    exit_error "trex-query.py is missing"
+fi
 echo
 echo "Active Device MAC info:"
 mac_list=""
 for active_dev in $(echo ${active_devices} | sed -e 's/,/ /g'); do
     dev_idx=0
     for dev in $(echo ${devices} | sed -e 's/,/ /g'); do
-	if [ "${active_dev}" == "${dev}" ]; then
-	    echo "found ${active_dev} in device list at index ${dev_idx}"
-	    dev_mac=$(/usr/bin/python3 ./trex-query.py --device ${dev_idx} 2>&1 | grep "PARSABLE PORT INFO" | sed -e 's/PARSABLE PORT INFO: //' | jq -r '.[0].hw_mac')
-	    echo "${active_dev} has MAC=${dev_mac}"
-	    mac_list+="\"${dev_mac}\","
-	fi
+        if [ "${active_dev}" == "${dev}" ]; then
+            echo "found ${active_dev} in device list at index ${dev_idx}"
+            dev_mac=$(/usr/bin/python3 ${trex_query_bin} --device ${dev_idx} 2>&1 | grep "PARSABLE PORT INFO" | sed -e 's/PARSABLE PORT INFO: //' | jq -r '.[0].hw_mac')
+            echo "${active_dev} has MAC=${dev_mac}"
+            mac_list+="\"${dev_mac}\","
+        fi
 
-	(( dev_idx++ ))
+        (( dev_idx++ ))
     done
 done
 mac_list=$(echo "${mac_list}" | sed -e 's/,$//')
 echo "TRex source MACs: ${mac_list}"
 
 # MAC info, to be sent to endpoint and then forwarded to the server 
-
-
-popd  # back to main client dir where ./msgs is
 echo '{"recipient":{"type":"all","id":"all"},"user-object":{"macs":['${mac_list}']}}' >msgs/tx/macs
