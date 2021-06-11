@@ -64,15 +64,8 @@ fi
 if [ -z "$(command -v binary-search.py)" ]; then
     exit_error "binary-search.py is missing"
 fi
-if [ ! -e /usr/bin/python ]; then
-    echo "/usr/bin/python not found"
-    if [ -e /usr/bin/python3 ]; then
-        echo "creating symlink from /usr/bin/python3"
-        ln -sf /usr/bin/python3 /usr/bin/python
-        /bin/ls -l /usr/bin/python
-    else
-        exit_error "cannot find /usr/bin/python3 either, exiting"
-    fi
+if [ ! -e /usr/bin/python3 ]; then
+    exit_error "cannot find /usr/bin/python3, exiting"
 fi
 
 echo "Checking for TRex service"

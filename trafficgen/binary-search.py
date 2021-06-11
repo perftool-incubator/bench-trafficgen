@@ -1,4 +1,4 @@
-#!/bin/python -u
+#!/usr/bin/python3 -u
 
 from __future__ import print_function
 
@@ -570,7 +570,7 @@ def get_trex_port_info(trial_params, dev_pairs):
                else:
                     devices[dev_pair[direction]] += 1
 
-     cmd = 'python -u ' + t_global.trafficgen_dir + '/trex-query.py'
+     cmd = 'python3 -u ' + t_global.trafficgen_dir + '/trex-query.py'
      cmd = cmd + ' --trex-host=' + str(trial_params['trex_host'])
      cmd = cmd + ' --mirrored-log'
      cmd = cmd + device_string
@@ -813,14 +813,14 @@ def run_trial (trial_params, port_info, stream_info, detailed_stats):
               latency_cmd = latency_cmd + ' --traffic-direction revuni'
 
     if trial_params['traffic_generator'] == 'null-txrx':
-         cmd = 'python -u ' + t_global.trafficgen_dir + '/null-txrx.py'
+         cmd = 'python3 -u ' + t_global.trafficgen_dir + '/null-txrx.py'
          cmd = cmd + ' --mirrored-log'
          cmd = cmd + ' --rate=' + str(trial_params['rate'])
     elif trial_params['traffic_generator'] == 'trex-txrx-profile':
         for tmp_stats_index, tmp_stats_id in enumerate(tmp_stats):
              tmp_stats[tmp_stats_id]['tx_available_bandwidth'] = port_info[tmp_stats_id]['speed'] * 1000 * 1000 * 1000
 
-        cmd = 'python -u ' + t_global.trafficgen_dir + '/trex-txrx-profile.py'
+        cmd = 'python3 -u ' + t_global.trafficgen_dir + '/trex-txrx-profile.py'
         if 'latency_device_pair' in trial_params and trial_params['latency_device_pair'] != '--':
              cmd = cmd + ' --binary-search-synchronize'
         cmd = cmd + ' --trex-host=' + str(trial_params['trex_host'])
@@ -859,7 +859,7 @@ def run_trial (trial_params, port_info, stream_info, detailed_stats):
         for tmp_stats_index, tmp_stats_id in enumerate(tmp_stats):
              tmp_stats[tmp_stats_id]['tx_available_bandwidth'] = port_info[tmp_stats_id]['speed'] * 1000 * 1000 * 1000
 
-        cmd = 'python -u ' + t_global.trafficgen_dir + '/trex-txrx.py'
+        cmd = 'python3 -u ' + t_global.trafficgen_dir + '/trex-txrx.py'
         if 'latency_device_pair' in trial_params and trial_params['latency_device_pair'] != '--':
              cmd = cmd + ' --binary-search-synchronize'
         cmd = cmd + ' --trex-host=' + str(trial_params['trex_host'])

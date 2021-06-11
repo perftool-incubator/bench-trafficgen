@@ -149,15 +149,8 @@ fi
 if [ -z "$(command -v binary-search.py)" ]; then
     exit_error "ERROR: binary-search.py is missing"
 fi
-if [ ! -e /usr/bin/python ]; then
-    echo "/usr/bin/python not found"
-    if [ -e /usr/bin/python3 ]; then
-        echo "creating symlink from /usr/bin/python3"
-        ln -sf /usr/bin/python3 /usr/bin/python
-        /bin/ls -l /usr/bin/python
-    else
-        exit_error "can't find /usr/bin/python3, exiting"
-    fi
+if [ ! -e /usr/bin/python3 ]; then
+    exit_error "can't find /usr/bin/python3, exiting"
 fi
 
 cmd="binary-search.py ${passthru_args[@]} --output-dir $client_dir $device_pairs_opt"
