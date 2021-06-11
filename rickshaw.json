@@ -25,6 +25,34 @@
             {
                 "src": "%bench-dir%/trafficgen-client",
                 "dest": "/usr/bin/"
+            },
+            {
+                "src": "%bench-dir%/trafficgen/binary-search.py",
+                "dest": "/usr/bin/"
+            },
+            {
+                "src": "%bench-dir%/trafficgen/gen-trex-cfg.py",
+                "dest": "/usr/bin/"
+            },
+            {
+                "src": "%bench-dir%/trafficgen/trex-query.py",
+                "dest": "/usr/bin/"
+            },
+            {
+                "src": "%bench-dir%/trafficgen/binary-search.py",
+                "dest": "/usr/bin/"
+            },
+            {
+                "src": "%bench-dir%/trafficgen/trex_tg_lib.py",
+                "dest": "/usr/bin/"
+            },
+            {
+                "src": "%bench-dir%/trafficgen/tg_lib.py",
+                "dest": "/usr/bin/"
+            },
+            {
+                "src": "%bench-dir%/trafficgen/trex-txrx.py",
+                "dest": "/usr/bin/"
             }
         ],
         "runtime": "trafficgen-get-runtime",

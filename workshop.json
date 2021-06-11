@@ -9,8 +9,8 @@
       "name": "centos8",
       "requirements": [
         "dependencies",
-        "trafficgen",
-        "trex"
+        "trex1",
+        "trex2"
       ]
     }
   ],
@@ -29,20 +29,23 @@
       }
     },
     {
-      "name": "trafficgen",
-      "type": "manual",
-      "manual_info": {
-        "commands": [
-          "git clone https://github.com/atheurer/trafficgen.git /opt/trafficgen"
+      "name": "trex1",
+      "type": "files",
+      "files_info": {
+        "files": [
+          {
+            "src": "%bench-dir%/trafficgen/install-trex.sh",
+            "dst": "/usr/local/bin"
+          }
         ]
       }
     },
     {
-      "name": "trex",
+      "name": "trex2",
       "type": "manual",
       "manual_info": {
         "commands": [
-          "/opt/trafficgen/install-trex.sh --insecure"
+          "/usr/local/bin/install-trex.sh --insecure"
         ]
       }
     }
