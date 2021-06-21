@@ -62,10 +62,10 @@ if [ -z "$active_devices" ]; then
 fi
 
 if [ -z "$(command -v binary-search.py)" ]; then
-    exit_error "binary-search.py is missing"
+    exit_error "binary-search.py is missing" 1 "$sample_dir"
 fi
 if [ ! -e /usr/bin/python3 ]; then
-    exit_error "cannot find /usr/bin/python3, exiting"
+    exit_error "cannot find /usr/bin/python3, exiting" 1 "$sample_dir"
 fi
 
 echo "Checking for TRex service"
@@ -79,6 +79,9 @@ else
         # cpu-partitioning, this is not going to work.  The
         # user needs to specify what CPUs to use for TRex.
         cpus=${WORKLOAD_CPUS}
+        if [ -z "$cpus" ]; then
+            exit_error "CPUs for TRex have not been defined.  Either --cpus was not used, or WORKLOAD_CPUS was not defined (cpu-partitioning endpoint-option was not used)" 1 "$sample_dir"
+        fi
     fi
     cpus_expanded="`expand_number_list $cpus`"
     cpus_separated="`separate_comma_list $cpus_expanded`"
@@ -100,7 +103,7 @@ else
         trex_dev_opt+=" $res_dev"
     done
     if [ -z "$trex_dev_opt" ]; then
-        exit_error "TRex devices could not be found"
+        exit_error "TRex devices could not be found" 1 "$sample_dir"
     fi
     # Infra script does not need to use "active" devices, but
     # we might as well validate it now.
@@ -113,7 +116,7 @@ else
         trex_active_dev_opt+=" $res_dev"
     done
     if [ -z "$trex_active_dev_opt" ]; then
-        exit_error "TRex active devices could not be found"
+        exit_error "TRex active devices could not be found" 1 "$sample_dir"
     fi
 
     echo
@@ -122,7 +125,7 @@ else
     $trex_dumppci_cmd
     echo; echo
     if [ -z "$(command -v gen-trex-cfg.py)" ]; then
-        exit_error "gen-trex-cfg.py is missing"
+        exit_error "gen-trex-cfg.py is missing" 1 "$sample_dir"
     fi
     trex_config_cmd="gen-trex-cfg.py --output-file ${trex_cfg} --memory-limit ${mem_limit}"
     for trex_dev in ${trex_dev_opt}; do
@@ -134,7 +137,7 @@ else
     echo "configuring trex with: ${trex_config_cmd}"
     ${trex_config_cmd}
     if [ ! -e ${trex_cfg} ]; then
-        exit_error "${trex_cfg} not found, gen-trex-cfg.py probably failed"
+	exit_error "${trex_cfg} not found, gen-trex-cfg.py probably failed" 1 "$sample_dir"
     fi
     echo "ls -l $trex_cfg"
     /bin/ls -l $trex_cfg
@@ -165,13 +168,13 @@ done
 if [ $trex_ready -eq 1 ]; then
     echo "Trex server up after $sec seconds"
 else
-     exit_error "Trex server failed to start"
+     exit_error "Trex server failed to start" 1 "$sample_dir"
 fi
 
 sleep 20 # Waiting for device to init
 trex_query_bin=$(command -v trex-query.py)
 if [ -z "${trex_query_bin}" ]; then
-    exit_error "trex-query.py is missing"
+    exit_error "trex-query.py is missing" 1 "$sample_dir"
 fi
 echo
 echo "Active Device MAC info:"

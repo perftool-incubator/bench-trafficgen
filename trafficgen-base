@@ -3,10 +3,11 @@
 function exit_error() {
     local msg="$1"; shift
     local code="$1"; shift
+    local dir="$1"; shift
     if [ -z "$code" ]; then
         code=1
     fi
-    echo '{"recipient":{"type":"all","id":"all"},"user-object":{"error": "'$msg'"}}' >msgs/tx/error
+    echo '{"recipient":{"type":"all","id":"all"},"user-object":{"error": "'$msg'"}}' >"$dir/msgs/tx/error"
     echo "$msg"
     exit $code
 }
