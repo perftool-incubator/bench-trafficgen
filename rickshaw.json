@@ -63,6 +63,7 @@
                        ]
     },
     "server": {
+        "required": false,
         "files-from-controller": [
             {
                 "src": "%bench-dir%/trafficgen-base",

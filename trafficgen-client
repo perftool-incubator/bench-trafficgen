@@ -8,7 +8,7 @@ dump_runtime
 validate_label
 
 # defaults
-client_dir=`/bin/pwd`
+sample_dir=`/bin/pwd`
 traffic_generator=trex-txrx # TODO: get trex-txrx-profile to be the default
 devices=""
 active_devices=""
@@ -79,7 +79,7 @@ if [ ! -z "$devices" ]; then
     total_devices=$(echo $devices | sed -e "s/,/ /g" | wc -w)
     #if [ $(echo "${total_devices} % 2" | bc) != 0 ]; then
     if [ $(($total_devices % 2)) != 0 ]; then
-        exit_error "devices must be supplied in quantities of 2"
+        exit_error "devices must be supplied in quantities of 2" 1 "$sample_dir"
     else
         #total_device_pairs=$(echo "${total_devices} / 2" | bc)
         total_device_pairs=$(($total_devices / 2))
@@ -97,18 +97,18 @@ if [ ! -z "$devices" ]; then
             done
         else
             if [ "${total_device_pairs}" -gt 1 ]; then
-                exit_error "only the trex-txrx* traffic generators support more than 1 pair of devices"
+                exit_error "only the trex-txrx* traffic generators support more than 1 pair of devices" 1 "$sample_dir"
             fi
         fi
     fi
     total_active_devices=$(echo ${active_devices} | sed -e "s/,/ /g" | wc -w)
     if [ $(($total_active_devices % 2)) -ne 0 ]; then
-        exit_error "active devices must be supplied in quantities of 2"
+        exit_error "active devices must be supplied in quantities of 2" 1 "$sample_dir"
     else
         if [ $traffic_generator != "trex-txrx" -a \
              $traffic_generator != "trex-txrx-profile" -a \
              "${devices}" != "${active_devices}" ]; then
-            exit_error "only the trex-txrx* traffic generators support --client-devices != --active-client-devices"
+            exit_error "only the trex-txrx* traffic generators support --client-devices != --active-client-devices" 1 "$sample_dir"
         else
             if [ $traffic_generator == "trex-txrx" -o $traffic_generator == "trex-txrx-profile" ]; then
                 active_device_pair_index=0
@@ -137,7 +137,7 @@ if [ ! -z "$devices" ]; then
                             fi
                         fi
                     else
-                        exit_error "Couldn't find an active device [${active_device}] in the list of devices [${devices}]"
+                        exit_error "Couldn't find an active device [${active_device}] in the list of devices [${devices}]" 1 "$sample_dir"
                     fi
                 done
             fi
@@ -147,15 +147,15 @@ fi
 
 
 if [ -z "$(command -v binary-search.py)" ]; then
-    exit_error "ERROR: binary-search.py is missing"
+    exit_error "ERROR: binary-search.py is missing" 1 "$sample_dir"
 fi
 if [ ! -e /usr/bin/python3 ]; then
-    exit_error "can't find /usr/bin/python3, exiting"
+    exit_error "can't find /usr/bin/python3, exiting" 1 "$sample_dir"
 fi
 
-cmd="binary-search.py ${passthru_args[@]} --output-dir $client_dir $device_pairs_opt"
+cmd="binary-search.py ${passthru_args[@]} --output-dir $sample_dir $device_pairs_opt"
 echo "About to run: $cmd"
-$cmd
+$cmd >$sample_dir/binary-search.txt 2>&1
 bs_rc=$?
 
 if [ "$endpoint" == "k8s" -a "$osruntime" == "pod" ]; then
@@ -164,13 +164,13 @@ if [ "$endpoint" == "k8s" -a "$osruntime" == "pod" ]; then
     exit 0
 fi
 
-if [ -e $client_dir/trex-server-running.txt ]; then
+if [ -e $sample_dir/trex-server-running.txt ]; then
     echo "Skipping TRex shutdown since I did not start it"
 else
     echo "Shutting down TRex"
-    pid_file="$client_dir/trex-server-pid.txt"
+    pid_file="$sample_dir/trex-server-pid.txt"
     if [ ! -e $pid_file ]; then
-	exit_error "[ERROR] could not find TRex pid file: $pid_file"
+	exit_error "[ERROR] could not find TRex pid file: $pid_file" 1 "$sample_dir"
 	exit 1
     fi
     pid=`cat $pid_file`
@@ -178,13 +178,14 @@ else
 	kill -s SIGINT $pid || kill -s SIGTERM $pid
 	rc=$?
 	if [ $rc -gt 0 ]; then
-            exit_error "kill of TRex pid $pid failed" $rc
+            exit_error "kill of TRex pid $pid failed" $rc "$sample_dir"
 	fi
     else
-	exit_error "[ERROR] could not find TRex PID in $pid_file"
+	exit_error "[ERROR] could not find TRex PID in $pid_file" 1 "$sample_dir"
     fi
 fi
 
 if [ $bs_rc != 0 ]; then
-    exit_error "binary-search.py failed"
+    error=`grep -E ERROR\|critical $sample_dir/binary-search.txt`
+    exit_error "binary-search.py failed:\n$error" 1 "$sample_dir"
 fi
