@@ -8,7 +8,7 @@
     {
       "name": "centos8",
       "requirements": [
-        "dependencies",
+        "trafficgen-os-dependencies",
         "trex1",
         "trex2"
       ]
@@ -16,7 +16,7 @@
   ],
   "requirements": [
     {
-      "name": "dependencies",
+      "name": "trafficgen-os-dependencies",
       "type": "distro",
       "distro_info": {
         "packages": [
