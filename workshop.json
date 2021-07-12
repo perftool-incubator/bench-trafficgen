@@ -9,6 +9,7 @@
       "name": "centos8",
       "requirements": [
         "trafficgen-os-dependencies",
+        "pyyaml",
         "trex1",
         "trex2"
       ]
@@ -23,8 +24,17 @@
           "rdma-core-devel",
           "dpdk-tools",
           "net-tools",
-          "which",
-          "python3-pyyaml"
+          "which"
+        ]
+      }
+    },
+    {
+      "name": "pyyaml",
+      "type": "manual",
+      "manual_info": {
+        "commands": [
+          "if command -v pip3.9; then pip3.9 install pyyaml; else echo 'pip3.9 not found'; fi",
+          "if command -v pip3; then pip3 install pyyaml; else echo 'pip3 not found'; fi"
         ]
       }
     },
