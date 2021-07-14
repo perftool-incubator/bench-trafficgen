@@ -91,7 +91,7 @@ testpmd_dev_opt=""
 for dev in `echo $devices | sed -e 's/,/ /g'`; do
     res_dev=""
     resolve_device res_dev $dev
-    testpmd_dev_opt+=" -w $res_dev"
+    testpmd_dev_opt+=" --allow $res_dev"
 done
 if [ -z "$testpmd_dev_opt" ]; then
     exit_error "Testpmd devices could not be found, exiting"
