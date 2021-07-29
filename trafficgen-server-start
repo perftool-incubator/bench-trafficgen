@@ -8,6 +8,7 @@ dump_runtime
 validate_label
 
 # Defaults
+sample_dir=`/bin/pwd`
 devices=""
 testpmd_forward_mode="mac"
 testpmd_queues="1"
@@ -15,6 +16,12 @@ testpmd_descriptors="2048"
 testpmd_smt_mode="grouped"
 testpmd_smt="on"
 testpmd_mtu="1518"
+testpmd_enable_scatter="off"
+testpmd_enable_rx_cksum="off"
+testpmd_enable_rss_udp="off"
+testpmd_devopt=""
+testpmd_mbuf_size=""
+testpmd_burst=""
 
 # Options processing
 re='^(--[^=]+)=([^=]+)'
@@ -37,26 +44,44 @@ while [ $# -gt 0 ]; do
         --testpmd-forward-mode)
             testpmd_forward_mode="$val"
             ;;
-	--testpmd-queues)
-	    testpmd_queues="$val"
-	    ;;
-	--testpmd-descriptors)
-	    testpmd_descriptors="$val"
-	    ;;
-	--testpmd-smt-mode)
-	    testpmd_smt_mode="$val"
-	    ;;
-	--testpmd-smt)
-	    testpmd_smt="$val"
-	    ;;
-	--testpmd-mtu)
-	    testpmd_mtu="$val"
-	    ;;
+        --testpmd-queues)
+            testpmd_queues="$val"
+            ;;
+        --testpmd-descriptors)
+            testpmd_descriptors="$val"
+            ;;
+        --testpmd-smt-mode)
+            testpmd_smt_mode="$val"
+            ;;
+        --testpmd-smt)
+            testpmd_smt="$val"
+            ;;
+        --testpmd-mtu)
+            testpmd_mtu="$val"
+            ;;
+        --testpmd-devopt)
+            testpmd_devopt="$val"
+            ;;
+        --testpmd-enable-scatter)
+            testpmd_enable_scatter="$val"
+            ;;
+        --testpmd-enable-rx-cksum)
+            testpmd_enable_rx_cksum="$val"
+            ;;
+        --testpmd-enable-rss-udp)
+            testpmd_enable_rss_udp="$val"
+            ;;
+        --testpmd-mbuf-size)
+            testpmd_mbuf_size="$val"
+            ;;
+        --testpmd-burst)
+            testpmd_burst="$val"
+            ;;
     esac
 done
 
 if [ -z "$devices" ]; then
-    exit_error "Value for --server-devices was not found, exiting"
+    exit_error "Value for --server-devices was not found, exiting" 1 "$sample_dir"
 fi
 
 # If --server-devices is "none", then this indicates that the client
@@ -92,25 +117,28 @@ for dev in `echo $devices | sed -e 's/,/ /g'`; do
     res_dev=""
     resolve_device res_dev $dev
     testpmd_dev_opt+=" --allow $res_dev"
+    if [ ! -z "$testpmd_devopt" ]; then
+        testpmd_dev_opt+=",$testpmd_devopt"
+    fi
 done
 if [ -z "$testpmd_dev_opt" ]; then
-    exit_error "Testpmd devices could not be found, exiting"
+    exit_error "Testpmd devices could not be found, exiting" 1 "$sample_dir"
 fi
 
 # figure out the CPUs to use
 if [ -z "${HK_CPUS}" ] ; then
-    exit_error "There are no housekeeping CPUs to use for testpmd"
+    exit_error "There are no housekeeping CPUs to use for testpmd" 1 "$sample_dir"
 else
     echo "HK_CPUS=${HK_CPUS}"
 fi
 HK_CPUS_SEPARATED=$(echo "${HK_CPUS}" | sed -e "s/,/ /g")
 HK_CPUS_ARRAY=(${HK_CPUS_SEPARATED})
 if [ ${#HK_CPUS_ARRAY[@]} -lt 1 ]; then
-    exit_error "You must have at least 1 HK_CPUS"
+    exit_error "You must have at least 1 HK_CPUS" 1 "$sample_dir"
 fi
 
 if [ -z "${WORKLOAD_CPUS}" ]; then
-    exit_error "There are no dedicated/isolated CPUs to use for testpmd"
+    exit_error "There are no dedicated/isolated CPUs to use for testpmd" 1 "$sample_dir"
 else
     echo "WORKLOAD_CPUS=${WORKLOAD_CPUS}"
 fi
@@ -141,25 +169,25 @@ if pushd /sys/devices/system/node > /dev/null; then
     testpmd_mem=""
 
     for node in $(ls -1d node*); do
-	NODE_NUM=$(echo ${node} | sed -e "s/node//")
-	if pushd $node > /dev/null; then
-	    NODE_CPU_PRESENT=0
+        NODE_NUM=$(echo ${node} | sed -e "s/node//")
+        if pushd $node > /dev/null; then
+            NODE_CPU_PRESENT=0
 
-	    for cpu in ${WORKLOAD_CPUS_SEPARATED}; do
-		if [ -d "cpu${cpu}" ]; then
-		    NODE_CPU_PRESENT=1
-		    break
-		fi
-	    done
+            for cpu in ${WORKLOAD_CPUS_SEPARATED}; do
+                if [ -d "cpu${cpu}" ]; then
+                    NODE_CPU_PRESENT=1
+                    break
+                fi
+            done
 
-	    if [ "${NODE_CPU_PRESENT}" == "1" ]; then
-		testpmd_mem+="1024,"
-	    else
-		testpmd_mem+="0,"
-	    fi
+            if [ "${NODE_CPU_PRESENT}" == "1" ]; then
+                testpmd_mem+="1024,"
+            else
+                testpmd_mem+="0,"
+            fi
 
-	    popd > /dev/null
-	fi
+            popd > /dev/null
+        fi
     done
 
     testpmd_mem=$(echo "${testpmd_mem}" | sed -e "s/,$//")
@@ -178,29 +206,62 @@ testpmd_bin=$( command -v dpdk-testpmd || command -v testpmd )
 testpmd_opts=" --lcores ${testpmd_cpus}"
 testpmd_opts+=" --socket-mem ${testpmd_mem}"
 testpmd_opts+=" --huge-dir /dev/hugepages $testpmd_dev_opt"
+testpmd_opts+=" -v"
 testpmd_opts+=" --"
 testpmd_opts+=" --nb-ports 2 --nb-cores ${testpmd_cores} --auto-start --stats-period=5"
 testpmd_opts+=" --rxq ${testpmd_queues} --txq ${testpmd_queues}"
 testpmd_opts+=" --rxd ${testpmd_descriptors} --txd ${testpmd_descriptors}"
 testpmd_opts+=" --max-pkt-len=${testpmd_mtu}"
+testpmd_opts+=" --record-core-cycles"
+testpmd_opts+=" --record-burst-stats"
+if [ "$testpmd_enable_scatter" == "on" ]; then
+    testpmd_opts+=" --enable-scatter"
+elif [ "$testpmd_enable_scatter" == "off" ]; then
+    echo "--enable-scatter will not be used"
+else
+    exit_error "value for --testpmd-enable-scatter ($testpmd_enable_scatter) is not valid.  Use either 'on' or 'off'"
+fi
 
-if [ "${testpmd_mtu}" -gt 2048 ]; then
+if [ "$testpmd_enable_rx_cksum" == "on" ]; then
+    testpmd_opts+=" --enable-rx-cksum"
+elif [ "$testpmd_enable_rx_cksum" == "off" ]; then
+    echo "--enable-rx-cksum will not be used"
+else
+    exit_error "value for --testpmd-enable-rx-cksum ($testpmd_enable_rx_cksum) is not valid.  Use either 'on' or 'off'"
+fi
+
+if [ "$testpmd_enable_rss_udp" == "on" ]; then
+    testpmd_opts+=" --enable-rss-udp"
+elif [ "$testpmd_enable_rss_udp" == "off" ]; then
+    echo "--enable-rss-udp will not be used"
+else
+    exit_error "value for --testpmd-enable-rss-udp ($testpmd_enable_rss_udp) is not valid.  Use either 'on' or 'off'"
+fi
+
+if [ ! -z "$testpmd_burst" ]; then
+    testpmd_opts+=" --burst=$testpmd_burst"
+fi
+
+# Bump up the default mbuf if the MTU is large,
+# but allow a user-defined mbuf size to not be changed
+if [ "${testpmd_mtu}" -gt 2048 -a -z "$testpmd_mbuf_size" ]; then
     testpmd_mbuf_size=16384
-    testpmd_mbufs=27242
     testpmd_opts+=" --mbuf-size=${testpmd_mbuf_size}"
+fi
+
+if [ ! -z "$testpmd_mbufs" ]; then
     testpmd_opts+=" --total-num-mbufs=${testpmd_mbufs}"
 fi
 
 if [ "$testpmd_forward_mode" == "mac" ]; then
     # TODO: use regex instead:
     if [ -z "$peermac0" -o -z "$peermac1" ]; then
-        exit_error  "[ERROR] Using forware-mode = mac, but did not get MAC addresses from TREX"
+        exit_error  "[ERROR] Using forware-mode = mac, but did not get MAC addresses from TREX" 1 "$sample_dir"
     fi
     testpmd_opts+=" --eth-peer 0,$peermac0 --eth-peer 1,$peermac1 --forward-mode mac"
 else
     testpmd_opts+=" "
 fi
-# TODO: Support other testpmd options
 
 echo "Going to run: $testpmd_bin $testpmd_opts"
 $testpmd_bin $testpmd_opts 2>&1 >$testpmd_output &
