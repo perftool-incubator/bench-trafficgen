@@ -155,7 +155,7 @@ echo -e "${CMD_OUTPUT}"
 WORKLOAD_CPUS_SEPARATED=$(echo -e "${CMD_OUTPUT}" | grep "final cpus:" | awk '{ print $3 }' | sed -e "s/,/ /g")
 WORKLOAD_CPUS_ARRAY=(${WORKLOAD_CPUS_SEPARATED})
 
-testpmd_cores=$(( ${#WORKLOAD_CPUS_ARRAY[@]} - 1 ))
+testpmd_cores=${#WORKLOAD_CPUS_ARRAY[@]}
 testpmd_cpus=""
 cpu_idx=0
 for cpu in $(echo "${HK_CPUS_ARRAY[0]} ${WORKLOAD_CPUS_SEPARATED}" | sed -e "s/\s+/ /g" -e "s/^\s//" -e "s/\s$//"); do
