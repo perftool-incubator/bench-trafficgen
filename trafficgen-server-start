@@ -231,7 +231,7 @@ else
 fi
 
 if [ "$testpmd_enable_rss_udp" == "on" ]; then
-    testpmd_opts+=" --enable-rss-udp"
+    testpmd_opts+=" --rss-udp"
 elif [ "$testpmd_enable_rss_udp" == "off" ]; then
     echo "--enable-rss-udp will not be used"
 else
