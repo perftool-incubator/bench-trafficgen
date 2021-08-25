@@ -6,10 +6,15 @@
     },
     "benchmark": "trafficgen",
     "controller": {
+        "pre-script": "%bench-dir%/trafficgen-import-profile",
         "post-script": "%bench-dir%trafficgen-post-process"
     },
     "client": {
         "files-from-controller": [
+            {
+                "src": "%run-dir%/trafficgen.profile",
+                "dest": "."
+            },
             {
                 "src": "%bench-dir%/trafficgen-base",
                 "dest": "/usr/bin/"
@@ -53,13 +58,18 @@
             {
                 "src": "%bench-dir%/trafficgen/trex-txrx.py",
                 "dest": "/usr/bin/"
+            },
+            {
+                "src": "%bench-dir%/trafficgen/trex-txrx-profile.py",
+                "dest": "/usr/bin/"
             }
         ],
         "runtime": "trafficgen-get-runtime",
         "infra": "trafficgen-infra",
         "start": "trafficgen-client",
         "param_regex": [ "s/(\\s--[^\\s]+)=ON/$1/g",
-                         "s/\\s--[^\\s]+=OFF//g"
+                         "s/\\s--[^\\s]+=OFF//g",
+                         "s/\\s--traffic-profile=\\S+/ --traffic-profile=trafficgen.profile/"
                        ]
     },
     "server": {
