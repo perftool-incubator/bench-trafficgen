@@ -1,0 +1,46 @@
+#!/bin/bash
+# -*- mode: sh; indent-tabs-mode: nil; sh-basic-offset: 4 -*-
+# vim: autoindent tabstop=4 shiftwidth=4 expandtab softtabstop=4 filetype=bash
+
+traffic_profile=""
+dest_traffic_profile_path="trafficgen.profile"
+
+while [ ! -z ${1} ]; do
+    arg=$(echo ${1} | awk -F= '{ print $1 }')
+    if [ "${arg}" == "--traffic-profile" ]; then
+        traffic_profile=$(echo "${1}" | awk -F= '{ print $2 }')
+        echo "Found traffic profile = ${traffic_profile}"
+    else
+        echo "Ignoring this argument: ${arg}"
+    fi
+    shift
+done
+
+if [ -z "${traffic_profile}" ]; then
+    echo "No traffic profile to import detected"
+
+    # create an empty traffic profile file to satisfy the rickshaw.json client file copy
+    echo "unused/blank trafficgen profile" > ${dest_traffic_profile_path}
+
+    exit 0
+fi
+
+traffic_profile_path=""
+if [ -n "${CRUCIBLE_HOSTFS_PWD}" ]; then
+    echo "Using CRUCIBLE_HOSTFS_PWD=${CRUCIBLE_HOSTFS_PWD}"
+    traffic_profile_path+="/hostfs/"
+    traffic_profile_path+=${CRUCIBLE_HOSTFS_PWD}
+    traffic_profile_path+="/"
+fi
+traffic_profile_path+=${traffic_profile}
+
+if [ ! -e "${traffic_profile_path}" ]; then
+    echo "ERROR: Could not find traffic profile [${traffic_profile_path}]"
+    exit 1
+else
+    echo "Copying traffic profile ${traffic_profile_path} to ${dest_traffic_profile_path}"
+    /bin/cp "${traffic_profile_path}" "${dest_traffic_profile_path}"
+    echo "Contents of ${dest_traffic_profile_path}:"
+    cat ${dest_traffic_profile_path}
+    exit 0
+fi
