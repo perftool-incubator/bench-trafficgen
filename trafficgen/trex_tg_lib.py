@@ -33,8 +33,8 @@ def create_icmp_bcast_pkt (mac_src, ip_src, vlan_id, flow_mods, num_flows, enabl
 def create_icmp_pkt (size, mac_src, mac_dst, ip_src, ip_dst, vlan_id, flow_mods, num_flows, enable_flow_cache, flow_offset = 0, old_mac_flow = True):
     tmp_num_flows = num_flows - 1
 
-    ip_src = { "start": ip_to_int(ip_src) + flow_offset, "end": ip_to_int(ip_src) + tmp_num_flows + flow_offset}
-    ip_dst = { "start": ip_to_int(ip_dst) + flow_offset, "end": ip_to_int(ip_dst) + tmp_num_flows + flow_offset}
+    ip_src = { "start": int_to_ip(ip_to_int(ip_src) + flow_offset), "end": int_to_ip(ip_to_int(ip_src) + tmp_num_flows + flow_offset) }
+    ip_dst = { "start": int_to_ip(ip_to_int(ip_dst) + flow_offset), "end": int_to_ip(ip_to_int(ip_dst) + tmp_num_flows + flow_offset) }
 
     vm = []
     if flow_mods['ip']['src'] and tmp_num_flows:
@@ -104,7 +104,7 @@ def create_garp_pkt (mac_src, ip_src, vlan_id, arp_op, flow_mods, num_flows, ena
 
     tmp_num_flows = num_flows - 1
 
-    ip_src = { "start": ip_to_int(ip_src) + flow_offset, "end": ip_to_int(ip_src) + tmp_num_flows + flow_offset}
+    ip_src = { "start": int_to_ip(ip_to_int(ip_src) + flow_offset), "end": int_to_ip(ip_to_int(ip_src) + tmp_num_flows + flow_offset) }
 
     vm = []
     if flow_mods['ip']['src'] and tmp_num_flows:
@@ -305,8 +305,8 @@ def load_user_pkt (the_packet, size, mac_src, mac_dst, ip_src, ip_dst, port_src,
                 layer.sport = port_src
                 layer.dport = port_dst
             elif layer.name == "IP":
-                layer.src = str(ip_to_int(ip_src))
-                layer.dst = str(ip_to_int(ip_dst))
+                layer.src = str(int_to_ip(ip_to_int(ip_src)))
+                layer.dst = str(int_to_ip(ip_to_int(ip_dst)))
             elif layer.name == "Ethernet":
                 layer.src = mac_src
                 layer.dst = mac_dst
@@ -350,8 +350,8 @@ def load_user_pkt (the_packet, size, mac_src, mac_dst, ip_src, ip_dst, port_src,
 
     tmp_num_flows = num_flows - 1
 
-    ip_src = { "start": ip_to_int(ip_src) + flow_offset, "end": ip_to_int(ip_src) + tmp_num_flows + flow_offset }
-    ip_dst = { "start": ip_to_int(ip_dst) + flow_offset, "end": ip_to_int(ip_dst) + tmp_num_flows + flow_offset }
+    ip_src = { "start": int_to_ip(ip_to_int(ip_src) + flow_offset), "end": int_to_ip(ip_to_int(ip_src) + tmp_num_flows + flow_offset) }
+    ip_dst = { "start": int_to_ip(ip_to_int(ip_dst) + flow_offset), "end": int_to_ip(ip_to_int(ip_dst) + tmp_num_flows + flow_offset) }
 
     vm = []
     if flow_mods['ip']['src'] and tmp_num_flows:
