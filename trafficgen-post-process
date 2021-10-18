@@ -377,6 +377,11 @@ for (my $index=scalar(@{ $$bs_json_ref{'trials'} }) - 1; $index>=0; $index--) {
 	last;
     }
 }
+if ($measurement_trial_index == -1) {
+    printf "Could not find measurement trial index, run failed\n";
+} else {
+    printf "Found measurement trial index = %d\n", $measurement_trial_index;
+}
 
 for (my $index=0; $index<scalar(@{ $$bs_json_ref{'trials'} }); $index++) {
     my %trial = %{ $$bs_json_ref{'trials'}[$index] };
