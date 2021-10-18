@@ -158,6 +158,11 @@ echo "About to run: $cmd"
 $cmd >$sample_dir/binary-search.txt 2>&1
 bs_rc=$?
 
+# output the search summary
+cmd="reporter.py --input ${sample_dir}/binary-search.json --type search-summary"
+echo "About to run: $cmd"
+$cmd > ${sample_dir}/binary-search.search-summary.txt 2>&1
+
 if [ "$endpoint" == "k8s" -a "$osruntime" == "pod" ]; then
     # Don't shutdown TRex, as we can't remove the hugepages in /dev/hugepages after
     # when using a pod.
