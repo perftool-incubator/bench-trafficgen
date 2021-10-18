@@ -1808,10 +1808,19 @@ def evaluate_trial(trial_params, trial_stats):
 
 
      if trial_result == 'abort':
-          trial_result = 'quit'
-          bs_logger(error("(binary search aborting due to critical error, trial result: %s)" %
-                          (trial_result)))
-          return(trial_result)
+          if trial_params['trial_mode'] == 'warmup':
+               # when in warmup we want to ignore the results of the
+               # validations, but it is potentially helpful to see the test
+               # output so rather than short circuit we do all the tests but
+               # then just report a passing result
+               trial_result = 'pass'
+               bs_logger("\t(since this was a warmup trial the actual results do not matter and are ignored, trial result status: modified, trial result: %s)" %
+                         (trial_result))
+          else:
+               trial_result = 'quit'
+               bs_logger(error("(binary search aborting due to critical error, trial result: %s)" %
+                               (trial_result)))
+               return(trial_result)
 
      for dev_pair in trial_params['test_dev_pairs']:
           if t_global.args.traffic_generator != 'null-txrx' and trial_stats[dev_pair['tx']]['tx_active']:
