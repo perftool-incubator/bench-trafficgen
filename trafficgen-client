@@ -191,6 +191,6 @@ else
 fi
 
 if [ $bs_rc != 0 ]; then
-    error=`grep -E ERROR\|critical $sample_dir/binary-search.txt`
+    error=`grep -E "ERROR" $sample_dir/binary-search.txt`
     exit_error "binary-search.py failed:\n$error" 1 "$sample_dir"
 fi

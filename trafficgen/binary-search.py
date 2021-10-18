@@ -2049,28 +2049,28 @@ def main():
          random.seed()
 
     if t_global.args.traffic_generator == 'trex-txrx' and t_global.args.rate_unit == "%" and rate > 100.0:
-         bs_logger("The trex-txrx traffic generator does not support a rate larger than 100.0 when --rate-unit=% since that equates to line rate")
+         bs_logger(error("The trex-txrx traffic generator does not support a rate larger than 100.0 when --rate-unit=% since that equates to line rate"))
          bs_logger_cleanup(bs_logger_exit, bs_logger_thread)
          return(1)
 
     if t_global.args.traffic_generator == 'null-txrx' and t_global.args.rate_unit == "mpps":
-         bs_logger("The null-txrx traffic generator does not support --rate-unit=mpps")
+         bs_logger(error("The null-txrx traffic generator does not support --rate-unit=mpps"))
          bs_logger_cleanup(bs_logger_exit, bs_logger_thread)
          return(1)
 
     if t_global.args.traffic_generator == 'trex-txrx-profile' and t_global.args.rate_unit == "mpps":
-         bs_logger("The trex-txrx-profile traffic generator does not support --rate-unit=mpps")
+         bs_logger(error("The trex-txrx-profile traffic generator does not support --rate-unit=mpps"))
          bs_logger_cleanup(bs_logger_exit, bs_logger_thread)
          return(1)
 
     if t_global.args.traffic_generator == 'null-txrx' and t_global.args.measure_latency:
-         bs_logger("The null-txrx traffic generator does not support latency measurements")
+         bs_logger(error("The null-txrx traffic generator does not support latency measurements"))
          bs_logger_cleanup(bs_logger_exit, bs_logger_thread)
          return(1)
 
     if t_global.args.frame_size == "imix":
          if t_global.args.rate_unit == "mpps":
-              bs_logger("When --frame-size=imix then --rate-unit must be set to %")
+              bs_logger(error("When --frame-size=imix then --rate-unit must be set to %"))
               bs_logger_cleanup(bs_logger_exit, bs_logger_thread)
               return(1)
     else:
@@ -2094,7 +2094,7 @@ def main():
 
     # make sure that the output directory exists
     if not os.path.isdir(trial_params['output_dir']):
-         bs_logger("The specified output directory '%s' does not exist" % (trial_params['output_dir']))
+         bs_logger(error("The specified output directory '%s' does not exist" % (trial_params['output_dir'])))
          bs_logger_cleanup(bs_logger_exit, bs_logger_thread)
          return(1)
     else:
@@ -2581,8 +2581,8 @@ def main():
                    prev_rate = rate
                    rate = minimum_rate
               elif (rate == minimum_rate or prev_rate <= minimum_rate) and trial_result == 'fail':
-                   bs_logger("Binary search ended up at rate which is below minimum allowed")
-                   bs_logger("There is no trial which passed")
+                   bs_logger(error("Binary search ended at a rate which is below the minimum allowed"))
+                   bs_logger(error("There is no trial which passed"))
                    failed_stats = []
 
                    if t_global.args.traffic_generator == 'null-txrx':
@@ -2596,7 +2596,7 @@ def main():
 
                    bs_logger("RESULT:")
                    print_stats(trial_params, failed_stats)
-                   return(0)
+                   return(1)
 
               if t_global.args.trial_gap:
                    bs_logger("Sleeping for %s seconds between trial attempts" % (commify(t_global.args.trial_gap)))
