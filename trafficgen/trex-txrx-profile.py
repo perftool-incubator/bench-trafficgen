@@ -1438,7 +1438,7 @@ def main():
                        c.stop(ports = warmup_ports)
                        stop_time = datetime.datetime.now()
                        total_time = stop_time - start_time
-                       myprint("TIMEOUT ERROR: The teaching warmup did not end on it's own correctly within the allotted time (%s seconds) -- %s total second(s) elapsed" % (commify(warmup_timeout), commify(total_time.total_seconds())))
+                       myprint("TIMEOUT: The teaching warmup did not end on it's own correctly within the allotted time (%s seconds) -- %s total second(s) elapsed" % (commify(warmup_timeout), commify(total_time.total_seconds())))
                        return return_value
                   except TRexError as e:
                        c.stop(ports = warmup_ports)
@@ -1531,7 +1531,7 @@ def main():
         except TRexTimeoutError as e:
              c.stop(ports = run_ports)
              stop_time = datetime.datetime.now()
-             myprint("TIMEOUT ERROR: The test did not end on it's own correctly within the allotted time.")
+             myprint("TIMEOUT: The test did not end on it's own correctly within the allotted time.")
              timeout = True
         except TRexError as e:
              c.stop(ports = run_ports)

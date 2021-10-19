@@ -48,6 +48,10 @@
                 "dest": "/usr/bin/"
             },
             {
+                "src": "%bench-dir%/trafficgen/reporter.py",
+                "dest": "/usr/bin/"
+            },
+            {
                 "src": "%bench-dir%/trafficgen/trex_tg_lib.py",
                 "dest": "/usr/bin/"
             },
