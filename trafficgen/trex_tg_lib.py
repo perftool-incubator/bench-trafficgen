@@ -7,6 +7,8 @@ import traceback
 from trex.stl.api import *
 from collections import deque
 from tg_lib import *
+from pathlib import Path
+from jsonschema import validate
 
 # Flow Mod Documentation
 #
@@ -479,45 +481,38 @@ def create_profile_stream (flows = 0,
     if stream_id:
         stream['stream_id'] = stream_id
 
-    validate_profile_stream(stream, 100.0)
+    process_profile_stream(stream, 100.0)
 
     return(stream)
 
-def validate_profile_stream(stream, rate_modifier):
+def process_profile_stream(stream, rate_modifier):
     for key in stream:
-        if not key in [ 'flows', 'frame_size', 'flow_mods', 'rate', 'frame_type', 'stream_types', 'latency', 'latency_only', 'protocol', 'traffic_direction', 'stream_id', 'offset', 'duration', 'repeat', 'repeat_delay', 'repeat_flows', 'the_packet', 'enabled' ]:
-            raise ValueError("Invalid property found (%s)" % (key))
+        if not key in [ 'flow_mods', 'the_packet' ]:
+            next
 
         if isinstance(stream[key], basestring):
             # convert from unicode to string
             stream[key] = str(stream[key])
 
             fields = stream[key].split(':', 1)
-            if len(fields) == 2:
-                if fields[0] == 'function':
-                    try:
-                        stream[key] = eval(fields[1])
-                    except:
-                        raise ValueError("Failed to eval '%s' for '%s'" % (fields[1], key))
-                elif (key == 'the_packet') and (fields[0] == 'scapy'):
-                    try:
-                        stream[key] = eval(fields[1])
-                        #print("validate_profile_stream:the_packet: scapy:%s\n" % (stream[key].command()))
-                    except:
-                        raise ValueError("Failed to eval '%s' for '%s'" % (fields[1], key))
 
-    if not 'stream_types' in stream or len(stream['stream_types']) == 0:
+            if (key == 'flow_mods') and (fields[0] == 'function'):
+                try:
+                    stream[key] = eval(fields[1])
+                except:
+                    raise ValueError("Failed to eval '%s' for '%s'" % (fields[1], key))
+            elif (key == 'the_packet') and (fields[0] == 'scapy'):
+                try:
+                    stream[key] = eval(fields[1])
+                    #print("validate_profile_stream:the_packet: scapy:%s\n" % (stream[key].command()))
+                except:
+                    raise ValueError("Failed to eval '%s' for '%s'" % (fields[1], key))
+
+    if not 'stream_types' in stream:
         stream['stream_types'] = [ 'measurement' ]
-    else:
-        for stream_type in stream['stream_types']:
-            if not stream_type in [ 'measurement', 'teaching_warmup', 'teaching_measurement', 'ddos' ]:
-                raise ValueError("You must specify a valid stream type (not '%s')" % (stream_type))
 
     if not 'frame_type' in stream:
         stream['frame_type'] = 'generic'
-    else:
-        if not stream['frame_type'] in [ 'generic', 'icmp', 'garp' ]:
-            raise ValueError("You must specify a valid frame type (not '%s')" % (stream['frame_type']))
 
     if not 'latency_only' in stream:
         stream['latency_only'] = False
@@ -530,31 +525,15 @@ def validate_profile_stream(stream, rate_modifier):
 
     if not 'protocol' in stream:
         stream['protocol'] = 'UDP'
-    else:
-        stream['protocol'] = stream['protocol'].upper()
-
-    if not stream['protocol'] in [ 'TCP', 'UDP' ]:
-        raise ValueError("You must specify a valid protocol (not '%s')" % (stream['protocol']))
 
     if not 'traffic_direction' in stream:
         stream['traffic_direction'] = "bidirectional"
-    else:
-        stream['traffic_direction'] = stream['traffic_direction'].lower()
-
-    if not stream['traffic_direction'] in [ 'bidirectional', 'unidirectional', 'revunidirectional' ]:
-        raise ValueError("You must specify a valid traffic direction (not '%s')" % (stream['traffic_direction']))
 
     if not 'offset' in stream:
         stream['offset'] = 0
-    else:
-        if stream['offset'] < 0:
-            raise ValueError("You must specify an offset of >= 0 seconds (not %d)" % (stream['offset']))
 
     if not 'duration' in stream:
         stream['duration'] = None
-    else:
-        if not stream['duration'] is None and stream['duration'] <= 0:
-            raise ValueError("You must specify a duration of > 0 seconds (not %d)" % (stream['duration']))
 
     if not 'repeat' in stream:
         stream['repeat'] = False
@@ -564,10 +543,6 @@ def validate_profile_stream(stream, rate_modifier):
             stream['repeat_delay'] = stream['offset']
         else:
             stream['repeat_delay'] = None
-    else:
-        if not stream['repeat_delay'] is None:
-            if stream['repeat_delay'] < 0:
-                raise ValueError("You must specify a repeat delay of > 0 seconds (not %d)" % (stream['repeat_delay']))
 
     if not 'repeat_flows' in stream:
         stream['repeat_flows'] = True
@@ -578,13 +553,7 @@ def validate_profile_stream(stream, rate_modifier):
     if not 'the_packet' in stream:
         stream['the_packet'] = None
 
-    max_flows = 256*256
-    if stream['flows'] > max_flows:
-        raise ValueError("You must specify <= %d flows per stream (not %d)" % (max_flows, stream['flows']))
-
     stream['rate'] = stream['rate'] * rate_modifier / 100.0
-    if stream['rate'] <= 0:
-        raise ValueError("You must specify a rate that is >= 0 (not %f)" % (stream['rate']))
 
     return(0)
 
@@ -593,18 +562,37 @@ def load_traffic_profile (traffic_profile = "", rate_modifier = 100.0, log_funct
           traffic_profile_fp = open(traffic_profile, 'r')
           profile = json.load(traffic_profile_fp)
           traffic_profile_fp.close()
-
-          if not 'streams' in profile or len(profile['streams']) == 0:
-               raise ValueError("There are no streams in the loaded traffic profile")
      except:
           log_function("EXCEPTION: %s" % traceback.format_exc())
-          log_function(error("Could not load a valid traffic profile from %s" % (traffic_profile)))
+          log_function(error("Could not load a JSON traffic profile from %s" % (traffic_profile)))
           return(1)
+
+     # assume that the schema file is in the same location as the
+     # calling script
+     schema_file = Path(__file__).parent / "traffic-profile-schema.json"
+
+     try:
+         schema_fp = open(schema_file, 'r')
+         schema_contents = json.load(schema_fp)
+         schema_fp.close()
+
+     except:
+         print("EXCEPTION: %s" % (traceback.format_exc()))
+         print(error("Failed to load the JSON traffic profile schema from %s" % (schema_file)))
+         return(1)
+
+     try:
+         validate(instance=profile, schema=schema_contents)
+
+     except:
+         log_function("EXCEPTION: %s" % traceback.format_exc())
+         log_function(error("The loaded JSON traffic profile (%s) failed to validate against the traffic profile schema (%s)" % (traffic_profile, schema_file)))
+         return(1)
 
      try:
          stream_counter = 0
          for stream in profile['streams']:
-             validate_profile_stream(stream, rate_modifier)
+             process_profile_stream(stream, rate_modifier)
 
              if stream['traffic_direction'] == "bidirectional":
                  stream['direction'] = "<-->"
