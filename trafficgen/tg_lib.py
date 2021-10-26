@@ -51,6 +51,8 @@ def ip_to_int (ip):
 
 
 def int_to_ip (_int):
+    orig__int = _int
+
     octet = int(_int / (256**3))
     _int = _int - (octet * 256**3)
     ip = str(octet)
@@ -63,8 +65,13 @@ def int_to_ip (_int):
     _int = _int - (octet * 256**1)
     ip = ip + "." + str(octet)
 
-    _int = _int - (octet * 256**1)
+    octet = int(_int)
+    _int = _int - octet
     ip = ip + "." + str(octet)
+
+    if _int != 0:
+        raise ValueError("Error converting integer %d to IP address (calculated '%s' with remainder %d)" % (orig__int, ip, _int))
+
     return ip
 
 
