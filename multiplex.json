@@ -1,0 +1,159 @@
+{
+    "presets": {
+	"essentials": [
+	    { "arg": "process-all-profiler-data", "vals": [ "ON" ] }
+	]
+    },
+    "validations": {
+	"pci_device_list": {
+	    "description": "1 or more (comma separated) device pairs",
+	    "args": [ "devices", "active-devices", "testpmd-devopt" ],
+	    "vals": [
+		"^0{4}(:[0-9a-fA-F]{2}){2}\\.[0-9],0{4}(:[0-9a-fA-F]{2}){2}\\.[0-9](,0{4}(:[0-9a-fA-F]{2}){2}\\.[0-9],0{4}(:[0-9a-fA-F]{2}){2}\\.[0-9])*$",
+		"^VAR:\\w+,VAR:\\w+(,VAR:\\w+,VAR:\\w+)*$"
+	    ]
+	},
+	"trex_cpus": {
+	    "description": "1 or more (comma separated) cpu or cpu ranges",
+	    "args": [ "cpus" ],
+	    "vals": [ "^(([0-9]+-[0-9]+)|[0-9]+)(,([0-9]+-[0-9]+|[0-9]+))*$" ]
+	},
+	"testpmd_forward_mode": {
+	    "description": "supported testpmd forwarding modes",
+	    "args": [ "testpmd-forward-mode" ],
+	    "vals": [ "^(io|mac)$" ]
+	},
+	"testpmd_queues": {
+	    "description": "supported testpmd queue counts",
+	    "args": [ "testpmd-queues" ],
+	    "vals": [ "^(1|2|3|4|8)$" ]
+	},
+	"testpmd_descriptors": {
+	    "description": "supported testpmd device descriptor counts",
+	    "args": [ "testpmd-descriptors" ],
+	    "vals": [ "^(256|512|1024|2048|4096)$" ]
+	},
+	"testpmd_smt_mode": {
+	    "description": "supported testpmd smt ordering modes",
+	    "args": [ "testpmd-smt-mode" ],
+	    "vals": [ "^(grouped|separate)$" ]
+	},
+	"testpmd_on_off_toggles": {
+	    "description": "testpmd options which are toggled with on/off values",
+	    "args": [ "testpmd-smt", "testpmd-enable-scatter", "estpmd-enable-rx-cksum",
+		      "testpmd-enable-rss-udp" ],
+	    "vals": [ "^(on|off)$" ]
+	},
+	"string": {
+	    "description": "any string value",
+	    "args": [ "output-dir", "traffic-profile", "pre-trial-cmd", "warmup-traffic-profile",
+		      "trex-host", "testpmd-devopt" ],
+	    "vals": [ "^.+$" ]
+	},
+	"nonzero_positive_integer": {
+	    "description": "any non-zero postive integer value",
+	    "args": [ "frame-size", "num-flows", "teaching-warmup-packet-rate",
+		      "teaching-measurement-packet-rate", "warmup-trial-runtime",
+		      "mem-limit", "testpmd-mtu", "testpmd-burst" ],
+	    "vals": [ "^[1-9][0-9]*$" ]
+	},
+	"positive_integer": {
+	    "description": "any positive integer value",
+	    "args": [ "validation-runtime", "search-runtime", "sniff-runtime", "latency-rate",
+		      "trial-gap", "max-retries" ],
+	    "vals": [ "^[0-9]+$" ]
+	},
+	"positive_integer_list": {
+	    "description": "1 or more (comma separated) positive integer values",
+	    "args": [ "src-ports", "dst-ports", "vxlan-ids", "vlan-ids" ],
+	    "vals": [ "^[1-9][0-9]*(,[1-9][0-9]*)*$" ]
+	},
+	"nonezero_positive_float": {
+	    "description": "any non-zero positive floating point value",
+	    "args": [ "search-granularity", "rate", "teaching-measurement-interval", "trex-profiler-interval" ],
+	    "vals": [ "^([1-9][0-9]*\\.?[0-9]*)|(0?\\.[0-9]+)$" ]
+	},
+	"positive_float": {
+	    "description": "any positive floating point value",
+	    "args": [ "min-rate", "rate-tolerance", "runtime-tolerance", "max-loss-pct", "random-seed" ],
+	    "vals": [ "^([1-9][0-9]*\\.?[0-9]*)|(0?\\.[0-9]+)|(0)$" ]
+	},
+	"mac_address_list": {
+	    "description": "1 or more (comma separated) list of mac addresses",
+	    "args": [ "src-macs", "dst-macs", "encap-dst-macs", "encap-src-macs" ],
+	    "vals": [ "^([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}(,([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2})*$" ]
+	},
+	"ip_address_list": {
+	    "description": "1 or more (comma separated) list of ip addresses",
+	    "args": [ "dst-ips", "src-ips", "encap-dst-ips", "encap-src-ips" ],
+	    "vals": [ "^([0-9]{1,3}\\.){3}[0-9]{1,3}(,([0-9]{1,3}\\.){3}[0-9]{1,3})*$" ]
+	},
+	"integer_boolean": {
+	    "description": "a boolean value represented by either 0 or 1",
+	    "args": [ "use-src-ip-flows", "use-dst-ip-flows", "use-src-mac-flows", "use-dst-mac-flows",
+		      "use-src-port-flows", "use-dst-port-flows", "use-protocol-flows",
+		      "use-encap-src-ip-flows", "use-encap-dst-ip-flows", "use-encap-src-mac-flows",
+		      "use-encap-dst-mac-flows",
+		      "one-shot", "measure-latency" ],
+	    "vals": [ "^[0,1]$" ]
+	},
+	"traffic_direction": {
+	    "description": "available traffic directions",
+	    "args": [ "traffic-direction" ],
+	    "vals": [ "^(bidirectional|unidirectional|revunidirectional)$" ]
+	},
+	"traffic_generator": {
+	    "description": "available traffic generators",
+	    "args": [ "traffic-generator" ],
+	    "vals": [ "^(trex-txrx|trex-txrx-profile|valkyrie2544|null-txrx)$" ]
+	},
+	"rate_unit": {
+	    "description": "the unit that the traffic rate is specified in",
+	    "args": [ "rate-unit" ],
+	    "vals": [ "^(%|mpps)$" ]
+	},
+	"protocol": {
+	    "description": "supported packet protocols",
+	    "args": [ "packet-protocol" ],
+	    "vals": [ "^(UDP|TCP)$" ]
+	},
+	"trial_results": {
+	    "description": "supported trial result handling modes",
+	    "args": [ "duplicate-packet-failure", "rate-tolerance-failure", "--negative-packet-loss" ],
+	    "vals": [ "^(fail|quit|retry-to-fail|retry-to-quit)$" ]
+	},
+	"loss_granularity": {
+	    "description": "supported loss granularity modes",
+	    "args": [ "loss-granularity" ],
+	    "vals": [ "^(direction|device|segment)$" ]
+	},
+	"stream_mode": {
+	    "description": "supported stream modes",
+	    "args": [ "stream-mode" ],
+	    "vals": [ "^(continuous|segmented)$" ]
+	},
+	"on_off": {
+	    "description": "parameters that should be set to ON or OFF -- handled by rickshaw.json param regex",
+	    "args": [ "use-device-stats", "enable-segment-monitor", "disable-flow-cache",
+		      "send-teaching-warmup", "send-teaching-measurement", "disable-trex-profiler",
+		      "process-all-profiler-data", "repeat-final-validation", "warmup-trial",
+		      "disable-upward-search", "no-promisc" ],
+	    "vals": [ "^(ON|OFF)$" ]
+	},
+	"device_pair_list": {
+	    "description": "1 or more (comma separated) list of TRex device index pairs",
+	    "args": [ "device-pairs", "active-device-pairs" ],
+	    "vals": [ "^[0-9]+:[0-9]+(,[0-9]+:[0-9]+)*$" ]
+	},
+	"device_pair": {
+	    "description": "a single DPDK device index pair",
+	    "args": [ "latency-device-pair" ],
+	    "vals": [ "^[0-9]+:[0-9]+$" ]
+	},
+	"teaching_packet_types": {
+	    "description": "types of teaching packets allowed",
+	    "args": [ "teaching-warmup-packet-type", "teaching-measurement-packet-type" ],
+	    "vals": [ "^(garp|icmp|generic)$" ]
+	}
+    }
+}
