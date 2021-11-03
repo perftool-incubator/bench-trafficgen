@@ -6,7 +6,7 @@ exec 2>&1
 
 dump_runtime
 validate_label
-validate_sw_prereqs
+validate_sw_prereqs getopt ip ss jq git
 validate_other_prereqs
 
 # defaults
