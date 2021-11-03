@@ -663,6 +663,8 @@ def create_stream (stream, device_pair, direction, other_direction, flow_scaler)
         stream_modes.append('latency')
 
     stream_flows = int(stream['flows'] * flow_scaler)
+    if stream_flows == 0:
+         raise ValueError("There do not appear to be enough flows for the current stream given the configuration (flows=%d | scaler=%f)" % (stream['flows'], flow_scaler))
 
     stream_packets = { 'measurement': [],
                        'teaching': [] }
