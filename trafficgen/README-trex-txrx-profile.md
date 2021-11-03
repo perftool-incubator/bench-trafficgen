@@ -42,3 +42,9 @@ by the following parameters:
 17. the_packet - optional, a packet definition to use as the base packet for this stream, ie. "scapy:Ether()/IP()/TCP()/'payload'", when this option is used it overrides 'frame_type', 'protocol', and 'stream_id'.
 
 18. enabled - optional, determines whether the defined stream is actually used to define traffic, can be used to easily turn a stream on or off while testing, defaults to True, options are [True, False]
+
+This JSON syntax is now enforced using a custom JSON schema [traffic-profile-schema.json](traffic-profile-schema.json) that adheres to the [JSON Schema](https://json-schema.org/understanding-json-schema/).
+
+## JSON file Validation
+
+The user supplied JSON files are validated against [traffic-profile-schema.json](traffic-profile-schema.json) automatically at run time.  It is also possible for the user to validate their JSON files ahead of time using the [validate-traffic-profile.py](validate-traffic-profile.py) script.

@@ -66,7 +66,11 @@
             {
                 "src": "%bench-dir%/trafficgen/trex-txrx-profile.py",
                 "dest": "/usr/bin/"
-            }
+            },
+	    {
+		"src": "%bench-dir%/trafficgen/traffic-profile-schema.json",
+		"dest": "/usr/bin/"
+	    }
         ],
         "runtime": "trafficgen-get-runtime",
         "infra": "trafficgen-infra",
