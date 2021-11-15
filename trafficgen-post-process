@@ -28,7 +28,6 @@ my @trial_metrics = (
     { 'key' => 'flubberbubbles',
       'class' => 'pass/fail',
       'type' => 'trial-result',
-      'name_format' => '',
       'altkey' => 'result',
       'altvalue' => 'status' }
     );
@@ -37,73 +36,62 @@ my @trial_stats_metrics = (
     { 'key' => 'global',
       'field' => 'runtime',
       'class' => 'count',
-      'type' => 'trial-runtime-in-seconds',
-      'name_format' => '' }
+      'type' => 'trial-runtime-in-seconds' }
     );
 
 my @trial_stats_device_metrics = (
     { 'key' => 'rx',
       'field' => 'rx_latency_maximum',
       'class' => 'count',
-      'type' => 'max-roundtrip-usec',
-      'name_format' => '%port_pair%-%rx_port%' },
+      'type' => 'max-roundtrip-usec' },
 
     { 'key' => 'rx',
       'field' => 'rx_latency_average',
       'class' => 'count',
-      'type' => 'mean-roundtrip-usec',
-      'name_format' => '%port_pair%-%rx_port%' },
+      'type' => 'mean-roundtrip-usec' },
 
     { 'key' => 'tx',
       'field' => 'tx_l2_bps',
       'class' => 'throughput',
-      'type' => 'l2-tx-bps',
-      'name_format' => '%port_pair%-%tx_port%' },
+      'type' => 'l2-tx-bps' },
     
     { 'key' => 'tx',
       'field' => 'tx_l1_bps',
       'class' => 'throughput',
-      'type' => 'l1-tx-bps',
-      'name_format' => '%port_pair%-%tx_port%' },
+      'type' => 'l1-tx-bps' },
 
     { 'key' => 'rx',
       'field' => 'rx_l2_bps',
       'class' => 'throughput',
-      'type' => 'l2-rx-bps',
-      'name_format' => '%port_pair%-%rx_port%' },
+      'type' => 'l2-rx-bps' },
     
     { 'key' => 'rx',
       'field' => 'rx_l1_bps',
       'class' => 'throughput',
-      'type' => 'l1-rx-bps',
-      'name_format' => '%port_pair%-%rx_port%' },
+      'type' => 'l1-rx-bps' },
 
     { 'key' => 'rx',
       'field' => 'rx_pps',
       'class' => 'throughput',
-      'type' => 'rx-pps',
-      'name_format' => '%port_pair%-%rx_port%' },
+      'type' => 'rx-pps' },
 
     { 'key' => 'tx',
       'field' => 'tx_pps',
       'class' => 'throughput',
-      'type' => 'tx-pps',
-      'name_format' => '%port_pair%-%tx_port%' },
+      'type' => 'tx-pps' },
 
     { 'key' => 'rx',
       'field' => 'rx_lost_pps',
       'class' => 'throughput',
-      'type' => 'lost-rx-pps',
-      'name_format' => '%port_pair%-%rx_port%' },
+      'type' => 'lost-rx-pps' },
     );
 
 my @trial_profiler_metrics = (
-    { 'key' => '',
+    { 'key' => 'tsdelta',
       'subkey' => '',
       'field' => '',
-      'class' => '',
-      'type' => '',
-      'name_format' => '',
+      'class' => 'count',
+      'type' => 'tsdelta',
       'extra_field' => '',
       'cumulative' => 0 },
 
@@ -112,7 +100,6 @@ my @trial_profiler_metrics = (
       'field' => 'pps',
       'class' => 'throughput',
       'type' => 'rx-pps',
-      'name_format' => '',
       'extra_field' => '',
       'cumulative' => 0 },
 
@@ -121,7 +108,6 @@ my @trial_profiler_metrics = (
       'field' => 'pps',
       'class' => 'throughput',
       'type' => 'tx-pps',
-      'name_format' => '',
       'extra_field' => '',
       'cumulative' => 0 },
 
@@ -130,7 +116,6 @@ my @trial_profiler_metrics = (
       'field' => 'bps',
       'class' => 'througput',
       'type' => 'rx-bps',
-      'name_format' => '',
       'extra_field' => '',
       'cumulative' => 0 },
 
@@ -139,7 +124,6 @@ my @trial_profiler_metrics = (
       'field' => 'bps',
       'class' => 'throughput',
       'type' => 'tx-bps',
-      'name_format' => '',
       'extra_field' => '',
       'cumulative' => 0 },
 
@@ -147,8 +131,7 @@ my @trial_profiler_metrics = (
       'subkey' => 'rx',
       'field' => 'drop_bps',
       'class' => 'throughput',
-      'type' => 'dropped-rx-bps',
-      'name_format' => '',
+      'type' => 'rx-drop-bps',
       'extra_field' => '',
       'cumulative' => 0 },
 
@@ -156,8 +139,7 @@ my @trial_profiler_metrics = (
       'subkey' => 'misc',
       'field' => 'cpu_util',
       'class' => 'count',
-      'type' => 'tx-cores-cpu-util',
-      'name_format' => '',
+      'type' => 'tx-cpu-util',
       'extra_field' => '',
       'cumulative' => 0 },
 
@@ -165,8 +147,7 @@ my @trial_profiler_metrics = (
       'subkey' => 'rx',
       'field' => 'cpu_util',
       'class' => 'count',
-      'type' => 'rx-core-cpu-util',
-      'name_format' => '',
+      'type' => 'rx-cpu-util',
       'extra_field' => '',
       'cumulative' => 0 },
 
@@ -175,16 +156,14 @@ my @trial_profiler_metrics = (
       'field' => 'bw_per_core',
       'class' => 'throughput',
       'type' => 'per-core-Gbps',
-      'name_format' => '',
       'extra_field' => '',
       'cumulative' => 0 },
 
     { 'key' => 'global',
       'subkey' => 'misc',
       'field' => 'queue_full',
-      'class' => 'count',
-      'type' => 'queue-full-events',
-      'name_format' => '',
+      'class' => 'throughput',
+      'type' => 'queue-full-per-second',
       'extra_field' => '',
       'cumulative' => 1 },
 
@@ -192,8 +171,7 @@ my @trial_profiler_metrics = (
       'subkey' => 'rx',
       'field' => 'pps',
       'class' => 'throughput',
-      'type' => 'rx-pps',
-      'name_format' => '%rx_port%',
+      'type' => 'port-rx-pps',
       'extra_field' => 'rx_port',
       'cumulative' => 0 },
 
@@ -201,8 +179,7 @@ my @trial_profiler_metrics = (
       'subkey' => 'tx',
       'field' => 'pps',
       'class' => 'throughput',
-      'type' => 'tx-pps',
-      'name_format' => '%tx_port%',
+      'type' => 'port-tx-pps',
       'extra_field' => 'tx_port',
       'cumulative' => 0 },
 
@@ -211,7 +188,6 @@ my @trial_profiler_metrics = (
       'field' => 'bps_l1',
       'class' => 'throughput',
       'type' => 'rx-l1-bps',
-      'name_format' => '%rx_port%',
       'extra_field' => 'rx_port',
       'cumulative' => 0 },
 
@@ -220,7 +196,6 @@ my @trial_profiler_metrics = (
       'field' => 'bps_l1',
       'class' => 'throughput',
       'type' => 'tx-l1-bps',
-      'name_format' => '%tx_port%',
       'extra_field' => 'tx_port',
       'cumulative' => 0 },
 
@@ -229,7 +204,6 @@ my @trial_profiler_metrics = (
       'field' => 'bps',
       'class' => 'throughput',
       'type' => 'rx-l2-bps',
-      'name_format' => '%rx_port%',
       'extra_field' => 'rx_port',
       'cumulative' => 0 },
 
@@ -238,7 +212,6 @@ my @trial_profiler_metrics = (
       'field' => 'bps',
       'class' => 'throughput',
       'type' => 'tx-l2-bps',
-      'name_format' => '%tx_port%',
       'extra_field' => 'tx_port',
       'cumulative' => 0 },
 
@@ -247,7 +220,6 @@ my @trial_profiler_metrics = (
       'field' => 'util',
       'class' => 'count',
       'type' => 'rx-port-util',
-      'name_format' => '%rx_port%',
       'extra_field' => 'rx_port',
       'cumulative' => 0 },
 
@@ -256,7 +228,6 @@ my @trial_profiler_metrics = (
       'field' => 'util',
       'class' => 'count',
       'type' => 'tx-port-util',
-      'name_format' => '%tx_port%',
       'extra_field' => 'tx_port',
       'cumulative' => 0 },
 
@@ -265,8 +236,7 @@ my @trial_profiler_metrics = (
       'field' => 'average',
       'class' => 'count',
       'type' => 'mean-round-trip-usec',
-      'name_format' => '%stream_id%',
-      'extra_field' => 'stream_id',
+      'extra_field' => 'stream',
       'cumulative' => 0 },
 
     { 'key' => 'pgids',
@@ -274,8 +244,7 @@ my @trial_profiler_metrics = (
       'field' => 'total_max',
       'class' => 'count',
       'type' => 'max-round-trip-usec',
-      'name_format' => '%stream_id%',
-      'extra_field' => 'stream_id',
+      'extra_field' => 'stream',
       'cumulative' => 0 },
 
     { 'key' => 'pgids',
@@ -283,73 +252,64 @@ my @trial_profiler_metrics = (
       'field' => 'total_min',
       'class' => 'count',
       'type' => 'min-round-trip-usec',
-      'name_format' => '%stream_id%',
-      'extra_field' => 'stream_id',
+      'extra_field' => 'stream',
       'cumulative' => 0 },
 
     { 'key' => 'pgids',
       'subkey' => 'latency',
       'field' => 'duplicate',
-      'class' => 'count',
-      'type' => 'duplicate-latency-packets',
-      'name_format' => '%stream_id%',
-      'extra_field' => 'stream_id',
-      'cumulative' => 0 },
+      'class' => 'throughput',
+      'type' => 'duplicate-latency-pps',
+      'extra_field' => 'stream',
+      'cumulative' => 1 },
 
     { 'key' => 'pgids',
       'subkey' => 'latency',
       'field' => 'dropped',
-      'class' => 'count',
-      'type' => 'dropped-latency-packets',
-      'name_format' => '%stream_id%',
-      'extra_field' => 'stream_id',
-      'cumulative' => 0 },
+      'class' => 'throughput',
+      'type' => 'dropped-latency-pps',
+      'extra_field' => 'stream',
+      'cumulative' => 1 },
 
     { 'key' => 'pgids',
       'subkey' => 'latency',
       'field' => 'out_of_order',
-      'class' => 'count',
-      'type' => 'out-of-order-latency-packets',
-      'name_format' => '%stream_id%',
-      'extra_field' => 'stream_id',
-      'cumulative' => 0 },
+      'class' => 'throughput',
+      'type' => 'out-of-order-latency-pps',
+      'extra_field' => 'stream',
+      'cumulative' => 1 },
 
     { 'key' => 'pgids',
       'subkey' => 'latency',
       'field' => 'seq_too_high',
-      'class' => 'count',
-      'type' => 'before-expected-latency-packets',
-      'name_format' => '%stream_id%',
-      'extra_field' => 'stream_id',
-      'cumulative' => 0 },
+      'class' => 'throughput',
+      'type' => 'before-expected-latency-pps',
+      'extra_field' => 'stream',
+      'cumulative' => 1 },
 
     { 'key' => 'pgids',
       'subkey' => 'latency',
       'field' => 'seq_too_low',
-      'class' => 'count',
-      'type' => 'after-expected-latency-packets',
-      'name_format' => '%stream_id%',
-      'extra_field' => 'stream_id',
-      'cumulative' => 0 },
+      'class' => 'throughput',
+      'type' => 'after-expected-latency-pps',
+      'extra_field' => 'stream',
+      'cumulative' => 1 },
 
     { 'key' => 'pgids',
       'subkey' => 'tx_pps',
-      'field' => 'stream_id',
+      'field' => 'stream',
       'class' => 'throughput',
-      'type' => 'tx-pps',
-      'name_format' => '%tx_port%%stream_id%',
+      'type' => 'stream-tx-pps',
       'extra_field' => 'tx_port',
       'cumulative' => 0 },
 
     { 'key' => 'pgids',
       'subkey' => 'rx_pps',
-      'field' => 'stream_id',
+      'field' => 'stream',
       'class' => 'throughput',
-      'type' => 'rx-pps',
-      'name_format' => '%rx_port%%stream_id%',
+      'type' => 'stream-rx-pps',
       'extra_field' => 'rx_port',
       'cumulative' => 0 },
-
     );
 
 if ($ENV{'RS_CS_LABEL'} =~ /^(client|server)-(\d+)$/) {
@@ -371,10 +331,11 @@ my $measurement_trial_index = -1;
 for (my $index=scalar(@{ $$bs_json_ref{'trials'} }) - 1; $index>=0; $index--) {
     my %trial = %{ $$bs_json_ref{'trials'}[$index] };
 
-    if (($trial{'trial_params'}{'trial_mode'} eq 'validation') &&
-	($trial{'result'} eq 'pass')) {
-	$measurement_trial_index = $index;
-	last;
+    if ($trial{'trial_params'}{'trial_mode'} eq 'validation') {
+        if (($trial{'result'} eq 'pass') || ($trial{'trial_params'}{'one_shot'} == 1)) {
+            $measurement_trial_index = $index;
+            last;
+        }
     }
 }
 if ($measurement_trial_index == -1) {
@@ -385,14 +346,23 @@ if ($measurement_trial_index == -1) {
 
 for (my $index=0; $index<scalar(@{ $$bs_json_ref{'trials'} }); $index++) {
     my %trial = %{ $$bs_json_ref{'trials'}[$index] };
+
+    printf "\nProcessing new period: Trial:%d Index:%d\n", $trial{'trial'}, $index;
+    #print Dumper \%trial;
+
     my $period_name = "trial-" . $trial{'trial'};
     if ($index == $measurement_trial_index) {
         # binary-search's "final-validation" gets the name "measurement" for this period
         $period_name = "measurement";
     }
+    printf "period_name:%s\n", $period_name;
+
     my %period = ('name' => $period_name);
     my $trial_end = int $trial{'stats'}{'trial_stop'};
     my $trial_begin = int $trial{'stats'}{'trial_start'};
+
+    printf "trial_begin:%s\n", $trial_begin;
+    printf "trial_end:%s\n", $trial_end;
 
     for my $trial_metric ( @trial_metrics ) {
         my $metric_type = $$trial_metric{'type'};
@@ -420,24 +390,229 @@ for (my $index=0; $index<scalar(@{ $$bs_json_ref{'trials'} }); $index++) {
                  'begin' => int $trial_begin,
                  'value' =>  $metric_value);
         log_sample($period_name, \%desc, \%names, \%s);
+    }
 
-        foreach my $dev_pair ( @{ $trial{'trial_params'}{'test_dev_pairs'} } ) {
-            for my $trial_stats_device_metric ( @trial_stats_device_metrics ) {
-                my $metric_type = $$trial_stats_device_metric{'type'};
-                my $metric_value;
-                my %metric_types;
-                my %desc = ('class' => $$trial_stats_device_metric{'class'},
-                            'source' => 'trafficgen',
-                            'type' => $metric_type);
-                my %s = ('end' => int $trial_end,
-                        'begin' => int $trial_begin,
-                        'value' =>  $trial{'stats'}{$$dev_pair{$$trial_stats_device_metric{'key'}}}{$$trial_stats_device_metric{'field'}});
-                my %names = ('tx_port' => $$dev_pair{'tx'}, 'rx_port' => $$dev_pair{'rx'}, 'port_pair' => $$dev_pair{'dev_pair'});
-                log_sample($period_name, \%desc, \%names, \%s);
+    foreach my $dev_pair ( @{ $trial{'trial_params'}{'test_dev_pairs'} } ) {
+        for my $trial_stats_device_metric ( @trial_stats_device_metrics ) {
+            #printf "processing field:%s value:%s\n",
+            #    $$trial_stats_device_metric{'field'},
+            #    $trial{'stats'}{$$dev_pair{$$trial_stats_device_metric{'key'}}}{$$trial_stats_device_metric{'field'}};
+            my %desc = ('class' => $$trial_stats_device_metric{'class'},
+                        'source' => 'trafficgen',
+                        'type' => $$trial_stats_device_metric{'type'});
+            my %sample = ('end' => int $trial_end,
+                          'begin' => int $trial_begin,
+                          'value' =>  $trial{'stats'}{$$dev_pair{$$trial_stats_device_metric{'key'}}}{$$trial_stats_device_metric{'field'}});
+            my %names = ('tx_port' => $$dev_pair{'tx'}, 'rx_port' => $$dev_pair{'rx'}, 'port_pair' => $$dev_pair{'dev_pair'});
+            log_sample($period_name, \%desc, \%names, \%sample);
+        }
+    }
+
+    if (exists($trial{'profiler-data'}) && defined($trial{'profiler-data'})) {
+        print "Found profiler data\n";
+
+        my $source = 'trafficgen-trex-profiler';
+
+        my %trex_ports;
+        my %trex_pgids;
+        my %trex_latency_pgids;
+
+        my $profiler_begin;
+        my $profiler_end;
+        foreach my $timestamp (sort { $a <=> $b } (keys %{ $trial{'profiler-data'} } ) ) {
+            #printf "timestamp=%s\n", $timestamp;
+
+            if (! defined($profiler_begin)) {
+                $profiler_begin = int $timestamp;
+            }
+            $profiler_end = int $timestamp;
+
+            foreach my $port (keys %{ $trial{'profiler-data'}{$timestamp}{'ports'}} ) {
+                #printf "found port=%s\n", $port;
+                if ($port =~ /total/) {
+                    next;
+                }
+                $trex_ports{$port} = 1;
+            }
+
+            foreach my $pgid (keys %{ $trial{'profiler-data'}{$timestamp}{'pgids'}} ) {
+                #printf "found pgid=%s\n", $pgid;
+                $trex_pgids{$pgid} = 1;
+
+                if (exists($trial{'profiler-data'}{$timestamp}{'pgids'}{$pgid}{'latency'})) {
+                    #printf "found latency pgid=%s\n", $pgid;
+                    $trex_latency_pgids{$pgid} = 1;
+                }
             }
         }
-        # Add other metric_types here
+
+        printf "profiler_begin:%s\n", $profiler_begin;
+        printf "profiler_end:%s\n", $profiler_end;
+
+        # fixup dropped latency packet counter -- sometimes a packet
+        # is presumed dropped but then it shows up later so the
+        # counter goes backwards -- this makes for some odd stats if
+        # not corrected; we fix this by scanning the stats in reverse
+        # order and if an earlier counter value is less than an later
+        # value we replace it with the later value
+        printf "Checking for dropped latency packet stats which need fixup:\n";
+        foreach my $pgid (sort { $a <=> $b } (keys %trex_latency_pgids)) {
+            my $later_value;
+            my $later_timestamp;
+            foreach my $timestamp (sort { $b <=> $a } (keys %{ $trial{'profiler-data'} } ) ) {
+                if (exists($trial{'profiler-data'}{$timestamp}{'pgids'}{$pgid}{'latency'}{'dropped'})) {
+                    if (defined($later_value)) {
+                        if ($later_value < $trial{'profiler-data'}{$timestamp}{'pgids'}{$pgid}{'latency'}{'dropped'}) {
+                            printf "pgid:%d | timestamp:%s value:%s | later_timestamp:%s later_value:%s\n",
+                                $pgid,
+                                $timestamp,
+                                $trial{'profiler-data'}{$timestamp}{'pgids'}{$pgid}{'latency'}{'dropped'},
+                                $later_timestamp,
+                                $later_value;
+
+                            $trial{'profiler-data'}{$timestamp}{'pgids'}{$pgid}{'latency'}{'dropped'} = $later_value;
+                        }
+                    }
+
+                    $later_value = $trial{'profiler-data'}{$timestamp}{'pgids'}{$pgid}{'latency'}{'dropped'};
+                    $later_timestamp = $timestamp;
+                }
+            }
+        }
+
+        for my $trial_profiler_metric ( @trial_profiler_metrics ) {
+            printf "metric: %s\n", $$trial_profiler_metric{'type'};
+
+            my $value;
+            if (($$trial_profiler_metric{'key'} eq 'tsdelta') || ($$trial_profiler_metric{'key'} eq 'global')) {
+                my $prev_timestamp;
+                foreach my $timestamp (sort { $a <=> $b } (keys %{ $trial{'profiler-data'} } ) ) {
+                    if (defined($prev_timestamp)) {
+                        $value = -1;
+
+                        if ($$trial_profiler_metric{'key'} eq 'tsdelta') {
+                            $value = $trial{'profiler-data'}{$timestamp}{$$trial_profiler_metric{'key'}};
+                        } elsif ($$trial_profiler_metric{'key'} eq 'global') {
+                            $value = $trial{'profiler-data'}{$timestamp}{$$trial_profiler_metric{'key'}}{$$trial_profiler_metric{'subkey'}}{$$trial_profiler_metric{'field'}};
+                            if ($$trial_profiler_metric{'cumulative'} && ($timestamp != $prev_timestamp)) {
+                                if (defined($trial{'profiler-data'}{$prev_timestamp}{$$trial_profiler_metric{'key'}}{$$trial_profiler_metric{'subkey'}}{$$trial_profiler_metric{'field'}})) {
+                                    $value -= $trial{'profiler-data'}{$prev_timestamp}{$$trial_profiler_metric{'key'}}{$$trial_profiler_metric{'subkey'}}{$$trial_profiler_metric{'field'}};
+
+                                    $value /= ($timestamp - $prev_timestamp);
+                                }
+                            }
+                        }
+
+                        my %desc = ('class' => $$trial_profiler_metric{'class'},
+                                    'source' => $source,
+                                    'type' => $$trial_profiler_metric{'type'});
+                        my %sample = ('end' => int $timestamp,
+                                      'begin' => int $prev_timestamp,
+                                      'value' => $value);
+                        my %names = ();
+                        log_sample($period_name, \%desc, \%names, \%sample);
+                    }
+
+                    $prev_timestamp = $timestamp;
+                }
+            } elsif ($$trial_profiler_metric{'key'} eq 'ports') {
+                foreach my $port (sort { $a <=> $b } (keys %trex_ports)) {
+                    my $prev_timestamp;
+                    foreach my $timestamp (sort { $a <=> $b } (keys %{ $trial{'profiler-data'} } ) ) {
+                        if (defined($prev_timestamp)) {
+                            $value = -1;
+
+                            $value = $trial{'profiler-data'}{$timestamp}{$$trial_profiler_metric{'key'}}{$port}{$$trial_profiler_metric{'subkey'}}{$$trial_profiler_metric{'field'}};
+                            if ($$trial_profiler_metric{'cumulative'} && ($timestamp != $prev_timestamp)) {
+                                if (defined($trial{'profiler-data'}{$prev_timestamp}{$$trial_profiler_metric{'key'}}{$port}{$$trial_profiler_metric{'subkey'}}{$$trial_profiler_metric{'field'}})) {
+                                    $value -= $trial{'profiler-data'}{$prev_timestamp}{$$trial_profiler_metric{'key'}}{$port}{$$trial_profiler_metric{'subkey'}}{$$trial_profiler_metric{'field'}};
+
+                                    $value /= ($timestamp - $prev_timestamp);
+                                }
+                            }
+
+                            my %desc = ('class' => $$trial_profiler_metric{'class'},
+                                        'source' => $source,
+                                        'type' => $$trial_profiler_metric{'type'});
+                            my %sample = ('end' => int $timestamp,
+                                          'begin' => int $prev_timestamp,
+                                          'value' => $value);
+                            my %names = ($$trial_profiler_metric{'extra_field'} => $port);
+                            log_sample($period_name, \%desc, \%names, \%sample);
+                        }
+
+                        $prev_timestamp = $timestamp;
+                    }
+                }
+            } elsif (($$trial_profiler_metric{'key'} eq 'pgids') && ($$trial_profiler_metric{'subkey'} eq 'latency')) {
+                foreach my $pgid (sort { $a <=> $b } (keys %trex_latency_pgids)) {
+                    my $prev_timestamp;
+                    foreach my $timestamp (sort { $a <=> $b }  (keys %{ $trial{'profiler-data'} } ) ) {
+                        if (defined($prev_timestamp)) {
+                            $value = 0;
+                            if (exists($trial{'profiler-data'}{$timestamp}{$$trial_profiler_metric{'key'}}{$pgid}{$$trial_profiler_metric{'subkey'}}{$$trial_profiler_metric{'field'}})) {
+                                $value = $trial{'profiler-data'}{$timestamp}{$$trial_profiler_metric{'key'}}{$pgid}{$$trial_profiler_metric{'subkey'}}{$$trial_profiler_metric{'field'}};
+
+                                if ($$trial_profiler_metric{'cumulative'} &&
+                                    ($timestamp != $prev_timestamp) &&
+                                    exists($trial{'profiler-data'}{$prev_timestamp}{$$trial_profiler_metric{'key'}}{$pgid}{$$trial_profiler_metric{'subkey'}}{$$trial_profiler_metric{'field'}})) {
+                                    $value -= $trial{'profiler-data'}{$prev_timestamp}{$$trial_profiler_metric{'key'}}{$pgid}{$$trial_profiler_metric{'subkey'}}{$$trial_profiler_metric{'field'}};
+
+                                    $value /= ($timestamp - $prev_timestamp);
+                                }
+                            }
+
+                            my %desc = ('class' => $$trial_profiler_metric{'class'},
+                                        'source' => $source,
+                                        'type' => $$trial_profiler_metric{'type'});
+                            my %sample = ('end' => int $timestamp,
+                                          'begin' => int $prev_timestamp,
+                                          'value' => $value);
+                            my %names = ($$trial_profiler_metric{'extra_field'} => $pgid);
+                            log_sample($period_name, \%desc, \%names, \%sample);
+                        }
+
+                        $prev_timestamp = $timestamp;
+                    }
+                }
+            } elsif ($$trial_profiler_metric{'key'} eq 'pgids') {
+                foreach my $pgid (sort { $a <=> $b } (keys %trex_pgids)) {
+                    foreach my $port (sort { $a <=> $b } (keys %trex_ports)) {
+                        my $prev_timestamp;
+                        foreach my $timestamp (sort { $a <=> $b } (keys %{ $trial{'profiler-data'} } ) ) {
+                            if (defined($prev_timestamp)) {
+                                $value = 0;
+                                if (exists($trial{'profiler-data'}{$timestamp}{$$trial_profiler_metric{'key'}}{$pgid}{$$trial_profiler_metric{'subkey'}}{$port})) {
+                                    $value = $trial{'profiler-data'}{$timestamp}{$$trial_profiler_metric{'key'}}{$pgid}{$$trial_profiler_metric{'subkey'}}{$port};
+
+                                    if ($$trial_profiler_metric{'cumulative'} &&
+                                        ($timestamp != $prev_timestamp) &&
+                                        exists($trial{'profiler-data'}{$prev_timestamp}{$$trial_profiler_metric{'key'}}{$pgid}{$$trial_profiler_metric{'subkey'}}{$port})) {
+                                        $value -= $trial{'profiler-data'}{$prev_timestamp}{$$trial_profiler_metric{'key'}}{$pgid}{$$trial_profiler_metric{'subkey'}}{$port};
+
+                                        $value /= ($timestamp - $prev_timestamp);
+                                    }
+                                }
+
+                                my %desc = ('class' => $$trial_profiler_metric{'class'},
+                                            'source' => $source,
+                                            'type' => $$trial_profiler_metric{'type'});
+                                my %sample = ('end' => int $timestamp,
+                                              'begin' => int $prev_timestamp,
+                                              'value' => $value);
+                                my %names = ($$trial_profiler_metric{'field'} => $pgid,
+                                             $$trial_profiler_metric{'extra_field'} => $port);
+                                log_sample($period_name, \%desc, \%names, \%sample);
+                            }
+
+                            $prev_timestamp = $timestamp;
+                        }
+                    }
+                }
+            }
+        }
     }
+
     my $metric_data_name = finish_samples(); # completes samples for this trial (period) with file name metric-data-$period_name.json.xz
     my @metric_files = ( $metric_data_name );
     $period{'metric-files'} = \@metric_files;
