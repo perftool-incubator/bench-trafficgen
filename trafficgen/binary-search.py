@@ -489,6 +489,12 @@ def process_options ():
                         help='Do not use promiscuous mode for interfaces (usually needed for virtual functions)',
                         action = 'store_true',
                         )
+    parser.add_argument('--result-output',
+                        dest='result_output',
+                        help='What type of result output to produce',
+                        default='device',
+                        choices = ['none', 'device']
+                        )
 
     t_global.args = parser.parse_args();
     if t_global.args.frame_size == "IMIX":
@@ -2132,6 +2138,7 @@ def main():
     setup_config_var('warmup_trial', t_global.args.warmup_trial, trial_params)
     setup_config_var('warmup_trial_runtime', t_global.args.warmup_trial_runtime, trial_params)
     setup_config_var('disable_upward_search', t_global.args.disable_upward_search, trial_params)
+    setup_config_var('result_output', t_global.args.result_output, trial_params)
 
     # set configuration from the argument parser
     if t_global.args.traffic_generator == "trex-txrx":
@@ -2594,22 +2601,25 @@ def main():
                              failed_stats.append(copy.deepcopy(trial_params['null_stats']))
                              port += 1
 
-                   bs_logger("RESULT:")
-                   print_stats(trial_params, failed_stats)
+                   if t_global.args.result_output == 'device':
+                        bs_logger("RESULT:")
+                        print_stats(trial_params, failed_stats)
+
                    return(1)
 
               if t_global.args.trial_gap:
                    bs_logger("Sleeping for %s seconds between trial attempts" % (commify(t_global.args.trial_gap)))
                    time.sleep(t_global.args.trial_gap)
 
-         bs_logger("RESULT:")
-         if prev_pass_rate[len(prev_pass_rate)-1] != 0: # show the stats for the most recent passing trial
-              print_stats(trial_params, passed_stats)
-         else:
-              if t_global.args.one_shot == 1:
-                   print_stats(trial_params, trial_stats)
+         if t_global.args.result_output == 'device':
+              bs_logger("RESULT:")
+              if prev_pass_rate[len(prev_pass_rate)-1] != 0: # show the stats for the most recent passing trial
+                   print_stats(trial_params, passed_stats)
               else:
-                   bs_logger("There is no trial which passed")
+                   if t_global.args.one_shot == 1:
+                        print_stats(trial_params, trial_stats)
+                   else:
+                        bs_logger("There is no trial which passed")
 
     finally:
          if trial_params['traffic_generator'] == 'trex-txrx-profile' and trial_params['enable_trex_profiler'] and len(trial_results['trials']):
