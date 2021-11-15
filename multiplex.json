@@ -1,6 +1,7 @@
 {
     "presets": {
 	"essentials": [
+	    { "arg": "result-output", "vals": [ "none" ] },
 	    { "arg": "process-all-profiler-data", "vals": [ "ON" ] }
 	]
     },
@@ -154,6 +155,11 @@
 	    "description": "types of teaching packets allowed",
 	    "args": [ "teaching-warmup-packet-type", "teaching-measurement-packet-type" ],
 	    "vals": [ "^(garp|icmp|generic)$" ]
+	},
+	"result_output_types": {
+	    "description": "types of result output allowed",
+	    "args": [ "result-output" ],
+	    "vals": [ "^(none|device)$" ]
 	}
     }
 }
