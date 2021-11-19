@@ -18,6 +18,7 @@ import copy
 import random
 import os
 import os.path
+import lzma
 # from decimal import *
 
 class t_global(object):
@@ -36,6 +37,21 @@ def bs_logger(msg, bso = True, prefix = ""):
                                        'bso':       bso,
                                        'prefix':    prefix })
      return(0)
+
+def file_open(filename, mode):
+     fp = None
+
+     if t_global.args.compress_files:
+          filename += ".xz"
+
+     path = "%s/%s" % (t_global.args.output_dir, filename)
+
+     if t_global.args.compress_files:
+          fp = lzma.open(path, mode + "t")
+     else:
+          fp = open(path, mode + "t")
+
+     return (filename, fp)
 
 def bs_logger_worker(log, thread_exit):
      while not thread_exit.is_set() or len(t_global.bs_logger_queue):
@@ -496,6 +512,12 @@ def process_options ():
                         choices = ['none', 'device']
                         )
 
+    parser.add_argument('--compress-files',
+                        dest='compress_files',
+                        help='Should the output files be compressed',
+                        action = 'store_true'
+                        )
+
     t_global.args = parser.parse_args();
     if t_global.args.frame_size == "IMIX":
          t_global.args.frame_size = "imix"
@@ -531,13 +553,11 @@ def handle_pre_trial_cmd_io(process, trial_params, exit_event):
      output_file = None
      close_file = False
      trial_params['pre_trial_cmd_output_file'] = "binary-search.trial-%03d.pre-trial-cmd.txt" % (trial_params['trial'])
-     filename = "%s/%s" % (trial_params['output_dir'], trial_params['pre_trial_cmd_output_file'])
      try:
-          output_file = open(filename, 'w')
+          (trial_params['pre_trial_cmd_output_file'], output_file) = file_open(trial_params['pre_trial_cmd_output_file'], "w")
           close_file = True
      except IOError:
           bs_logger("Could not open %s for writing" % (filename))
-          output_file = sys.stdout
 
      capture_output = True
      do_loop = True
@@ -551,7 +571,7 @@ def handle_pre_trial_cmd_io(process, trial_params, exit_event):
                     continue
                else:
                     if close_file:
-                         print(line.rstrip('\n'), file=output_file)
+                         output_file.write(line)
                     else:
                          bs_logger('Pre Trial CMD: %s' % (line.rstrip('\n')))
 
@@ -628,24 +648,20 @@ def handle_query_process_stderr(process, trial_params, port_info, exit_event):
      primary_output_file = None
      primary_close_file = False
      trial_params['port_primary_info_file'] = "binary-search.port-info.txt"
-     filename = "%s/%s" % (trial_params['output_dir'], trial_params['port_primary_info_file'])
      try:
-          primary_output_file = open(filename, 'w')
+          (trial_params['port_primary_info_file'], primary_output_file) = file_open(trial_params['port_primary_info_file'], "w")
           primary_close_file = True
      except IOError:
           bs_logger(error("Could not open %s for writing" % (filename)))
-          primary_output_file = sys.stdout
 
      secondary_output_file = None
      secondary_close_file = False
      trial_params['port_secondary_info_file'] = "binary-search.port-info.extra.txt"
-     filename = "%s/%s" % (trial_params['output_dir'], trial_params['port_secondary_info_file'])
      try:
-          secondary_output_file = open(filename, 'w')
+          (trial_params['port_secondary_info_file'], secondary_output_file) = file_open(trial_params['port_secondary_info_file'], "w")
           secondary_close_file = True
      except IOError:
           bs_logger(error("Could not open %s for writing" % (filename)))
-          secondary_output_file = sys.stdout
 
      capture_output = True
      do_loop = True
@@ -660,15 +676,18 @@ def handle_query_process_stderr(process, trial_params, port_info, exit_event):
 
                m = re.search(r"PARSABLE PORT INFO:\s+(.*)$", line)
                if m:
-                    print(line, file=secondary_output_file)
+                    if secondary_close_file:
+                         secondary_output_file.write(line)
+                    else:
+                         print(line.rstrip('\n'))
 
                     port_info['json'] = json.loads(m.group(1))
 
                     continue
 
+               bs_logger(line.rstrip('\n'), bso = False, prefix = "PQO")
                if primary_close_file:
-                    bs_logger(line.rstrip('\n'), bso = False, prefix = "PQO")
-               print(line.rstrip('\n'), file=primary_output_file)
+                    primary_output_file.write(line)
 
                if line.rstrip('\n') == "Connection severed":
                     capture_output = False
@@ -844,7 +863,7 @@ def run_trial (trial_params, port_info, stream_info, detailed_stats):
         if trial_params['enable_trex_profiler']:
              cmd = cmd + ' --enable-profiler'
              cmd = cmd + ' --profiler-interval=' + str(trial_params['trex_profiler_interval'])
-             trial_params['trial_profiler_file'] = "binary-search.trial-%03d.profiler.txt" % (trial_params['trial'])
+             trial_params['trial_profiler_file'] = "binary-search.trial-%03d.profiler.ndjson.xz" % (trial_params['trial'])
              cmd = cmd + ' --profiler-logfile=' + trial_params['output_dir'] + '/' + trial_params['trial_profiler_file']
         if not trial_params['enable_flow_cache']:
              cmd = cmd + ' --disable-flow-cache'
@@ -1064,13 +1083,11 @@ def handle_trial_process_latency_stdout(process, trial_params, stats, exit_event
     latency_output_file = None
     latency_close_file = False
     trial_params['trial_latency_output_file'] = "binary-search.trial-%03d.latency.output.txt" % (trial_params['trial'])
-    filename = "%s/%s" % (trial_params['output_dir'], trial_params['trial_latency_output_file'])
     try:
-         latency_output_file = open(filename, 'w')
+         (trial_params['trial_latency_output_file'], latency_output_file) = file_open(trial_params['trial_latency_output_file'], "w")
          latency_close_file = True
     except IOError:
          bs_logger(error("Could not open %s for writing" % (filename)))
-         latency_output_file = sys.stdout
 
     capture_output = True
     do_loop = True
@@ -1083,7 +1100,10 @@ def handle_trial_process_latency_stdout(process, trial_params, stats, exit_event
                    do_loop = False
                    continue
 
-              print(line.rstrip('\n'), file = latency_output_file)
+              if latency_close_file:
+                   latency_output_file.write(line)
+              else:
+                   print(line.rstrip('\n'))
 
     if latency_close_file:
          latency_output_file.close()
@@ -1096,13 +1116,11 @@ def handle_trial_process_latency_stderr(process, trial_params, stats, exit_event
     latency_debug_file = None
     latency_close_file = False
     trial_params['trial_latency_debug_file'] = "binary-search.trial-%03d.latency.debug.txt" % (trial_params['trial'])
-    filename = "%s/%s" % (trial_params['output_dir'], trial_params['trial_latency_debug_file'])
     try:
-         latency_debug_file = open(filename, 'w')
+         (trial_params['trial_latency_debug_file'], latency_debug_file) = file_open(trial_params['trial_latency_debug_file'], "w")
          latency_close_file = True
     except IOError:
          bs_logger(error("Could not open %s for writing" % (filename)))
-         latency_debug_file = sys.stdout
 
     capture_output = True
     do_loop = True
@@ -1116,7 +1134,9 @@ def handle_trial_process_latency_stderr(process, trial_params, stats, exit_event
                    continue
 
               if latency_close_file:
-                   print(line.rstrip('\n'), file = latency_debug_file)
+                   latency_debug_file.write(line)
+              else:
+                   print(line.rstrip('\n'))
 
               m = re.search(r"^\[BS\]\s(.*)$", line)
               if m:
@@ -1211,34 +1231,29 @@ def handle_trial_process_stderr(process, trial_params, stats, tmp_stats, streams
     primary_output_file = None
     primary_close_file = False
     trial_params['trial_primary_output_file'] = "binary-search.trial-%03d.txt" % (trial_params['trial'])
-    filename = "%s/%s" % (trial_params['output_dir'], trial_params['trial_primary_output_file'])
     try:
-         primary_output_file = open(filename, 'w')
+         (trial_params['trial_primary_output_file'], primary_output_file) = file_open(trial_params['trial_primary_output_file'], "w")
          primary_close_file = True
     except IOError:
          bs_logger(error("Could not open %s for writing" % (filename)))
-         primary_output_file = sys.stdout
 
     secondary_output_file = None
     secondary_close_file = False
     trial_params['trial_secondary_output_file'] = "binary-search.trial-%03d.extra.txt" % (trial_params['trial'])
-    filename = "%s/%s" % (trial_params['output_dir'], trial_params['trial_secondary_output_file'])
     try:
-         secondary_output_file = open(filename, 'w')
+         (trial_params['trial_secondary_output_file'], secondary_output_file) = file_open(trial_params['trial_secondary_output_file'], "w")
          secondary_close_file = True
     except IOError:
          bs_logger(error("Could not open %s for writing" % (filename)))
-         secondary_output_file = sys.stdout
 
     tertiary_output_file = None
     tertiary_close_file = False
     filename = "%s/binary-search.trial-%03d.json-port-profiles.txt" % (trial_params['output_dir'], trial_params['trial'])
     try:
-         tertiary_output_file = open(filename, 'w')
+         (filename, tertiary_output_file) = file_open(filename, "w")
          tertiary_close_file = True
     except IOError:
          bs_logger(error("Could not open %s for writing" % (filename)))
-         tertiary_output_file = sys.stdout
 
     capture_output = True
     do_loop = True
@@ -1257,13 +1272,20 @@ def handle_trial_process_stderr(process, trial_params, stats, tmp_stats, streams
                        dev_pair = m.group(1)
                        path = m.group(2)
                        json_data = json.loads(m.group(3))
-                       print("Device Pair %s | Direction '%s':" % (dev_pair, path), file=tertiary_output_file)
-                       print("%s\n" % (dump_json_readable(json_data)), file=tertiary_output_file)
+                       if tertiary_close_file:
+                            tertiary_output_file.write("Device Pair %s | Direction '%s':\n" % (dev_pair, path))
+                            tertiary_output_file.write("%s\n\n" % (dump_json_readable(json_data)))
+                       else:
+                            print("Device Pair %s | Direction '%s':" % (dev_pair, path))
+                            print("%s\n" % (dump_json_readable(json_data)))
                        continue
 
                   m = re.search(r"DEVICE PAIR ([0-9]+:[0-9]+) \| PARSABLE STREAMS FOR DIRECTION '([0-9]+[-><]{2}[0-9]+)':\s+(.*)$", line)
                   if m:
-                       print(line, file=secondary_output_file)
+                       if secondary_close_file:
+                            secondary_output_file.write(line)
+                       else:
+                            print(line.rstrip('\n'))
 
                        dev_pair = m.group(1)
                        path = m.group(2)
@@ -1278,7 +1300,10 @@ def handle_trial_process_stderr(process, trial_params, stats, tmp_stats, streams
              if trial_params['traffic_generator'] == 'trex-txrx':
                   m = re.search(r"PARSABLE RESULT:\s+(.*)$", line)
                   if m:
-                       print(line, file=secondary_output_file)
+                       if secondary_close_file:
+                            secondary_output_file.write(line)
+                       else:
+                            print(line.rstrip('\n'))
 
                        results = json.loads(m.group(1))
                        detailed_stats['stats'] = copy.deepcopy(results)
@@ -1466,7 +1491,10 @@ def handle_trial_process_stderr(process, trial_params, stats, tmp_stats, streams
              elif trial_params['traffic_generator'] == 'trex-txrx-profile':
                   m = re.search(r"PARSABLE RESULT:\s+(.*)$", line)
                   if m:
-                       print(line, file=secondary_output_file)
+                       if secondary_close_file:
+                            secondary_output_file.write(line)
+                       else:
+                            print(line.rstrip('\n'))
 
                        results = json.loads(m.group(1))
                        detailed_stats['stats'] = copy.deepcopy(results)
@@ -1627,7 +1655,10 @@ def handle_trial_process_stderr(process, trial_params, stats, tmp_stats, streams
 
                        continue
 
-             print(line.rstrip('\n'), file=primary_output_file)
+             if primary_close_file:
+                  primary_output_file.write(line)
+             else:
+                  print(line.rstrip('\n'))
 
     if primary_close_file:
          primary_output_file.close()
@@ -2105,12 +2136,11 @@ def main():
          return(1)
     else:
          # make sure that the output directory can be written to
-         perm_test_path = "%s/perm.test" % (trial_params['output_dir'])
          try:
-              perm_test_file = open(perm_test_path, 'w')
-              print("testing permissions", file=perm_test_file)
-              perm_test_file.close()
-              os.unlink(perm_test_path)
+              (fn, pt) = file_open("perm.test", "w")
+              pt.write("testing permissions")
+              pt.close()
+              os.unlink("%s/%s" % (trial_params['output_dir'], fn))
          except IOError:
               bs_logger(error("Permissions test to output directory '%s' failed" % (trial_params['output_dir'])))
               bs_logger_cleanup(bs_logger_exit, bs_logger_thread)
@@ -2139,6 +2169,7 @@ def main():
     setup_config_var('warmup_trial_runtime', t_global.args.warmup_trial_runtime, trial_params)
     setup_config_var('disable_upward_search', t_global.args.disable_upward_search, trial_params)
     setup_config_var('result_output', t_global.args.result_output, trial_params)
+    setup_config_var('compress_files', t_global.args.compress_files, trial_params)
 
     # set configuration from the argument parser
     if t_global.args.traffic_generator == "trex-txrx":
@@ -2647,32 +2678,13 @@ def main():
                    else:
                         bs_logger("\t%s" % (error("Could not open trial %d's profiler data file (%s) for processing because it does not exist" % (trial_results['trials'][trial_result_idx]['trial'], profiler_file))))
 
-              # compress the profiler data for all trials to save
-              # space (potentially a lot)
-              bs_logger("Compressing profiler data for all trials")
-              for trial_result in trial_results['trials']:
-                   output = ""
-                   profile_file = "%s/%s" % (trial_params['output_dir'], trial_result['profiler-logfile'])
-                   if os.path.isfile(profile_file):
-                        try:
-                             bs_logger("\tCompressing %s" % (trial_result['profiler-logfile']))
-                             output = subprocess.check_output(["xz", "-9", "--threads=0", "--verbose", profile_file], stderr=subprocess.STDOUT)
-                             bs_logger("\t\t%s" % (output.decode()))
-                        except subprocess.CalledProcessError as e:
-                             bs_logger("\tError compressing %s (return code = %d)" % (trial_result['profiler-logfile'], e.returncode))
-                             bs_logger(e.output)
-                   else:
-                        bs_logger(error("Could not compress profiler data file %s because it does not exist" % (profiler_file)))
-
-         trial_json_filename = "%s/binary-search.json" % (trial_params['output_dir'])
          try:
-              trial_json_file = open(trial_json_filename, 'w')
-
               # drain the log prior to writing out the file
               bs_logger_cleanup(bs_logger_exit, bs_logger_thread)
 
-              print(dump_json_readable(trial_results), file=trial_json_file)
-              trial_json_file.close()
+              (fn, fp) = file_open("binary-search.json", "w")
+              fp.write(dump_json_readable(trial_results))
+              fp.close()
          except IOError:
               bs_logger(error("Could not open %s for writing" % (trial_json_filename)))
               bs_logger("TRIALS:")
