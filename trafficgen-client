@@ -155,13 +155,13 @@ fi
 
 cmd="binary-search.py ${passthru_args[@]} --output-dir $sample_dir $device_pairs_opt"
 echo "About to run: $cmd"
-$cmd >$sample_dir/binary-search.txt 2>&1
-bs_rc=$?
+$cmd 2>&1 | xz > $sample_dir/binary-search.txt.xz
+bs_rc=${PIPESTATUS[0]}
 
 # output the search summary
 cmd="reporter.py --input ${sample_dir}/binary-search.json --type search-summary"
 echo "About to run: $cmd"
-$cmd > ${sample_dir}/binary-search.search-summary.txt 2>&1
+$cmd 2>&1 | xz > ${sample_dir}/binary-search.search-summary.txt.xz
 
 if [ "$endpoint" == "k8s" -a "$osruntime" == "pod" ]; then
     # Don't shutdown TRex, as we can't remove the hugepages in /dev/hugepages after
@@ -191,6 +191,6 @@ else
 fi
 
 if [ $bs_rc != 0 ]; then
-    error=`grep -E "ERROR" $sample_dir/binary-search.txt`
+    error=`xzgrep -E "ERROR" $sample_dir/binary-search.txt.xz`
     exit_error "binary-search.py failed:\n$error" 1 "$sample_dir"
 fi
