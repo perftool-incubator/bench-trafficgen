@@ -8,6 +8,7 @@
     {
       "name": "centos8",
       "requirements": [
+        "dev-tools",
         "trafficgen-os-dependencies",
         "pyyaml",
         "trex1",
@@ -17,6 +18,15 @@
   ],
   "requirements": [
     {
+      "name": "dev-tools",
+      "type": "distro",
+      "distro_info": {
+        "groups": [
+          "\"Development Tools\""
+        ]
+      }
+    },
+    {
       "name": "trafficgen-os-dependencies",
       "type": "distro",
       "distro_info": {
@@ -24,7 +34,11 @@
           "rdma-core-devel",
           "dpdk-tools",
           "net-tools",
-          "which"
+          "which",
+          "python39-devel",
+          "numactl-devel",
+          "cmake",
+          "libarchive"
         ]
       }
     },
@@ -45,7 +59,11 @@
         "files": [
           {
             "src": "%bench-dir%/trafficgen/install-trex.sh",
-            "dst": "/usr/local/bin"
+            "dst": "/usr/bin"
+          },
+          {
+            "src": "%bench-dir%/trafficgen/install-moongen.sh",
+            "dst": "/usr/bin"
           }
         ]
       }
@@ -55,7 +73,8 @@
       "type": "manual",
       "manual_info": {
         "commands": [
-          "/usr/local/bin/install-trex.sh --insecure"
+          "/usr/bin/install-trex.sh --insecure",
+          "/usr/bin/install-moongen.sh"
         ]
       }
     }
