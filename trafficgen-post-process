@@ -4,7 +4,6 @@
 
 use strict;
 use warnings;
-use JSON::XS;
 use Data::Dumper;
 use Getopt::Long;
 use File::Basename;
@@ -318,10 +317,15 @@ if ($ENV{'RS_CS_LABEL'} =~ /^(client|server)-(\d+)$/) {
     }
 };
 
-my $result_file = "binary-search.json";
+my $result_file = "binary-search.json.xz";
 if (! -f $result_file) {
     printf "Could not find file %s in directory %s\n", $result_file, `/bin/pwd`;
-    exit 1;
+
+    $result_file = "binary-search.json";
+    if (! -f $result_file) {
+        printf "Could not find file %s in directory %s\n", $result_file, `/bin/pwd`;
+        exit 1;
+    }
 }
 my $bs_json_ref = get_json_file($result_file);
 my %sample; # The primary structure in which this benchmark sample is documented
@@ -623,8 +627,8 @@ $sample{'rickshaw-bench-metric'}{'schema'}{'version'} = "2021.04.12";
 $sample{'periods'} = \@periods;
 $sample{'primary-period'} = 'measurement';
 $sample{'primary-metric'} = 'rx-pps';
-my $coder = JSON::XS->new;
-open(JSON_FH, ">post-process-data.json") ||
-    die("Could not open file post-process-data.json for writing\n");
-print JSON_FH $coder->encode(\%sample);
-close JSON_FH;
+
+my $ppd_json = "post-process-data.json.xz";
+if (put_json_file($ppd_json, \%sample)) {
+    die("Failed to write to " . $ppd_json . "\n");
+}

@@ -4,6 +4,7 @@ import sys
 sys.path.append('/opt/trex/current/automation/trex_control_plane/interactive')
 import json
 import traceback
+import lzma
 from trex.stl.api import *
 from collections import deque
 from tg_lib import *
@@ -657,7 +658,7 @@ def trex_profiler_logger (logfile, profiler_queue, thread_exit):
      profiler_logfile = None
 
      try:
-          profiler_logfile = open(logfile, 'w')
+          profiler_logfile = lzma.open(logfile, 'wt')
           profiler_logfile_close = True
 
      except IOError:
@@ -667,7 +668,8 @@ def trex_profiler_logger (logfile, profiler_queue, thread_exit):
      while not thread_exit.is_set() or len(profiler_queue):
           try:
                log_entry = profiler_queue.popleft()
-               print(dump_json_parsable(log_entry), end = '\n\n', file = profiler_logfile)
+               profiler_logfile.write(dump_json_parsable(log_entry))
+               profiler_logfile.write("\n\n")
           except IndexError:
                foo = None
 
@@ -789,7 +791,7 @@ def trex_profiler_build_stats_object (lists):
 
 def trex_profiler_postprocess_file (input_file):
     try:
-        fp = open(input_file, 'r')
+        fp = lzma.open(input_file, 'rt')
 
         lists = { 'pgids': [],
                   'timestamps': [],
