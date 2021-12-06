@@ -1248,7 +1248,7 @@ def handle_trial_process_stderr(process, trial_params, stats, tmp_stats, streams
 
     tertiary_output_file = None
     tertiary_close_file = False
-    filename = "%s/binary-search.trial-%03d.json-port-profiles.txt" % (trial_params['output_dir'], trial_params['trial'])
+    filename = "binary-search.trial-%03d.json-port-profiles.txt" % (trial_params['trial'])
     try:
          (filename, tertiary_output_file) = file_open(filename, "w")
          tertiary_close_file = True
