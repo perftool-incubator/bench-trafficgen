@@ -161,6 +161,11 @@
 	    "description": "types of result output allowed",
 	    "args": [ "result-output" ],
 	    "vals": [ "^(none|device)$" ]
+	},
+	"switch_types": {
+	    "description": "types of switches",
+	    "args": [ "switch-type" ],
+	    "vals": [ "^(null|testpmd)$" ]
 	}
     }
 }
