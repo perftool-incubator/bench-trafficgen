@@ -10,6 +10,7 @@
         "post-script": "%bench-dir%trafficgen-post-process"
     },
     "client": {
+        "client-server-ratio" : "1:N",
         "files-from-controller": [
             {
                 "src": "%run-dir%/trafficgen.profile",
