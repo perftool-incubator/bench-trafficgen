@@ -209,11 +209,17 @@ def main():
                     with path.open() as fh:
                         if 'node' in pair:
                             node = int(fh.readline().rstrip())
+                            if node == -1:
+                                t_global.log.warning("Device %s has an invalid NUMA node [%s], assuming it should be 0" % (dev, node))
+                                node = 0
                             if pair['node'] != node:
                                 t_global.log.error("Device pair %s are not on the same NUMA node" % (pair['devs']))
                                 return(3)
                         else:
                             pair['node'] = int(fh.readline().rstrip())
+                            if pair['node'] == -1:
+                                t_global.log.warning("Device '%s' has an invalid NUMA node [%s], assuming it should be 0" % (dev, pair['node']))
+                                pair['node'] = 0
                 else:
                     t_global.log.error("Could not determine NUMA node for device %s" % (dev))
                     return(16)
