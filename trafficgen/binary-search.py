@@ -986,7 +986,7 @@ def run_trial (trial_params, port_info, stream_info, detailed_stats):
          latency_stdout_thread = threading.Thread(target = handle_trial_process_latency_stdout, args = (latency_process, trial_params, stats, latency_stdout_exit_event))
          latency_stderr_thread = threading.Thread(target = handle_trial_process_latency_stderr, args = (latency_process, trial_params, stats, latency_stderr_exit_event))
 
-    stats['trial_start'] = time.time() * 1000
+    trial_start_time = time.time() * 1000
 
     tg_stdout_thread.start()
     tg_stderr_thread.start()
@@ -1026,7 +1026,7 @@ def run_trial (trial_params, port_info, stream_info, detailed_stats):
          latency_stdout_thread.join()
          latency_stderr_thread.join()
 
-    stats['trial_stop'] = time.time() * 1000
+    trial_stop_time = time.time() * 1000
 
     signal.signal(signal.SIGINT, previous_sig_handler)
 
@@ -1042,6 +1042,18 @@ def run_trial (trial_params, port_info, stream_info, detailed_stats):
          child_go_sem.close()
     else:
          stats['retval'] = tg_retval
+
+    if not 'trial_start' in stats:
+         bs_logger("Binary search is setting trial start time")
+         stats['trial_start'] = trial_start_time
+    else:
+         bs_logger("Traffic generator set trial start time")
+
+    if not 'trial_stop' in stats:
+         bs_logger("Binary search is setting trial stop time")
+         stats['trial_stop'] = trial_stop_time
+    else:
+         bs_logger("Traffic generator set trial stop time")
 
     if latency_cmd != '':
          # fixup the directional stats to include the latency stats since they come from different places
@@ -1310,6 +1322,10 @@ def handle_trial_process_stderr(process, trial_params, stats, tmp_stats, streams
 
                        stats['global'] = dict()
 
+                       if 'trial_start' in results:
+                            stats['trial_start'] = results['trial_start']
+                       if 'trial_stop' in results:
+                            stats['trial_stop'] = results['trial_stop']
                        stats['global']['runtime'] = results['global']['runtime']
                        stats['global']['timeout'] = results['global']['timeout']
                        stats['global']['early_exit'] = results['global']['early_exit']
@@ -1501,6 +1517,10 @@ def handle_trial_process_stderr(process, trial_params, stats, tmp_stats, streams
 
                        stats['global'] = dict()
 
+                       if 'trial_start' in results:
+                            stats['trial_start'] = results['trial_start']
+                       if 'trial_stop' in results:
+                            stats['trial_stop'] = results['trial_stop']
                        stats['global']['runtime'] = results['global']['runtime']
                        stats['global']['timeout'] = results['global']['timeout']
                        stats['global']['early_exit'] = results['global']['early_exit']
@@ -2667,12 +2687,6 @@ def main():
                         bs_logger("\tProcessing profiler data for trial %d from %s" % (trial_results['trials'][trial_result_idx]['trial'], profile_file))
 
                         trial_results['trials'][trial_result_idx]['profiler-data'] = trex_profiler_postprocess_file(profile_file)
-
-                        # since we have profiler data for this trial, update the trial start/stop timestamps
-                        # with the first and last values from the profiler which should be more accurate
-                        timestamps = sorted(trial_results['trials'][trial_result_idx]['profiler-data'])
-                        trial_results['trials'][trial_result_idx]['trial_start'] = timestamps[0]
-                        trial_results['trials'][trial_result_idx]['trial_stop']  = timestamps[len(timestamps) - 1]
 
                         bs_logger("\t\tProfiler data processing complete")
                    else:

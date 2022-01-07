@@ -1252,6 +1252,8 @@ def main():
              segment_monitor_thread.join()
 
         stats = c.get_stats(sync_now = True)
+        stats["trial_start"] = start_time.timestamp() * 1000
+        stats["trial_stop"] = stop_time.timestamp() * 1000
         stats["global"]["runtime"] = total_time.total_seconds()
         stats["global"]["timeout"] = timeout
         stats["global"]["force_quit"] = force_quit
