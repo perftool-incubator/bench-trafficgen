@@ -6,7 +6,7 @@
   },
   "userenvs": [
     {
-      "name": "centos8",
+      "name": "alma8",
       "requirements": [
         "dev-tools",
         "trafficgen-os-dependencies",
