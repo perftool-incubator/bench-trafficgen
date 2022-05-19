@@ -12,7 +12,8 @@
         "trafficgen-os-dependencies",
         "pyyaml",
         "trex1",
-        "trex2"
+        "trex2",
+        "alternatives"
       ]
     }
   ],
@@ -75,6 +76,15 @@
         "commands": [
           "/usr/bin/install-trex.sh --insecure",
           "/usr/bin/install-moongen.sh"
+        ]
+      }
+    },
+    {
+      "name": "alternatives",
+      "type": "manual",
+      "manual_info": {
+        "commands": [
+          "alternatives --set python3 /usr/bin/python3.9"
         ]
       }
     }
