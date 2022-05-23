@@ -6,6 +6,7 @@ import json
 import argparse
 import datetime
 import re
+import lzma
 from tg_lib import *
 
 
@@ -103,12 +104,28 @@ def generate_report(input_json):
 def main():
     process_options()
 
+    file_processed = False
+
     try:
         input_fp = open(t_global.args.input, 'r')
         input_json = json.load(input_fp)
         input_fp.close()
+        file_processed = True
 
     except:
+        pass
+
+    if not file_processed:
+        try:
+             input_fp = lzma.open(t_global.args.input, 'r')
+             input_json = json.load(input_fp)
+             input_fp.close()
+             file_processed = True
+
+        except:
+             pass
+
+    if not file_processed:
         print(error("Couldn't load input file %s" % (t_global.args.input)))
         return(1)
 

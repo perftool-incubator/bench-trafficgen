@@ -159,7 +159,7 @@ $cmd 2>&1 | xz > $sample_dir/binary-search.txt.xz
 bs_rc=${PIPESTATUS[0]}
 
 # output the search summary
-cmd="reporter.py --input ${sample_dir}/binary-search.json --type search-summary"
+cmd="reporter.py --input ${sample_dir}/binary-search.json.xz --type search-summary"
 echo "About to run: $cmd"
 $cmd 2>&1 | xz > ${sample_dir}/binary-search.search-summary.txt.xz
 

@@ -48,15 +48,24 @@ if pushd ${tg_dir} > /dev/null; then
         echo "MoonGen already installed"
     else
         # install distro moongen dependencies
-        if which pip3 > /dev/null; then
-            if ! pip3 install --user posix_ipc; then
-                echo "ERROR: Failed to install posix_ipc via pip3"
-                exit 1
+	posix_ipc_installed=0
+	for pip_version in pip3.9 pip3; do
+            if command -v ${pip_version} > /dev/null; then
+		if ! ${pip_version} install --user posix_ipc; then
+                    echo "ERROR: Failed to install posix_ipc via ${pip_version}"
+                    exit 1
+		else
+		    posix_ipc_installed=1
+		    break
+		fi
+	    else
+		echo "WARNING: ${pip_version} not found"
             fi
-        else
-            echo "ERROR: Please install pip3.  It is required to install a moongen dependency."
-            exit 1
-        fi
+	done
+	if [ "${posix_ipc_installed}" == "0" ]; then
+	    echo "ERROR: Could not install posix_ipc"
+	    exit 1
+	fi
 
         if [ -d ${moongen_dir} ]; then
              /bin/rm -Rf ${moongen_dir}
