@@ -200,6 +200,7 @@ if [ "$switch_type" == "testpmd" ]; then
     testpmd_output="trafficgen-testpmd-stderrout.txt"
     testpmd_bin=$( command -v dpdk-testpmd || command -v testpmd )
     testpmd_opts=" --lcores ${testpmd_cpus}"
+    testpmd_opts+=" --file-prefix ${cs_label}"
     testpmd_opts+=" --socket-mem ${testpmd_mem}"
     testpmd_opts+=" --huge-dir /dev/hugepages $testpmd_dev_opt"
     testpmd_opts+=" -v"
