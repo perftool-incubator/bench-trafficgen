@@ -73,75 +73,81 @@ if pgrep $trex_bin; then
     echo "TRex launched from previous test" | tee $sample_dir/trex-server-running.txt
 else
     echo "Starting TRex service"
-    if [ -z "$cpus" ]; then
-        # User did not specify CPUs, so use what's available
-        # If this is run on a bare-metal host set up with
-        # cpu-partitioning, this is not going to work.  The
-        # user needs to specify what CPUs to use for TRex.
-        cpus=${WORKLOAD_CPUS}
-        if [ -z "$cpus" ]; then
-            exit_error "CPUs for TRex have not been defined.  Either --cpus was not used, or WORKLOAD_CPUS was not defined (cpu-partitioning endpoint-option was not used)" 1 "$sample_dir"
-        fi
-    fi
-    cpus_expanded="`expand_number_list $cpus`"
-    cpus_separated="`separate_comma_list $cpus_expanded`"
-    echo
-    echo "TRex cpus: $cpus_separated"
 
     trex_dir=/opt/trex/current
-
     pushd $trex_dir
-    interface_state_cmd="./dpdk_setup_ports.py -t"
-    echo "interface status: $interface_state_cmd"
-    ${interface_state_cmd}
-    echo; echo
-    echo "Resolving devices for trex based on devices [$devices]"
-    trex_dev_opt=""
-    for dev in `echo $devices | sed -e 's/,/ /g'`; do
-        res_dev=""
-        resolve_device res_dev $dev
-        trex_dev_opt+=" $res_dev"
-    done
-    if [ -z "$trex_dev_opt" ]; then
-        exit_error "TRex devices could not be found" 1 "$sample_dir"
-    fi
-    # Infra script does not need to use "active" devices, but
-    # we might as well validate it now.
-    echo "Resolving *active* devices for trex based on [$active_devices]"
-    trex_active_dev_opt=""
-    position=1
-    for dev in `echo $active_devices | sed -e 's/,/ /g'`; do
-        res_dev=""
-        resolve_device res_dev $dev $position
-        trex_active_dev_opt+=" $res_dev"
-    done
-    if [ -z "$trex_active_dev_opt" ]; then
-        exit_error "TRex active devices could not be found" 1 "$sample_dir"
+
+    if [ ! -e ${trex_cfg} -o ! -s ${trex_cfg} ]; then
+	if [ -z "$cpus" ]; then
+            # User did not specify CPUs, so use what's available
+            # If this is run on a bare-metal host set up with
+            # cpu-partitioning, this is not going to work.  The
+            # user needs to specify what CPUs to use for TRex.
+            cpus=${WORKLOAD_CPUS}
+            if [ -z "$cpus" ]; then
+		exit_error "CPUs for TRex have not been defined.  Either --cpus was not used, or WORKLOAD_CPUS was not defined (cpu-partitioning endpoint-option was not used)" 1 "$sample_dir"
+            fi
+	fi
+	cpus_expanded="`expand_number_list $cpus`"
+	cpus_separated="`separate_comma_list $cpus_expanded`"
+	echo
+	echo "TRex cpus: $cpus_separated"
+
+	interface_state_cmd="./dpdk_setup_ports.py -t"
+	echo "interface status: $interface_state_cmd"
+	${interface_state_cmd}
+	echo; echo
+	echo "Resolving devices for trex based on devices [$devices]"
+	trex_dev_opt=""
+	for dev in `echo $devices | sed -e 's/,/ /g'`; do
+            res_dev=""
+            resolve_device res_dev $dev
+            trex_dev_opt+=" $res_dev"
+	done
+	if [ -z "$trex_dev_opt" ]; then
+            exit_error "TRex devices could not be found" 1 "$sample_dir"
+	fi
+	# Infra script does not need to use "active" devices, but
+	# we might as well validate it now.
+	echo "Resolving *active* devices for trex based on [$active_devices]"
+	trex_active_dev_opt=""
+	position=1
+	for dev in `echo $active_devices | sed -e 's/,/ /g'`; do
+            res_dev=""
+            resolve_device res_dev $dev $position
+            trex_active_dev_opt+=" $res_dev"
+	done
+	if [ -z "$trex_active_dev_opt" ]; then
+            exit_error "TRex active devices could not be found" 1 "$sample_dir"
+	fi
+
+	echo
+	trex_dumppci_cmd="./dpdk_setup_ports.py --dump-pci-description"
+	echo "getting pci configuration with: $trex_dumppci_cmd"
+	$trex_dumppci_cmd
+	echo; echo
+	if [ -z "$(command -v gen-trex-cfg.py)" ]; then
+            exit_error "gen-trex-cfg.py is missing" 1 "$sample_dir"
+	fi
+	trex_config_cmd="gen-trex-cfg.py --output-file ${trex_cfg} --memory-limit ${mem_limit}"
+	for trex_dev in ${trex_dev_opt}; do
+            trex_config_cmd+=" --device ${trex_dev}"
+	done
+	for trex_cpu in ${cpus_separated}; do
+            trex_config_cmd+=" --cpu ${trex_cpu}"
+	done
+	echo "configuring trex with: ${trex_config_cmd}"
+	${trex_config_cmd}
+	if [ ! -e ${trex_cfg} ]; then
+	    exit_error "${trex_cfg} not found, gen-trex-cfg.py probably failed" 1 "$sample_dir"
+	fi
+	echo "ls -l $trex_cfg"
+	/bin/ls -l $trex_cfg
+	echo
+    else
+	echo "using imported trex config file"
     fi
 
-    echo
-    trex_dumppci_cmd="./dpdk_setup_ports.py --dump-pci-description"
-    echo "getting pci configuration with: $trex_dumppci_cmd"
-    $trex_dumppci_cmd
-    echo; echo
-    if [ -z "$(command -v gen-trex-cfg.py)" ]; then
-        exit_error "gen-trex-cfg.py is missing" 1 "$sample_dir"
-    fi
-    trex_config_cmd="gen-trex-cfg.py --output-file ${trex_cfg} --memory-limit ${mem_limit}"
-    for trex_dev in ${trex_dev_opt}; do
-        trex_config_cmd+=" --device ${trex_dev}"
-    done
-    for trex_cpu in ${cpus_separated}; do
-        trex_config_cmd+=" --cpu ${trex_cpu}"
-    done
-    echo "configuring trex with: ${trex_config_cmd}"
-    ${trex_config_cmd}
-    if [ ! -e ${trex_cfg} ]; then
-	exit_error "${trex_cfg} not found, gen-trex-cfg.py probably failed" 1 "$sample_dir"
-    fi
-    echo "ls -l $trex_cfg"
-    /bin/ls -l $trex_cfg
-    echo
     echo "trex config file:"
     cat $trex_cfg
     echo

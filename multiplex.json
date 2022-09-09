@@ -49,7 +49,7 @@
 	"string": {
 	    "description": "any string value",
 	    "args": [ "output-dir", "traffic-profile", "pre-trial-cmd", "warmup-traffic-profile",
-		      "trex-host", "testpmd-devopt" ],
+		      "trex-host", "testpmd-devopt", "trex-config" ],
 	    "vals": [ "^.+$" ]
 	},
 	"nonzero_positive_integer": {
