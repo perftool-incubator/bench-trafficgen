@@ -14,11 +14,13 @@
         "files-from-controller": [
             {
                 "src": "%run-dir%/trex_cfg.yaml",
-                "dest": "."
+                "dest": ".",
+                "required": false
             },
             {
                 "src": "%run-dir%/trafficgen.profile",
-                "dest": "."
+                "dest": ".",
+                "required": false
             },
             {
                 "src": "%bench-dir%/trafficgen-base",

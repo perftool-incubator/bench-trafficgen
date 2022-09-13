@@ -90,7 +90,7 @@ else
     trex_dir=/opt/trex/current
     pushd $trex_dir
 
-    if [ ! -e ${trex_cfg} -o ! -s ${trex_cfg} ]; then
+    if [ ! -e ${trex_cfg} ]; then
 	if [ -z "$cpus" ]; then
             # User did not specify CPUs, so use what's available
             # If this is run on a bare-metal host set up with

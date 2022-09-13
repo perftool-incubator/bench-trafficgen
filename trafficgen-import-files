@@ -30,9 +30,6 @@ done
 
 if [ -z "${trex_config}" ]; then
     echo "No trex config to import detected"
-    
-    # create an empty traffic profile file to satisfy the rickshaw.json client file copy
-    touch ${dest_trex_config_path}
 fi
 
 if [ -z "${traffic_profile}" ]; then
@@ -42,9 +39,6 @@ if [ -z "${traffic_profile}" ]; then
     fi
 
     echo "No traffic profile to import detected"
-
-    # create an empty traffic profile file to satisfy the rickshaw.json client file copy
-    echo "unused/blank trafficgen profile" > ${dest_traffic_profile_path}
 else
     if [ "${traffic_generator}" == "trex-txrx" ]; then
         echo "ERROR: You supplied a traffic profile (--traffic-profile=${traffic_profile}) while using --traffic-generator=trex-txrx.  This does not make sense."
