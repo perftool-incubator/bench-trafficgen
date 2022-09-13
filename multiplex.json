@@ -22,7 +22,7 @@
 	},
 	"trex_on_off_toggles": {
 	    "description": "trex options which are toggled with on/off values",
-	    "args": [ "trex-software-mode" ],
+	    "args": [ "trex-software-mode", "trex-mellanox-support" ],
 	    "vals": [ "^(on|off)$" ]
 	},
 	"testpmd_forward_mode": {

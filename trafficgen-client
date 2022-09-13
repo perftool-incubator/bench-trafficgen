@@ -35,7 +35,7 @@ while [ $# -gt 0 ]; do
             devices="$val"
             ;;
         # Skip options not intended for binary-search
-        --cpus|--mem-limit|--trex-software-mode)
+        --cpus|--mem-limit|--trex-software-mode|--trex-mellanox-support)
             ;;
         # All other options should be supported natively by binary-search
         *)

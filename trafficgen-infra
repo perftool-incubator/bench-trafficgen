@@ -21,12 +21,18 @@ one_shot="0"
 # TODO: Auto adjust limit based on actual requirement (which is probably number of interfaces)
 mem_limit=2048
 trex_software_mode="off"
+trex_mellanox_support="off"
 
-longopts="active-devices:,devices:,cpus:,mem-limit:,trex-software-mode:"
+longopts="active-devices:,devices:,cpus:,mem-limit:,trex-software-mode:,trex-mellanox-support:"
 opts=$(getopt -q -o "" --longoptions "$longopts" -- "$@");
 eval set -- "$opts";
 while true; do
     case "$1" in
+	--trex-mellanox-support)
+	    shift
+	    trex_mellanox_support=${1}
+	    shift
+	    ;;
 	--trex-software-mode)
 	    shift
 	    trex_software_mode=${1}
@@ -173,7 +179,21 @@ else
 	    ;;
     esac
 
-    trex_server_cmd="./$trex_bin ${trex_software_mode} -i --checksum-offload --cfg $trex_cfg --iom 0 -v 4 --prefix trafficgen_trex_ --mlx5-so --close-at-end"
+    case "${trex_mellanox_support}" in
+	"on")
+	    echo "enabling trex mellanox support"
+	    trex_mellanox_support="--mlx5-so"
+	    ;;
+	"off")
+	    echo "not enabling trex mellanox support"
+	    trex_mellanox_support=""
+	    ;;
+	*)
+	    exit_error "invalid parameter value '${trex_mellanox_support}' for --trex-mellanox-support" 1 "${sample_dir}"
+	    ;;
+    esac
+
+    trex_server_cmd="./$trex_bin ${trex_software_mode} -i --checksum-offload --cfg $trex_cfg --iom 0 -v 4 --prefix trafficgen_trex_ ${trex_mellanox_support} --close-at-end"
     echo "about to run: $trex_server_cmd"
     $trex_server_cmd >$sample_dir/trex-server-stderrout.txt 2>&1 &
     echo $! >$sample_dir/trex-server-pid.txt
