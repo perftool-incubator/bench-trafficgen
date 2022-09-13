@@ -20,6 +20,11 @@
 	    "args": [ "cpus" ],
 	    "vals": [ "^(([0-9]+-[0-9]+)|[0-9]+)(,([0-9]+-[0-9]+|[0-9]+))*$" ]
 	},
+	"trex_on_off_toggles": {
+	    "description": "trex options which are toggled with on/off values",
+	    "args": [ "trex-software-mode" ],
+	    "vals": [ "^(on|off)$" ]
+	},
 	"testpmd_forward_mode": {
 	    "description": "supported testpmd forwarding modes",
 	    "args": [ "testpmd-forward-mode" ],

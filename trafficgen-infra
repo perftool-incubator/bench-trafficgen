@@ -20,11 +20,18 @@ rate_unit="%"
 one_shot="0"
 # TODO: Auto adjust limit based on actual requirement (which is probably number of interfaces)
 mem_limit=2048
-longopts="active-devices:,devices:,cpus:,mem-limit:"
+trex_software_mode="off"
+
+longopts="active-devices:,devices:,cpus:,mem-limit:,trex-software-mode:"
 opts=$(getopt -q -o "" --longoptions "$longopts" -- "$@");
 eval set -- "$opts";
 while true; do
     case "$1" in
+	--trex-software-mode)
+	    shift
+	    trex_software_mode=${1}
+	    shift
+	    ;;
         --active-devices)
             shift
             active_devices=$1
@@ -152,7 +159,21 @@ else
     cat $trex_cfg
     echo
 
-    trex_server_cmd="./$trex_bin -i --checksum-offload --cfg $trex_cfg --iom 0 -v 4 --prefix trafficgen_trex_ --mlx5-so --close-at-end"
+    case "${trex_software_mode}" in
+	"on")
+	    echo "explicitly enabling trex software mode"
+	    trex_software_mode="--software"
+	    ;;
+	"off")
+	    echo "not explicitly enabling trex software mode"
+	    trex_software_mode=""
+	    ;;
+	*)
+	    exit_error "invalid parameter value '${trex_software_mode}' for --trex-software-mode" 1 "${sample_dir}"
+	    ;;
+    esac
+
+    trex_server_cmd="./$trex_bin ${trex_software_mode} -i --checksum-offload --cfg $trex_cfg --iom 0 -v 4 --prefix trafficgen_trex_ --mlx5-so --close-at-end"
     echo "about to run: $trex_server_cmd"
     $trex_server_cmd >$sample_dir/trex-server-stderrout.txt 2>&1 &
     echo $! >$sample_dir/trex-server-pid.txt
