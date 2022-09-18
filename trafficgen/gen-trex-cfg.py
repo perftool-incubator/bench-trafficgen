@@ -137,7 +137,7 @@ def main():
     pair_idx = 1
     for dev in t_global.args.devices:
         # verify that the device exists (use lspci because we need some information from it anyway)
-        result = subprocess.run(['lspci', '-s', dev], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        result = subprocess.run(['lspci', '-mm', '-s', dev], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         if result.returncode == 0:
             if len(result.stdout.rstrip()) == 0:
                 t_global.log.error("You specified an invalid device [%s]" % (dev))
@@ -145,12 +145,27 @@ def main():
 
             t_global.log.debug("Device %s is a valid PCI device: %s" % (dev, result.stdout.decode('utf-8').rstrip()))
 
+            speed = None
+
             # figure out the speed of interface, if possible -- logic derived from TRex dpdk_setup_ports.py
             #
-            #81:00.0 Ethernet controller: Intel Corporation Ethernet Controller XXV710 for 25GbE SFP28 (rev 02)
+            #85:00.1 "Ethernet controller" "Intel Corporation" "Ethernet Controller XXV710 for 25GbE SFP28" -r02 "Intel Corporation" "Ethernet Network Adapter XXV710"
             m = re.search(r"([0-9]+)Gb", result.stdout.decode('utf-8'))
             if m:
                 speed = int(m.group(1))
+            else:
+                #82:00.0 "Ethernet controller" "Intel Corporation" "82599ES 10-Gigabit SFI/SFP+ Network Connection" -r01 "Intel Corporation" "Ethernet Server Adapter X520-2"
+                m = re.search(r"([0-9]+)-Gigabit", result.stdout.decode('utf-8'))
+                if m:
+                    speed = int(m.group(1))
+                else:
+                    #03:00.0 "Ethernet controller" "Intel Corporation" "Ethernet Connection X552/X557-AT 10GBASE-T" "Super Micro Computer Inc" "Device 15ad"
+                    #04:00.0 "Ethernet controller" "Intel Corporation" "Ethernet Controller X710/X557-AT 10GBASE-T" -r02 "Intel Corporation" "Ethernet Converged Network Adapter X710-T4"
+                    m = re.search(r"([0-9]+)GBASE", result.stdout.decode('utf-8'))
+                    if m:
+                        speed = int(m.group(1))
+
+            if speed is not None:
                 t_global.log.debug("Device %s has speed %dGb" % (dev, speed))
                 if t_global.cfg[0]['port_bandwidth_gb'] is None or speed < t_global.cfg[0]['port_bandwidth_gb']:
                     t_global.cfg[0]['port_bandwidth_gb'] = speed
