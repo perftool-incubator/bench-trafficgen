@@ -379,17 +379,15 @@ def main():
             t_global.log.error("You do not have enough CPUs for this device configuration!")
             return(8)
         else:
-            t_global.numa_nodes[node]['node_cpus_per_pair'] = node_cpus_per_pair
-            t_global.log.debug("Each device pair on NUMA node %d will have %d CPUs assigned to it" % (node, node_cpus_per_pair))
-
             if node_cpus_per_pair < t_global.cfg[0]['c']:
+                t_global.log.debug("Limiting CPUs per device pair to %d due to resources required on NUMA node %d" % (node_cpus_per_pair, node))
                 t_global.cfg[0]['c'] = node_cpus_per_pair
 
     t_global.log.debug("numa nodes: %s" % (t_global.numa_nodes))
 
     # allocate the cpus to the device pair(s)
     for pair in t_global.device_pairs:
-        for cpu_idx in range(t_global.numa_nodes[pair['node']]['node_cpus_per_pair']):
+        for cpu_idx in range(t_global.cfg[0]['c']):
             cpu = t_global.numa_nodes[pair['node']]['cpus'].pop()
             pair['cpus'].append(cpu)
             t_global.log.debug("Assigning CPU %d from NUMA node %d to device pair %s" % (cpu, pair['node'], '|'.join(pair['devs'])))
