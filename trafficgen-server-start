@@ -108,18 +108,34 @@ if [ "$switch_type" == "testpmd" ]; then
 
     # Build testpmd cmdline opts for device selection
     echo "Resolving devices for testpmd based on devices [$devices]"
-    testpmd_dev_opt=""
-    for dev in `echo $devices | sed -e 's/,/ /g'`; do
-        res_dev=""
-        resolve_device res_dev $dev
-        testpmd_dev_opt+=" --allow $res_dev"
-        if [ ! -z "$testpmd_devopt" ]; then
-            testpmd_dev_opt+=",$testpmd_devopt"
-        fi
-    done
-    if [ -z "$testpmd_dev_opt" ]; then
+    testpmd_devices=""
+    dev_1=$(echo "${devices}" | cut -d, -f 1)
+    dev_2=$(echo "${devices}" | cut -d, -f 2)
+    dev_3=$(echo "${devices}" | cut -d, -f 3-)
+    if [ -n "${dev_3}" ]; then
+        exit_error "Testpmd requires exactly 2 devices (not '${devices}'), exiting" 1 "$sample_dir"
+    fi
+    res_dev_1=""
+    resolve_device res_dev_1 "${dev_1}"
+    res_dev_2=""
+    resolve_device res_dev_2 "${dev_2}"
+    testpmd_devices+=" --allow ${res_dev_1}"
+    if [ -n "${testpmd_devopt}" ]; then
+        testpmd_devices+=",${testpmd_devopt}"
+    fi
+    testpmd_devices+=" --allow ${res_dev_2}"
+    if [ -n "${testpmd_devopt}" ]; then
+        testpmd_devices+=",${testpmd_devopt}"
+    fi
+    if [ -z "${testpmd_devices}" ]; then
         exit_error "Testpmd devices could not be found, exiting" 1 "$sample_dir"
     fi
+    res_dev_1_numa_node=$(cat "/sys/bus/pci/devices/${res_dev_1}/numa_node")
+    res_dev_2_numa_node=$(cat "/sys/bus/pci/devices/${res_dev_2}/numa_node")
+    echo "Device 1: ${res_dev_1}"
+    echo "Device 1 NUMA node: ${res_dev_1_numa_node}"
+    echo "Device 2: ${res_dev_2}"
+    echo "Device 2 NUMA node: ${res_dev_2_numa_node}"
 
     # figure out the CPUs to use
     if [ -z "${HK_CPUS}" ] ; then
@@ -144,11 +160,91 @@ if [ "$switch_type" == "testpmd" ]; then
     for cpu in $WORKLOAD_CPUS_SEPARATED; do
         cpu_str+=" --cpu $cpu"
     done
-    cmd="${TOOLBOX_HOME}/bin/get-cpus-ordered.py --smt ${testpmd_smt} --smt-enumeration ${testpmd_smt_mode} ${cpu_str}"
-    echo "about to run: ${cmd}"
-    CMD_OUTPUT=$(${cmd})
-    echo -e "${CMD_OUTPUT}"
-    WORKLOAD_CPUS_SEPARATED=$(echo -e "${CMD_OUTPUT}" | grep "final cpus:" | awk '{ print $3 }' | sed -e "s/,/ /g")
+    if [ "${res_dev_1_numa_node}" == "${res_dev_2_numa_node}" ]; then
+        cmd="${TOOLBOX_HOME}/bin/get-cpus-ordered.py --smt ${testpmd_smt} --smt-enumeration ${testpmd_smt_mode} --numa-node ${res_dev_1_numa_node} ${cpu_str}"
+        echo "about to run: ${cmd}"
+        CMD_OUTPUT=$(${cmd})
+        echo -e "${CMD_OUTPUT}"
+        WORKLOAD_CPUS_SEPARATED=$(echo -e "${CMD_OUTPUT}" | grep "final cpus:" | awk '{ print $3 }' | sed -e "s/,/ /g")
+    else
+        if [ "${testpmd_smt}" == "on" ]; then
+            exit_error "The usage of SMT is not supported when the PCI devices are located on different NUMA nodes, exiting" 1 "${sample_dir}"
+        fi
+
+        echo "Determining node local CPUs for each device:"
+
+        echo "Device 1:"
+        dev_1_cmd="${TOOLBOX_HOME}/bin/get-cpus-ordered.py --smt off --numa-node ${res_dev_1_numa_node} ${cpu_str}"
+        echo "about to run: ${dev_1_cmd}"
+        DEV_1_CMD_OUTPUT=$(${cmd})
+        echo -e "${DEV_1_CMD_OUTPUT}"
+        DEV_1_WORKLOAD_CPUS_SEPARATED=$(echo -e "${DEV_1_CMD_OUTPUT}" | grep "final cpus:" | awk '{ print $3 }' | sed -e "s/,/ /g")
+        DEV_1_WORKLOAD_CPUS_ARRAY=(${DEV_1_WORKLOAD_CPUS_SEPARATED})
+
+        echo "Device 2:"
+        dev_2_cmd="${TOOLBOX_HOME}/bin/get-cpus-ordered.py --smt off --numa-node ${res_dev_2_numa_node} ${cpu_str}"
+        echo "about to run: ${dev_2_cmd}"
+        DEV_2_CMD_OUTPUT=$(${cmd})
+        echo -e "${DEV_2_CMD_OUTPUT}"
+        DEV_2_WORKLOAD_CPUS_SEPARATED=$(echo -e "${DEV_2_CMD_OUTPUT}" | grep "final cpus:" | awk '{ print $3 }' | sed -e "s/,/ /g")
+        DEV_2_WORKLOAD_CPUS_ARRAY=(${DEV_2_WORKLOAD_CPUS_SEPARATED})
+
+        echo "Creating combined CPU list (should be alternating CPUs from each device -- per testpmd device/queue assignment):"
+        dev_1_counter=0
+        dev_1_end=0
+        dev_2_counter=0
+        dev_2_end=0
+        WORKLOAD_CPUS_SEPARATED=""
+        while [ ${dev_1_end} == 0 -o ${dev_2_end} == 0 ]; do
+            if [ ${dev_1_end} == 0 -a ${dev_1_counter} -lt ${#DEV_1_WORKLOAD_CPUS_ARRAY[@]} ]; then
+                cpu="${DEV_1_WORKLOAD_CPUS_ARRAY[${dev_1_counter}]}"
+                echo "Adding cpu ${cpu} from device 1"
+                WORKLOAD_CPUS_SEPARATED+=" ${cpu}"
+
+                (( dev_1_counter += 1 ))
+
+                if [ ${dev_1_counter} -ge ${#DEV_1_WORKLOAD_CPUS_ARRAY[@]} ]; then
+                    echo "Reached end of device 1 cpu list"
+                    dev_1_end=1
+                fi
+            fi
+
+            if [ ${dev_2_end} == 0 -a ${dev_2_counter} -lt ${#DEV_2_WORKLOAD_CPUS_ARRAY[@]} ]; then
+                cpu="${DEV_2_WORKLOAD_CPUS_ARRAY[${dev_2_counter}]}"
+                echo "Adding cpu ${cpu} from device 2"
+                WORKLOAD_CPUS_SEPARATED+=" ${cpu}"
+
+                (( dev_2_counter += 1 ))
+
+                if [ ${dev_2_counter} -ge ${#DEV_2_WORKLOAD_CPUS_ARRAY[@]} ]; then
+                    echo "Reached end of device 2 cpu list"
+                    dev_2_end=1
+                fi
+            fi
+        done
+        echo "WORKLOAD_CPUS_SEPARATED=${WORKLOAD_CPUS_SEPARATED}"
+    fi
+
+    echo "Trimming CPU list to match required length:"
+    # Number of Ports * Queues per Device
+    WORKLOAD_CPUS_REQUIRED=$(( 2*${testpmd_queues} ))
+    echo "WORKLOAD_CPUS_REQUIRED=${WORKLOAD_CPUS_REQUIRED}"
+    tmp_list="${WORKLOAD_CPUS_SEPARATED}"
+    WORKLOAD_CPUS_SEPARATED=""
+    cpu_idx=0
+    for cpu in ${tmp_list}; do
+        echo "adding cpu: ${cpu}"
+        WORKLOAD_CPUS_SEPARATED+=" ${cpu}"
+
+        (( cpu_idx += 1 ))
+        if [ ${cpu_idx} -eq ${WORKLOAD_CPUS_REQUIRED} ]; then
+            break
+        fi
+    done
+    if [ ${cpu_idx} -lt ${WORKLOAD_CPUS_REQUIRED}  ]; then
+	exit_error "Not enough CPUs to fullfill testpmd device queue requirements, exiting" 1 "${sample_dir}"
+    fi
+    echo "WORKLOAD_CPUS_SEPARATED=${WORKLOAD_CPUS_SEPARATED}"
     WORKLOAD_CPUS_ARRAY=(${WORKLOAD_CPUS_SEPARATED})
 
     testpmd_cores=${#WORKLOAD_CPUS_ARRAY[@]}
@@ -202,7 +298,7 @@ if [ "$switch_type" == "testpmd" ]; then
     testpmd_opts=" --lcores ${testpmd_cpus}"
     testpmd_opts+=" --file-prefix ${cs_label}"
     testpmd_opts+=" --socket-mem ${testpmd_mem}"
-    testpmd_opts+=" --huge-dir /dev/hugepages $testpmd_dev_opt"
+    testpmd_opts+=" --huge-dir /dev/hugepages ${testpmd_devices}"
     testpmd_opts+=" -v"
     testpmd_opts+=" --"
     testpmd_opts+=" --nb-ports 2 --nb-cores ${testpmd_cores} --auto-start --stats-period=5"
