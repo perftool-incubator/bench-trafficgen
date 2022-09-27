@@ -4,18 +4,54 @@ exec 2>&1
 
 . /usr/bin/trafficgen-base || (echo "/usr/bin/trafficgen-base not found"; exit 1)
 
-if [ -e trafficgen-server.pid ]; then
-    pid=`cat trafficgen-server.pid`
-    echo "Going to kill pid $pid"
-    kill -15 $pid
-    sleep 3
-    if [ -e /proc/$pid ]; then
-        echo "PID $pid still exists, trying kill -9"
-        kill -9 $pid
+# Defaults
+switch_type="testpmd"
+
+# Options processing
+re='^(--[^=]+)=([^=]+)'
+while [ $# -gt 0 ]; do
+    if [[ "$1" =~ $re ]]; then
+        arg="${BASH_REMATCH[1]}"
+        val="${BASH_REMATCH[2]}"
+        shift
+    else
+        arg="$1"
+        shift
+        val="$1"
+        shift
     fi
-else
-    echo "trafficgen-server.pid not found"
-    echo "PWD: `/bin/pwd`"
-    echo "LS: `/bin/ls`"
-    exit 1
-fi
+    case "$arg" in
+        --switch-type)
+            switch_type="$val" # Can be "testpmd" or "null"
+            ;;
+    esac
+done
+
+case "${switch_type}" in
+    "testpmd")
+	echo "Stopping testpmd"
+
+	if [ -e trafficgen-server.pid ]; then
+	    pid=`cat trafficgen-server.pid`
+	    echo "Going to kill pid $pid"
+	    kill -15 $pid
+	    sleep 3
+	    if [ -e /proc/$pid ]; then
+		echo "PID $pid still exists, trying kill -9"
+		kill -9 $pid
+	    fi
+	else
+	    echo "trafficgen-server.pid not found"
+	    echo "PWD: `/bin/pwd`"
+	    echo "LS: `/bin/ls`"
+	    exit 1
+	fi
+	;;
+    "null")
+	echo "Null switch type, nothing to do"
+	;;
+    *)
+	echo "ERROR: Unknown switch type '${switch_type}'"
+	exit 1
+	;;
+esac
