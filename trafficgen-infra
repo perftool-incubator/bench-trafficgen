@@ -215,7 +215,7 @@ done
 if [ $trex_ready -eq 1 ]; then
     echo "Trex server up after $sec seconds"
 else
-     exit_error "Trex server failed to start" 1 "$sample_dir"
+     exit_error "Trex server failed to start.  See trex-server-stderrout.txt for details." 1 "$sample_dir"
 fi
 
 sleep 20 # Waiting for device to init
