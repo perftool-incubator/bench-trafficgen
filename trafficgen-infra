@@ -142,7 +142,7 @@ else
 	if [ -z "$(command -v gen-trex-cfg.py)" ]; then
             exit_error "gen-trex-cfg.py is missing" 1 "$sample_dir"
 	fi
-	trex_config_cmd="gen-trex-cfg.py --output-file ${trex_cfg} --memory-limit ${mem_limit}"
+	trex_config_cmd="gen-trex-cfg.py --log-level debug --output-file ${trex_cfg} --memory-limit ${mem_limit}"
 	for trex_dev in ${trex_dev_opt}; do
             trex_config_cmd+=" --device ${trex_dev}"
 	done
@@ -150,7 +150,7 @@ else
             trex_config_cmd+=" --cpu ${trex_cpu}"
 	done
 	echo "configuring trex with: ${trex_config_cmd}"
-	${trex_config_cmd}
+	${trex_config_cmd} > ${sample_dir}/trafficgen-gen-trex-cfg-stderrout.txt
 	if [ ! -e ${trex_cfg} ]; then
 	    exit_error "${trex_cfg} not found, gen-trex-cfg.py probably failed" 1 "$sample_dir"
 	fi
