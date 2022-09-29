@@ -626,6 +626,7 @@ for (my $index=0; $index<scalar(@{ $$bs_json_ref{'trials'} }); $index++) {
 $sample{'rickshaw-bench-metric'}{'schema'}{'version'} = "2021.04.12";
 $sample{'periods'} = \@periods;
 $sample{'primary-period'} = 'measurement';
+$sample{'benchmark'} = 'trafficgen';
 $sample{'primary-metric'} = 'rx-pps';
 
 my $ppd_json = "post-process-data.json.xz";
