@@ -9,7 +9,7 @@
     "validations": {
 	"pci_device_list": {
 	    "description": "1 or more (comma separated) device pairs",
-	    "args": [ "devices", "active-devices", "testpmd-devopt" ],
+	    "args": [ "devices", "active-devices" ],
 	    "vals": [
 		"^0{4}(:[0-9a-fA-F]{2}){2}\\.[0-9],0{4}(:[0-9a-fA-F]{2}){2}\\.[0-9](,0{4}(:[0-9a-fA-F]{2}){2}\\.[0-9],0{4}(:[0-9a-fA-F]{2}){2}\\.[0-9])*$",
 		"^VAR:\\w+,VAR:\\w+(,VAR:\\w+,VAR:\\w+)*$"
