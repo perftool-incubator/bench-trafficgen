@@ -935,7 +935,7 @@ def main():
         if t_global.args.flow_mods['port']['src'] or t_global.args.flow_mods['port']['dst']:
              if t_global.args.num_flows >= 1000:
                   if ((t_global.args.num_flows % 1000) != 0) and ((t_global.args.num_flows % 1024) != 0):
-                       raise ValueError("when source of destination port flows are enabled the number of flows must be divisible by 1000 or 1024")
+                       raise ValueError("when source or destination port flows are enabled the number of flows must be divisible by 1000 or 1024")
 
         if len(t_global.args.src_ports_list):
              src_ports = t_global.args.src_ports_list.split(",")
