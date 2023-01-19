@@ -871,6 +871,8 @@ def main():
                    device_pair['->']['active'] = True
 
     myprint("Active TX Ports: %d" % active_ports)
+    if active_ports == 0:
+         raise ValueError("Something is wrong, the number of active ports must be greater than 0")
 
     try:
         if t_global.args.debug:
