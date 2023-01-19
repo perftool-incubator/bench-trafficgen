@@ -939,8 +939,8 @@ def main():
 
         if len(t_global.args.src_ports_list):
              src_ports = t_global.args.src_ports_list.split(",")
-             if len(src_ports) < active_ports:
-                  raise ValueError("--src-ports-list should be a comma separated list of at least %d source port(s)" % active_ports)
+             if len(src_ports) != active_ports:
+                  raise ValueError("--src-ports-list should be a comma separated list of %d source port(s)" % active_ports)
              index = 0
              for device_pair in device_pairs:
                   for direction in directions:
@@ -950,8 +950,8 @@ def main():
 
         if len(t_global.args.dst_ports_list):
              dst_ports = t_global.args.dst_ports_list.split(",")
-             if len(dst_ports) < active_ports:
-                  raise ValueError("--dst-ports-list should be a comma separated list of at least %d destination port(s)" % active_ports)
+             if len(dst_ports) != active_ports:
+                  raise ValueError("--dst-ports-list should be a comma separated list of %d destination port(s)" % active_ports)
              index = 0
              for device_pair in device_pairs:
                   for direction in directions:
@@ -961,8 +961,8 @@ def main():
 
         if len(t_global.args.src_macs_list):
              src_macs = t_global.args.src_macs_list.split(",")
-             if len(src_macs) < active_ports:
-                  raise ValueError("--src-macs-list should be a comma separated list of at least %d MAC address(es)" % active_ports)
+             if len(src_macs) != active_ports:
+                  raise ValueError("--src-macs-list should be a comma separated list of %d MAC address(es)" % active_ports)
              index = 0
              for device_pair in device_pairs:
                   for direction in directions:
@@ -972,8 +972,8 @@ def main():
 
         if len(t_global.args.dst_macs_list):
              dst_macs = t_global.args.dst_macs_list.split(",")
-             if len(dst_macs) < active_ports:
-                  raise ValueError("--dst-macs-list should be a comma separated list of at least %d MAC address(es)" % active_ports)
+             if len(dst_macs) != active_ports:
+                  raise ValueError("--dst-macs-list should be a comma separated list of %d MAC address(es)" % active_ports)
              index = 0
              for device_pair in device_pairs:
                   for direction in directions:
@@ -983,8 +983,8 @@ def main():
 
         if len(t_global.args.src_ips_list):
              src_ips = t_global.args.src_ips_list.split(",")
-             if len(src_ips) < active_ports:
-                  raise ValueError("--src-ips-list should be a comma separated list of at least %d IP address(es)" % active_ports)
+             if len(src_ips) != active_ports:
+                  raise ValueError("--src-ips-list should be a comma separated list of %d IP address(es)" % active_ports)
              index = 0
              for device_pair in device_pairs:
                   for direction in directions:
@@ -994,8 +994,8 @@ def main():
 
         if len(t_global.args.dst_ips_list):
              dst_ips = t_global.args.dst_ips_list.split(",")
-             if len(dst_ips) < active_ports:
-                  raise ValueError("--dst-ips-list should be a comma separated list of at least %d IP address(es)" % active_ports)
+             if len(dst_ips) != active_ports:
+                  raise ValueError("--dst-ips-list should be a comma separated list of %d IP address(es)" % active_ports)
              index = 0
              for device_pair in device_pairs:
                   for direction in directions:
@@ -1005,8 +1005,8 @@ def main():
 
         if len(t_global.args.vlan_ids_list):
              vlan_ids = t_global.args.vlan_ids_list.split(",")
-             if len(vlan_ids) < active_ports:
-                  raise ValueError("--vlan-ids-list should be a comma separated list of at least %d VLAN ID(s)" % active_ports)
+             if len(vlan_ids) != active_ports:
+                  raise ValueError("--vlan-ids-list should be a comma separated list of %d VLAN ID(s)" % active_ports)
              index = 0
              for device_pair in device_pairs:
                   for direction in directions:
