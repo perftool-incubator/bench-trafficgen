@@ -862,7 +862,7 @@ def main():
     else:
          active_ports = len(unidirec_ports)
          if t_global.args.send_teaching_warmup or t_global.args.send_teaching_measurement:
-              active_ports /= 2
+              active_ports *= 2
 
          for device_pair in device_pairs:
               if t_global.args.run_revunidirec:
