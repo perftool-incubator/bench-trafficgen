@@ -92,7 +92,7 @@ if [ "$switch_type" == "testpmd" ]; then
     # trafficgen-server may receive a message about MACs from the traffic-generator
     echo "These files exist in ./msgs/rx:"
     /bin/ls -l msgs/rx
-    file="msgs/rx/server-start:1"
+    file="msgs/rx/infra-start-end:1"
     if [ -e "$file" ]; then
         echo "Found $file:"
         cat $file
