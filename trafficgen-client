@@ -51,7 +51,7 @@ fi
 # Trafficgen-client might need MAC info from the server (testpmd)
 echo "These files exist in ./msgs/rx:"
 /bin/ls -l msgs/rx
-file="msgs/rx/endpoint-start:1"
+file="msgs/rx/server-start-end:1"
 echo
 cat $file
 echo
