@@ -2,7 +2,5 @@
 # vim: autoindent tabstop=4 shiftwidth=4 expandtab softtabstop=4 filetype=bash
 # -*- mode: sh; indent-tabs-mode: nil; sh-basic-offset: 4 -*-
 
-# TODO: implement a way to extend runtime during test
-# For now, use a very long duration that is longer than most binary-searches
-# FYI: It should be possible to provide an accurate run time if the test includes --one-shot
-echo 28800
+# request unbounded runtime by returning -1
+echo "-1"
