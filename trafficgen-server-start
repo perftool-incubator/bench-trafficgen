@@ -137,6 +137,14 @@ if [ "$switch_type" == "testpmd" ]; then
     echo "Device 2: ${res_dev_2}"
     echo "Device 2 NUMA node: ${res_dev_2_numa_node}"
 
+    if [ "${res_dev_1_numa_node}" == "-1" ]; then
+        res_dev_1_numa_node="0"
+    fi
+
+    if [ "${res_dev_2_numa_node}" == "-1" ]; then
+        res_dev_2_numa_node="0"
+    fi
+
     # figure out the CPUs to use
     if [ -z "${HK_CPUS}" ] ; then
         exit_error "There are no housekeeping CPUs to use for testpmd" 1 "$sample_dir"
