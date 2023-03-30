@@ -15,8 +15,6 @@ trafficgen-server-stop | Stops the trafficgen server and logs the output to a fi
 
 ## JSON files
 
-The included JSON files adhere to a [Common Data Model (CDM) Schema](https://github.com/perftool-incubator/CommonDataModel).
-
 Name | Description
 -----|------------
 multiplex.json | Defines a set of presets and validations for the traffic generator tool, specifying various options and their valid values, such as device lists, traffic directions, packet protocols, and result output types.
