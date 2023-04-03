@@ -131,6 +131,7 @@ if pushd ${tg_dir} > /dev/null; then
             # build MoonGen
             if ! ./build.sh; then
                 echo "ERROR: MoonGen build failed."
+                exit 1
             fi
 
             popd > /dev/null
@@ -157,9 +158,23 @@ if pushd ${tg_dir} > /dev/null; then
             make install
             cp ipc.so /opt/trafficgen/lua-luaipc
 
+            if ! make install; then
+                echo "ERROR: luaipc install failed."
+                exit 1
+            fi
+
+            # /opt/trafficgen/lua-luaipc is hard coded here because
+            # it is hard coded into the moongen-latency.lua script
+            mkdir -pv /opt/trafficgen/lua-luaipc
+            if ! cp ipc.so /opt/trafficgen/lua-luaipc; then
+                echo "ERROR: Failed to copy ipc.so to /opt/trafficgen/lua-luaipc."
+                exit 1
+            fi
+
             popd > /dev/null
         else
             echo "ERROR: Failed to clone ${luaipc_url}"
+            exit 1
         fi
 
         popd > /dev/null
