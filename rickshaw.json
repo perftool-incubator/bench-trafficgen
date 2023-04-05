@@ -74,6 +74,7 @@
                 "src": "%bench-dir%/trafficgen/trex-txrx-profile.py",
                 "dest": "/usr/bin/"
             },
+            {
                 "src": "%bench-dir%/trafficgen/moongen-latency.lua",
                 "dest": "/usr/bin"
             },
