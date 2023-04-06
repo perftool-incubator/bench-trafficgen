@@ -61,7 +61,7 @@
 	    "description": "any non-zero postive integer value",
 	    "args": [ "frame-size", "num-flows", "teaching-warmup-packet-rate",
 		      "teaching-measurement-packet-rate", "warmup-trial-runtime",
-		      "mem-limit", "testpmd-mtu", "testpmd-burst" ],
+		      "mem-limit", "testpmd-mtu", "testpmd-burst", "mbuf-factor" ],
 	    "vals": [ "^[1-9][0-9]*$" ]
 	},
 	"positive_integer": {
