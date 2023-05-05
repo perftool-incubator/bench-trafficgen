@@ -13,6 +13,7 @@ switch_type="testpmd"
 devices=""
 testpmd_forward_mode="mac"
 testpmd_queues="1"
+testpmd_queues_per_pmd="1"
 testpmd_descriptors="2048"
 testpmd_smt_mode="grouped"
 testpmd_smt="on"
@@ -50,6 +51,9 @@ while [ $# -gt 0 ]; do
             ;;
         --testpmd-queues)
             testpmd_queues="$val"
+            ;;
+        --testpmd-queues-per-pmd)
+            testpmd_queues_per_pmd="$val"
             ;;
         --testpmd-descriptors)
             testpmd_descriptors="$val"
@@ -235,7 +239,7 @@ if [ "$switch_type" == "testpmd" ]; then
 
     echo "Trimming CPU list to match required length:"
     # Number of Ports * Queues per Device
-    WORKLOAD_CPUS_REQUIRED=$(( 2*${testpmd_queues} ))
+    WORKLOAD_CPUS_REQUIRED=$(( 2*${testpmd_queues}/${testpmd_queues_per_pmd} ))
     echo "WORKLOAD_CPUS_REQUIRED=${WORKLOAD_CPUS_REQUIRED}"
     tmp_list="${WORKLOAD_CPUS_SEPARATED}"
     WORKLOAD_CPUS_SEPARATED=""

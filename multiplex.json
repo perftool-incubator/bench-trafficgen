@@ -35,6 +35,11 @@
 	    "args": [ "testpmd-queues" ],
 	    "vals": [ "^(1|2|3|4|8)$" ]
 	},
+       "testpmd_queues_per_pmd": {
+           "description": "how many queues each pmd polls",
+           "args": [ "testpmd-queues-per-pmd" ],
+           "vals": [ "^(1|2|3|4|8)$" ]
+       },
 	"testpmd_descriptors": {
 	    "description": "supported testpmd device descriptor counts",
 	    "args": [ "testpmd-descriptors" ],
