@@ -111,8 +111,11 @@ def merge(collapsed_files):
         f = collapsed_files.pop()       
         collapsed_data = pd.read_csv(f)
         merged_data = pd.merge(merged_data, collapsed_data, on='Latency', how='outer')
-        merged_data['Samples_x'] = merged_data['Samples_x'].astype('Int64')
-        merged_data['Samples_y'] = merged_data['Samples_y'].astype('Int64')
+
+    samples_columns = merged_data.filter(like='Samples_')
+    merged_data['Samples'] = samples_columns.sum(axis=1)
+    merged_data['Samples'] = merged_data['Samples'].astype('Int64')
+    merged_data = merged_data.drop(samples_columns, axis=1)
 
     merged_data.to_csv('merged-buckets.csv', index=False) 
     print(f"\n'merged-buckets.csv' has been created!")
