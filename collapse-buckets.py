@@ -117,6 +117,9 @@ def merge(collapsed_files):
     merged_data['Samples'] = merged_data['Samples'].astype('Int64')
     merged_data = merged_data.drop(samples_columns, axis=1)
 
+    total_samples = merged_data.Samples.sum()
+    merged_data['Percentile'] = (merged_data.Samples.cumsum() / total_samples) * 100 
+
     merged_data.to_csv('merged-buckets.csv', index=False) 
     print(f"\n'merged-buckets.csv' has been created!")
 
