@@ -363,8 +363,7 @@ if [ "$switch_type" == "testpmd" ]; then
     fi
 
     echo "Going to run: $testpmd_bin $testpmd_opts"
-    $testpmd_bin $testpmd_opts 2>&1 >$testpmd_output &
-    echo $! >> trafficgen-server.pid
+    ( ${testpmd_bin} ${testpmd_opts} 2>&1 & echo $! > trafficgen-server.pid ) | ${TOOLBOX_HOME}/bin/timestamper.py > ${testpmd_output} &
     sleep 5 # TODO: need a better wait
     mac0=`egrep "Port 0: [A-Fa-f0-9]{2}:[A-Fa-f0-9]{2}:[A-Fa-f0-9]{2}:[A-Fa-f0-9]{2}:[A-Fa-f0-9]{2}:[A-Fa-f0-9]{2}" $testpmd_output | awk -F"0: " '{print $2}'`
     mac1=`egrep "Port 1: [A-Fa-f0-9]{2}:[A-Fa-f0-9]{2}:[A-Fa-f0-9]{2}:[A-Fa-f0-9]{2}:[A-Fa-f0-9]{2}:[A-Fa-f0-9]{2}" $testpmd_output | awk -F"1: " '{print $2}'`
