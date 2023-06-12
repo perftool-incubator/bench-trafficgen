@@ -327,6 +327,14 @@ if [ "$switch_type" == "testpmd" ]; then
         done
         echo "]}}" >>msgs/tx/svc
     fi
+
+    telemetry_bin="dpdk-telemetry-tool.py"
+    telemetry_pid="dpdk-telemetry-tool.pid"
+    telemetry_output="dpdk-telemetry-tool-stderrout.txt"
+    echo "Going to run: ${telemetry_bin}"
+    ${telemetry_bin} > ${telemetry_output} 2>&1 &
+    echo $! > ${telemetry_pid}
+
 elif [ "$switch_type" == "null" ]; then
     echo "Using switch_type null, no setup required"
 else

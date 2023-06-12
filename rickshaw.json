@@ -81,7 +81,11 @@
             {
                 "src": "%bench-dir%/trafficgen/traffic-profile-schema.json",
                 "dest": "/usr/bin/"
-            }
+            },
+	    {
+		"src": "%bench-dir%/trafficgen/dpdk-telemetry-tool.py",
+		"dest": "/usr/bin/"
+	    }
         ],
         "runtime": "trafficgen-get-runtime",
         "infra": "trafficgen-infra",

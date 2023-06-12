@@ -31,7 +31,7 @@ case "${switch_type}" in
     "testpmd")
 	echo "Stopping testpmd"
 
-	if [ -e trafficgen-server.pid ]; then
+	if [ -e trafficgen-server.pid -a -e dpdk-telemetry-tool.pid ]; then
 	    pid=`cat trafficgen-server.pid`
 	    echo "Going to kill pid $pid"
 	    kill -15 $pid
@@ -40,8 +40,17 @@ case "${switch_type}" in
 		echo "PID $pid still exists, trying kill -9"
 		kill -9 $pid
 	    fi
+
+	    pid=$(cat dpdk-telemetry-tool.pid)
+	    echo "Going to kill pid ${pid}"
+	    kill -15 ${pid}
+	    sleep 3
+	    if [ -e /proc/${pid} ]; then
+		echo "PID ${pid} still exists, trying kill -9"
+		kill -9 ${pid}
+	    fi
 	else
-	    echo "trafficgen-server.pid not found"
+	    echo "trafficgen-server.pid or dpdk-telemetry-tool.pid not found"
 	    echo "PWD: `/bin/pwd`"
 	    echo "LS: `/bin/ls`"
 	    exit 1
