@@ -92,7 +92,7 @@
 	},
 	"mac_address_list": {
 	    "description": "1 or more (comma separated) list of mac addresses",
-	    "args": [ "src-macs", "dst-macs", "encap-dst-macs", "encap-src-macs" ],
+	    "args": [ "src-macs", "dst-macs", "encap-dst-macs", "encap-src-macs", "testpmd-dst-macs" ],
 	    "vals": [ "^([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}(,([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2})*$" ]
 	},
 	"ip_address_list": {
