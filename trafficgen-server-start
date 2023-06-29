@@ -24,6 +24,7 @@ testpmd_enable_rss_udp="off"
 testpmd_devopt=""
 testpmd_mbuf_size=""
 testpmd_burst=""
+testpmd_dst_macs=""
 
 # Options processing
 re='^(--[^=]+)=([^=]+)'
@@ -85,6 +86,9 @@ while [ $# -gt 0 ]; do
         --testpmd-burst)
             testpmd_burst="$val"
             ;;
+        --testpmd-dst-macs)
+            testpmd_dst_macs="$val"
+            ;;
     esac
 done
 
@@ -108,6 +112,10 @@ if [ "$switch_type" == "testpmd" ]; then
         if [ ! -z "$peermac1" ]; then
             echo "Found eth-peer MAC1 $peermac1"
         fi
+    fi
+    if [ ! -z "$testpmd_dst_macs" ]; then
+        peermac0=`echo $testpmd_dst_macs | awk -F, '{print $1}'`
+        peermac1=`echo $testpmd_dst_macs | awk -F, '{print $2}'`
     fi
 
     # Build testpmd cmdline opts for device selection
@@ -355,7 +363,7 @@ if [ "$switch_type" == "testpmd" ]; then
     if [ "$testpmd_forward_mode" == "mac" ]; then
         # TODO: use regex instead:
         if [ -z "$peermac0" -o -z "$peermac1" ]; then
-            exit_error  "[ERROR] Using forware-mode = mac, but did not get MAC addresses from TREX" 1 "$sample_dir"
+            exit_error  "[ERROR] Using forware-mode = mac, but did not get MAC addresses from TREX or --testpmd-dst-macs" 1 "$sample_dir"
         fi
         testpmd_opts+=" --eth-peer 0,$peermac0 --eth-peer 1,$peermac1 --forward-mode mac"
     else
