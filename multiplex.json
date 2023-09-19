@@ -9,7 +9,7 @@
     "validations": {
 	"pci_device_list": {
 	    "description": "1 or more (comma separated) device pairs",
-	    "args": [ "devices", "active-devices" ],
+	    "args": [ "trex-devices", "trex-active-devices", "server-devices" ],
 	    "vals": [
 		"^0{4}(:[0-9a-fA-F]{2}){2}\\.[0-9],0{4}(:[0-9a-fA-F]{2}){2}\\.[0-9](,0{4}(:[0-9a-fA-F]{2}){2}\\.[0-9],0{4}(:[0-9a-fA-F]{2}){2}\\.[0-9])*$",
 		"^VAR:\\w+,VAR:\\w+(,VAR:\\w+,VAR:\\w+)*$"
@@ -17,7 +17,7 @@
 	},
 	"trex_cpus": {
 	    "description": "1 or more (comma separated) cpu or cpu ranges",
-	    "args": [ "cpus" ],
+	    "args": [ "trex-cpus" ],
 	    "vals": [ "^(([0-9]+-[0-9]+)|[0-9]+)(,([0-9]+-[0-9]+|[0-9]+))*$" ]
 	},
 	"trex_on_off_toggles": {
@@ -66,7 +66,7 @@
 	    "description": "any non-zero postive integer value",
 	    "args": [ "frame-size", "num-flows", "teaching-warmup-packet-rate",
 		      "teaching-measurement-packet-rate", "warmup-trial-runtime",
-		      "mem-limit", "testpmd-mtu", "testpmd-burst", "mbuf-factor" ],
+		      "trex-mem-limit", "testpmd-mtu", "testpmd-burst", "trex-mbuf-factor" ],
 	    "vals": [ "^[1-9][0-9]*$" ]
 	},
 	"positive_integer": {

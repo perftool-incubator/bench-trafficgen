@@ -44,7 +44,7 @@ while [ $# -gt 0 ]; do
             switch_type="$val" # Can be "testpmd" or "null"
             ;;
         # The following two are needed to determine DPDK device IDs (0,1,2...)
-        --devices)
+        --server-devices)
             devices="$val"
             ;;
         --testpmd-forward-mode)
