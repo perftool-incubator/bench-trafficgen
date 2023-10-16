@@ -41,7 +41,9 @@ by the following parameters:
 
 17. the_packet - optional, a packet definition to use as the base packet for this stream, ie. "scapy:Ether()/IP()/TCP()/'payload'", when this option is used it overrides 'frame_type', 'protocol', and 'stream_id'.
 
-18. enabled - optional, determines whether the defined stream is actually used to define traffic, can be used to easily turn a stream on or off while testing, defaults to True, options are [True, False]
+18. device_pairs - optional, an array that contains a list of device pairs that this stream should be limited to, defaults to all device pairs, device pairs should be in the form '<device-A>:<device-B>'
+
+19. enabled - optional, determines whether the defined stream is actually used to define traffic, can be used to easily turn a stream on or off while testing, defaults to True, options are [True, False]
 
 This JSON syntax is now enforced using a custom JSON schema [traffic-profile-schema.json](traffic-profile-schema.json) that adheres to the [JSON Schema](https://json-schema.org/understanding-json-schema/).
 
