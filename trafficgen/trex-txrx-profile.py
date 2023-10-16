@@ -283,6 +283,13 @@ def setup_stream_packet_values (stream, device_pairs):
                          break
                     layer_counter += 1
 
+               mac_A = stream['packet_values']['macs']['A']
+               mac_B = stream['packet_values']['macs']['B']
+               stream['packet_values']['macs']['A'] = {}
+               stream['packet_values']['macs']['B'] = {}
+               for device_pair in device_pairs:
+                    stream['packet_values']['macs']['A'][device_pair['device_pair']] = mac_A
+                    stream['packet_values']['macs']['B'][device_pair['device_pair']] = mac_B
           if stream['stream_id']:
                t_global.variables['packet_resources']['stream_ids'][stream['stream_id']] = stream['packet_values']
      else:
@@ -678,8 +685,8 @@ def create_stream (stream, device_pair, direction, other_direction, flow_scaler)
          stream_packets['teaching'].append({ 'protocol': "user-pkt",
                                              'packet': load_user_pkt(stream['the_packet'],
                                                                      stream['frame_size'],
-                                                                     stream['packet_values']['macs'][dst_port],
-                                                                     stream['packet_values']['macs'][src_port],
+                                                                     stream['packet_values']['macs'][dst_port][device_pair['device_pair']],
+                                                                     stream['packet_values']['macs'][src_port][device_pair['device_pair']],
                                                                      stream['packet_values']['ips'][dst_port],
                                                                      stream['packet_values']['ips'][src_port],
                                                                      stream['packet_values']['ports'][dst_port]['src'],
@@ -692,8 +699,8 @@ def create_stream (stream, device_pair, direction, other_direction, flow_scaler)
          stream_packets['measurement'].append({ 'protocol': "user-pkt",
                                                 'packet': load_user_pkt(stream['the_packet'],
                                                                         stream['frame_size'],
-                                                                        stream['packet_values']['macs'][src_port],
-                                                                        stream['packet_values']['macs'][dst_port],
+                                                                        stream['packet_values']['macs'][src_port][device_pair['device_pair']],
+                                                                        stream['packet_values']['macs'][dst_port][device_pair['device_pair']],
                                                                         stream['packet_values']['ips'][src_port],
                                                                         stream['packet_values']['ips'][dst_port],
                                                                         stream['packet_values']['ports'][src_port]['src'],
