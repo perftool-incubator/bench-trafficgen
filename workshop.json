@@ -10,10 +10,10 @@
       "requirements": [
         "dev-tools",
         "trafficgen-os-dependencies",
-        "pyyaml",
+        "set-python3.9",
+        "pip",
         "trex1",
-        "trex2",
-        "alternatives"
+        "trex2"
       ]
     }
   ],
@@ -44,14 +44,13 @@
       }
     },
     {
-      "name": "pyyaml",
-      "type": "manual",
-      "manual_info": {
-        "commands": [
-          "if command -v pip3.9; then pip3.9 install pyyaml; else echo 'pip3.9 not found'; fi",
-          "if command -v pip3; then pip3 install pyyaml; else echo 'pip3 not found'; fi"
-        ]
-      }
+      "name": "pip",
+      "type": "python3",
+      "python3_info": {
+        "packages": [
+               "pyyaml"
+         ]
+       }
     },
     {
       "name": "trex1",
@@ -80,7 +79,7 @@
       }
     },
     {
-      "name": "alternatives",
+      "name": "set-python3.9",
       "type": "manual",
       "manual_info": {
         "commands": [
