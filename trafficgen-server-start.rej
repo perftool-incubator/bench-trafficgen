@@ -1,0 +1,21 @@
+--- trafficgen-server-start
++++ trafficgen-server-start
+@@ -113,8 +117,16 @@ if [ "$switch_type" == "testpmd" ]; then
+             echo "Found eth-peer MAC1 $peermac1"
+         fi
+     fi
+-    peermac0="1c:34:da:77:3e:80"
+-    peermac1="1c:34:da:77:3e:81"
++
++    if [ ! -z "$testpmd_dst_macs" ]; then
++    	# Hard-coded MACs for multi-VM test for perf8/perf188
++    	#peermac0="1c:34:da:77:3e:80"
++    	#peermac1="1c:34:da:77:3e:81"
++
++	peermac0=`echo $testpmd_dst_macs | awk -F, '{print $1}'`
++	peermac1=`echo $testpmd_dst_macs | awk -F, '{print $2}'`
++    fi
++
+ 
+     # Build testpmd cmdline opts for device selection
+     echo "Resolving devices for testpmd based on devices [$devices]"
