@@ -57,17 +57,8 @@ cat $file
 echo
 if [ -e "$file" ]; then
     echo "Found $file"
-    dstmac0=`jq -r '.macs[0]' $file`
-    if [ ! -z "$dstmac0" ]; then
-        echo "Found MAC0 $dstmac0"
-    fi
-    dstmac1=`jq -r '.macs[1]' $file`
-    if [ ! -z "$dstmac1" ]; then
-        echo "Found MAC1 $dstmac1"
-    fi
-    if [ ! -z "$dstmac0" -a ! -z "$dstmac1" ]; then
-        passthru_args+=(" --dst-macs=$dstmac0,$dstmac1")
-    fi
+    dstmacs=`jq -r '.macs[]' $file | tr "\n" "," | sed -e s/,$//`
+    passthru_args+=(" --dst-macs=$dstmacs")
 fi
 
 # Map the PCI device locations to logical DPDK IDs
