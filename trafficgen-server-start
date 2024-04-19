@@ -17,6 +17,7 @@ res_devs_node=()
 dev_count_node=()
 node_cpus=()
 dev_macs=()
+total_devs=0
 testpmd_forward_mode="mac"
 testpmd_queues="1"
 testpmd_queues_per_pmd="1"
@@ -121,18 +122,7 @@ if [ "$switch_type" == "testpmd" ]; then
     if [ -e "$file" ]; then
         echo "Found $file:"
         cat $file
-        peermac0=`jq -r '.macs[0]' $file`
-        if [ ! -z "$peermac0" ]; then
-            echo "Found eth-peer MAC0 $peermac0"
-        fi
-        peermac1=`jq -r '.macs[1]' $file`
-        if [ ! -z "$peermac1" ]; then
-            echo "Found eth-peer MAC1 $peermac1"
-        fi
-    fi
-    if [ ! -z "$testpmd_dst_macs" ]; then
-        peermac0=`echo $testpmd_dst_macs | awk -F, '{print $1}'`
-        peermac1=`echo $testpmd_dst_macs | awk -F, '{print $2}'`
+        testpmd_dst_macs=`jq -r '.macs[]' $file | tr "\n" "," | sed -e 's/,$//'`
     fi
 
     # Build testpmd cmdline opts for device selection
@@ -199,8 +189,13 @@ if [ "$switch_type" == "testpmd" ]; then
     for this_node in ${!num_devs_node[@]}; do
         echo "finding cpus for node [$this_node]"
         num_devs=${num_devs_node[$this_node]}
+        ((total_devs+=num_devs))
         echo "num_devs: [$num_devs]"
-        num_cpus=$((num_devs*testpmd_queues/testpmd_queues_per_pmd))
+        num_cpus=`echo "scale=0; $num_devs*$testpmd_queues/$testpmd_queues_per_pmd" | bc`
+        # In case truncated to 0
+        if [ $num_cpus -eq 0 ]; then
+            num_cpus=1
+        fi
         echo "num_cpus: [$num_cpus]"
         echo "$TOOLBOX_HOME/bin/get-cpus-ordered.py --smt $testpmd_smt --smt-enumeration $testpmd_smt_mode --numa-node $this_node $cpu_str"
         this_node_cpus=$($TOOLBOX_HOME/bin/get-cpus-ordered.py\
@@ -245,7 +240,7 @@ if [ "$switch_type" == "testpmd" ]; then
     testpmd_opts+=" --huge-dir /dev/hugepages ${testpmd_devices}"
     testpmd_opts+=" -v"
     testpmd_opts+=" --"
-    testpmd_opts+=" --nb-ports 2 --nb-cores ${cpu_idx} --auto-start --stats-period=5"
+    testpmd_opts+=" --nb-ports $total_devs --nb-cores ${cpu_idx} --auto-start --stats-period=5"
     testpmd_opts+=" --rxq ${testpmd_queues} --txq ${testpmd_queues}"
     testpmd_opts+=" --rxd ${testpmd_descriptors} --txd ${testpmd_descriptors}"
     testpmd_opts+=" --max-pkt-len=${testpmd_mtu}"
@@ -291,33 +286,51 @@ if [ "$switch_type" == "testpmd" ]; then
     fi
 
     if [ "$testpmd_forward_mode" == "mac" ]; then
-        # TODO: use regex instead:
-        if [ -z "$peermac0" -o -z "$peermac1" ]; then
+        mac_file="msgs/rx/infra-start-end:1"
+        if [ -z "$testpmd_dst_macs" ]; then
             exit_error  "[ERROR] Using forware-mode = mac, but did not get MAC addresses from TREX or --testpmd-dst-macs" 1 "$sample_dir"
         fi
-        testpmd_opts+=" --eth-peer 0,$peermac0 --eth-peer 1,$peermac1 --forward-mode mac"
+        idx=0
+        for this_mac in `echo $testpmd_dst_macs | sed -e 's/,/ /g'`; do
+            testpmd_opts+=" --eth-peer $idx,$this_mac"
+            ((idx++))
+        done
+        testpmd_opts+=" --forward-mode mac"
+        if [ $idx -ne $total_devs ]; then
+            exit_error "The number of destination macs did not match the number of devices for testpmd.  In order to use forward-mode=mac, the number of TRex devices and number of testpmd devices must match exactly." 1 $sample_dir
+        fi
     else
         testpmd_opts+=" "
     fi
 
+
     echo "Going to run: $testpmd_bin $testpmd_opts"
     ( ${testpmd_bin} ${testpmd_opts} 2>&1 & echo $! > trafficgen-server.pid ) | ${TOOLBOX_HOME}/bin/timestamper.py > ${testpmd_output} &
     sleep 5 # TODO: need a better wait
+    if [ ! -e $testpmd_output ]; then
+        exit_error "Could not find testpmd output file: [$testpmd_output]" 1 $sample_dir
+    fi
 
     # Find the MACs for all devices, to be sent to TRex
     if [ "$testpmd_forward_mode" == "mac" ]; then
-        echo '{"recipient":{"type":"all","id":"all"},"user-object":{"macs":["' >msgs/tx/svc
+        sleep 10 # TODO: need a better wait
+        if [ ! -e $testpmd_output ]; then
+            exit_error "Could not find testpmd output file: [$testpmd_output]" 1 $sample_dir
+        fi
+        echo '{"recipient":{"type":"all","id":"all"},"user-object":{"macs":[' >>msgs/tx/svc
         dev_idx=0
-        while [ $dev_idx -lt $num_devs ]; do
+        while [ $dev_idx -lt $total_devs ]; do
             this_mac=`egrep "Port $dev_idx: [A-Fa-f0-9]{2}:[A-Fa-f0-9]{2}:[A-Fa-f0-9]{2}:[A-Fa-f0-9]{2}:[A-Fa-f0-9]{2}:[A-Fa-f0-9]{2}" $testpmd_output | awk -F"$dev_idx: " '{print $2}'`
             echo "MAC$dev_idx: $this_mac"
             ## MAC info, to be sent to endpoint and then forwarded to the client
-            echo '"'$this_mac'"' >msgs/tx/svc
-            if [ $dev_idx -lt $((num_devs-1)) ]; then
-                echo ', ' >msgs/tx/svc
+            echo '"'$this_mac'"' >>msgs/tx/svc
+            if [ $dev_idx -lt $((total_devs-1)) ]; then
+                echo ', ' >>msgs/tx/svc
             fi
             dev_mac[$dev_idx]=$this_mac
+            let dev_idx=$dev_idx+1
         done
+        echo "]}}" >>msgs/tx/svc
     fi
 elif [ "$switch_type" == "null" ]; then
     echo "Using switch_type null, no setup required"

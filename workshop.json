@@ -36,6 +36,7 @@
           "dpdk-tools",
           "net-tools",
           "which",
+          "bc",
           "python39-devel",
           "numactl-devel",
           "cmake",
