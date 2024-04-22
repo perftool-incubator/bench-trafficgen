@@ -1,5 +1,5 @@
 #!/bin/bash
-exec >trafficgen-server-start-stderrout.txt 
+exec >trafficgen-server-start-stderrout.txt
 exec 2>&1
 
 . /usr/bin/trafficgen-base || (echo "/usr/bin/trafficgen-base not found"; exit 1)
@@ -10,7 +10,14 @@ validate_label
 # Defaults
 sample_dir=`/bin/pwd`
 switch_type="testpmd"
-devices=""
+num_devices=
+devices=()
+res_devs=()
+res_devs_node=()
+dev_count_node=()
+node_cpus=()
+dev_macs=()
+total_devs=0
 testpmd_forward_mode="mac"
 testpmd_queues="1"
 testpmd_queues_per_pmd="1"
@@ -45,7 +52,11 @@ while [ $# -gt 0 ]; do
             ;;
         # The following two are needed to determine DPDK device IDs (0,1,2...)
         --server-devices)
-            devices="$val"
+            devices=(`echo "$val" | sed -e 's/,/ /g'`)
+            num_devices=${#devices[@]}
+            if [ $((num_devices%2)) -ne 0 ]; then
+                exit_error "Number of devices ($num_devices) must be a multiple of 2, exiting" 1 "$sample_dir"
+            fi
             ;;
         --testpmd-forward-mode)
             testpmd_forward_mode="$val"
@@ -104,65 +115,47 @@ if [ "$switch_type" == "testpmd" ]; then
     if [ -e "$file" ]; then
         echo "Found $file:"
         cat $file
-        peermac0=`jq -r '.macs[0]' $file`
-        if [ ! -z "$peermac0" ]; then
-            echo "Found eth-peer MAC0 $peermac0"
-        fi
-        peermac1=`jq -r '.macs[1]' $file`
-        if [ ! -z "$peermac1" ]; then
-            echo "Found eth-peer MAC1 $peermac1"
-        fi
-    fi
-    if [ ! -z "$testpmd_dst_macs" ]; then
-        peermac0=`echo $testpmd_dst_macs | awk -F, '{print $1}'`
-        peermac1=`echo $testpmd_dst_macs | awk -F, '{print $2}'`
+        testpmd_dst_macs=`jq -r '.macs[]' $file | tr "\n" "," | sed -e 's/,$//'`
     fi
 
     # Build testpmd cmdline opts for device selection
     echo "Resolving devices for testpmd based on devices [$devices]"
     testpmd_devices=""
-    dev_1=$(echo "${devices}" | cut -d, -f 1)
-    dev_2=$(echo "${devices}" | cut -d, -f 2)
-    dev_3=$(echo "${devices}" | cut -d, -f 3-)
-    if [ -n "${dev_3}" ]; then
-        exit_error "Testpmd requires exactly 2 devices (not '${devices}'), exiting" 1 "$sample_dir"
-    fi
-    res_dev_1=""
-    resolve_device res_dev_1 "${dev_1}"
-    res_dev_2=""
-    resolve_device res_dev_2 "${dev_2}"
-    testpmd_devices+=" --allow ${res_dev_1}"
-    if [ -n "${testpmd_devopt}" ]; then
-        testpmd_devices+=",${testpmd_devopt}"
-    fi
-    testpmd_devices+=" --allow ${res_dev_2}"
-    if [ -n "${testpmd_devopt}" ]; then
-        testpmd_devices+=",${testpmd_devopt}"
-    fi
+
+    count=0
+    for this_device in ${devices[@]}; do
+        resolve_device this_res_dev $this_device
+        res_devs[$count]=$this_res_dev
+        this_node=$(cat "/sys/bus/pci/devices/${res_devs[$count]}/numa_node")
+        if [ "$this_node" == "-1" ]; then
+            echo "Reassigning NUMA node to 0 (from -1) for device $this_device"
+            this_node=0
+        fi
+        res_devs_node[$count]=$this_node
+        # Track total number of devices per node so CPUs can be allocated later
+        if [ ! -n ${num_devs_node[$this_node]} ]; then
+            num_devs_node[$this_node]=1
+        else
+            ((num_devs_node[this_node]++))
+        fi
+        testpmd_devices+=" --allow ${res_devs[$count]}"
+        if [ -n "${testpmd_devopt}" ]; then
+            testpmd_devices+=",${testpmd_devopt}"
+        fi
+        echo "Device $count: ${res_devs[$count]}, NUMA node: ${res_dev_1_numa_node}"
+    done
+
     if [ -z "${testpmd_devices}" ]; then
         exit_error "Testpmd devices could not be found, exiting" 1 "$sample_dir"
     fi
-    res_dev_1_numa_node=$(cat "/sys/bus/pci/devices/${res_dev_1}/numa_node")
-    res_dev_2_numa_node=$(cat "/sys/bus/pci/devices/${res_dev_2}/numa_node")
-    echo "Device 1: ${res_dev_1}"
-    echo "Device 1 NUMA node: ${res_dev_1_numa_node}"
-    echo "Device 2: ${res_dev_2}"
-    echo "Device 2 NUMA node: ${res_dev_2_numa_node}"
 
-    if [ "${res_dev_1_numa_node}" == "-1" ]; then
-        res_dev_1_numa_node="0"
-    fi
-
-    if [ "${res_dev_2_numa_node}" == "-1" ]; then
-        res_dev_2_numa_node="0"
-    fi
-
-    # figure out the CPUs to use
     if [ -z "${HK_CPUS}" ] ; then
         exit_error "There are no housekeeping CPUs to use for testpmd" 1 "$sample_dir"
     else
         echo "HK_CPUS=${HK_CPUS}"
     fi
+
+    # figure out the CPUs to use
     HK_CPUS_SEPARATED=$(echo "${HK_CPUS}" | sed -e "s/,/ /g")
     HK_CPUS_ARRAY=(${HK_CPUS_SEPARATED})
     if [ ${#HK_CPUS_ARRAY[@]} -lt 1 ]; then
@@ -176,129 +169,55 @@ if [ "$switch_type" == "testpmd" ]; then
     fi
     WORKLOAD_CPUS_SEPARATED=$(echo "${WORKLOAD_CPUS}" | sed -e "s/,/ /g")
 
+    # Build a sequence of '--cpu' options for get-cpus-ordered.py that includes all of the workload cpus
     cpu_str=""
     for cpu in $WORKLOAD_CPUS_SEPARATED; do
         cpu_str+=" --cpu $cpu"
     done
-    if [ "${res_dev_1_numa_node}" == "${res_dev_2_numa_node}" ]; then
-        cmd="${TOOLBOX_HOME}/bin/get-cpus-ordered.py --smt ${testpmd_smt} --smt-enumeration ${testpmd_smt_mode} --numa-node ${res_dev_1_numa_node} ${cpu_str}"
-        echo "about to run: ${cmd}"
-        CMD_OUTPUT=$(${cmd})
-        echo -e "${CMD_OUTPUT}"
-        WORKLOAD_CPUS_SEPARATED=$(echo -e "${CMD_OUTPUT}" | grep "final cpus:" | awk '{ print $3 }' | sed -e "s/,/ /g")
-    else
-        if [ "${testpmd_smt}" == "on" ]; then
-            exit_error "The usage of SMT is not supported when the PCI devices are located on different NUMA nodes, exiting" 1 "${sample_dir}"
+
+    # Find the number of cpus needed per NUMA node, based on number of devices per node (and queues/pmd)
+    #
+    # First CPU is housekeeping for testpmd main thread
+    testpmd_cpus="0@${HK_CPUS_ARRAY[0]},"
+    cpu_idx=0
+    for this_node in ${!num_devs_node[@]}; do
+        echo "finding cpus for node [$this_node]"
+        num_devs=${num_devs_node[$this_node]}
+        ((total_devs+=num_devs))
+        echo "num_devs: [$num_devs]"
+        num_cpus=`echo "scale=0; $num_devs*$testpmd_queues/$testpmd_queues_per_pmd" | bc`
+        # In case truncated to 0
+        if [ $num_cpus -eq 0 ]; then
+            num_cpus=1
         fi
-
-        echo "Determining node local CPUs for each device:"
-
-        echo "Device 1:"
-        dev_1_cmd="${TOOLBOX_HOME}/bin/get-cpus-ordered.py --smt off --numa-node ${res_dev_1_numa_node} ${cpu_str}"
-        echo "about to run: ${dev_1_cmd}"
-        DEV_1_CMD_OUTPUT=$(${cmd})
-        echo -e "${DEV_1_CMD_OUTPUT}"
-        DEV_1_WORKLOAD_CPUS_SEPARATED=$(echo -e "${DEV_1_CMD_OUTPUT}" | grep "final cpus:" | awk '{ print $3 }' | sed -e "s/,/ /g")
-        DEV_1_WORKLOAD_CPUS_ARRAY=(${DEV_1_WORKLOAD_CPUS_SEPARATED})
-
-        echo "Device 2:"
-        dev_2_cmd="${TOOLBOX_HOME}/bin/get-cpus-ordered.py --smt off --numa-node ${res_dev_2_numa_node} ${cpu_str}"
-        echo "about to run: ${dev_2_cmd}"
-        DEV_2_CMD_OUTPUT=$(${cmd})
-        echo -e "${DEV_2_CMD_OUTPUT}"
-        DEV_2_WORKLOAD_CPUS_SEPARATED=$(echo -e "${DEV_2_CMD_OUTPUT}" | grep "final cpus:" | awk '{ print $3 }' | sed -e "s/,/ /g")
-        DEV_2_WORKLOAD_CPUS_ARRAY=(${DEV_2_WORKLOAD_CPUS_SEPARATED})
-
-        echo "Creating combined CPU list (should be alternating CPUs from each device -- per testpmd device/queue assignment):"
-        dev_1_counter=0
-        dev_1_end=0
-        dev_2_counter=0
-        dev_2_end=0
-        WORKLOAD_CPUS_SEPARATED=""
-        while [ ${dev_1_end} == 0 -o ${dev_2_end} == 0 ]; do
-            if [ ${dev_1_end} == 0 -a ${dev_1_counter} -lt ${#DEV_1_WORKLOAD_CPUS_ARRAY[@]} ]; then
-                cpu="${DEV_1_WORKLOAD_CPUS_ARRAY[${dev_1_counter}]}"
-                echo "Adding cpu ${cpu} from device 1"
-                WORKLOAD_CPUS_SEPARATED+=" ${cpu}"
-
-                (( dev_1_counter += 1 ))
-
-                if [ ${dev_1_counter} -ge ${#DEV_1_WORKLOAD_CPUS_ARRAY[@]} ]; then
-                    echo "Reached end of device 1 cpu list"
-                    dev_1_end=1
-                fi
-            fi
-
-            if [ ${dev_2_end} == 0 -a ${dev_2_counter} -lt ${#DEV_2_WORKLOAD_CPUS_ARRAY[@]} ]; then
-                cpu="${DEV_2_WORKLOAD_CPUS_ARRAY[${dev_2_counter}]}"
-                echo "Adding cpu ${cpu} from device 2"
-                WORKLOAD_CPUS_SEPARATED+=" ${cpu}"
-
-                (( dev_2_counter += 1 ))
-
-                if [ ${dev_2_counter} -ge ${#DEV_2_WORKLOAD_CPUS_ARRAY[@]} ]; then
-                    echo "Reached end of device 2 cpu list"
-                    dev_2_end=1
-                fi
-            fi
+        echo "num_cpus: [$num_cpus]"
+        echo "$TOOLBOX_HOME/bin/get-cpus-ordered.py --smt $testpmd_smt --smt-enumeration $testpmd_smt_mode --numa-node $this_node $cpu_str"
+        this_node_cpus=$($TOOLBOX_HOME/bin/get-cpus-ordered.py\
+                                      --smt $testpmd_smt\
+                                      --smt-enumeration $testpmd_smt_mode\
+                                      --numa-node $this_node $cpu_str)
+        echo "output:"
+        echo "$this_node_cpus"
+        this_node_cpus_trimmed=`echo -e "$this_node_cpus" | grep "final cpus:" | awk '{ print $3 }' | cut -d, -f-$num_cpus | sed -e "s/,/ /g"`
+        echo "this_node_cpus_trimmed: [ $this_node_cpus_trimmed ]"
+        for this_cpu in `echo $this_node_cpus_trimmed | sed -e 's/,/ /g'`; do
+            ((cpu_idx++))
+            testpmd_cpus+="$cpu_idx@$this_cpu,"
         done
-        echo "WORKLOAD_CPUS_SEPARATED=${WORKLOAD_CPUS_SEPARATED}"
-    fi
-
-    echo "Trimming CPU list to match required length:"
-    # Number of Ports * Queues per Device
-    WORKLOAD_CPUS_REQUIRED=$(( 2*${testpmd_queues}/${testpmd_queues_per_pmd} ))
-    echo "WORKLOAD_CPUS_REQUIRED=${WORKLOAD_CPUS_REQUIRED}"
-    tmp_list="${WORKLOAD_CPUS_SEPARATED}"
-    WORKLOAD_CPUS_SEPARATED=""
-    cpu_idx=0
-    for cpu in ${tmp_list}; do
-        echo "adding cpu: ${cpu}"
-        WORKLOAD_CPUS_SEPARATED+=" ${cpu}"
-
-        (( cpu_idx += 1 ))
-        if [ ${cpu_idx} -eq ${WORKLOAD_CPUS_REQUIRED} ]; then
-            break
-        fi
     done
-    if [ ${cpu_idx} -lt ${WORKLOAD_CPUS_REQUIRED}  ]; then
-	exit_error "Not enough CPUs to fullfill testpmd device queue requirements, exiting" 1 "${sample_dir}"
-    fi
-    echo "WORKLOAD_CPUS_SEPARATED=${WORKLOAD_CPUS_SEPARATED}"
-    WORKLOAD_CPUS_ARRAY=(${WORKLOAD_CPUS_SEPARATED})
+    testpmd_cpus=$(echo "$testpmd_cpus" | sed -e "s/,$//")
 
-    testpmd_cores=${#WORKLOAD_CPUS_ARRAY[@]}
-    testpmd_cpus=""
-    cpu_idx=0
-    for cpu in $(echo "${HK_CPUS_ARRAY[0]} ${WORKLOAD_CPUS_SEPARATED}" | sed -e "s/\s+/ /g" -e "s/^\s//" -e "s/\s$//"); do
-        testpmd_cpus+="${cpu_idx}@${cpu},"
-        (( cpu_idx++ ))
-    done
-    testpmd_cpus=$(echo "${testpmd_cpus}" | sed -e "s/,$//")
 
-    # autodetect what the testpmd numa memory configuration should be
+    # Detect what the testpmd numa memory configuration should be
     if pushd /sys/devices/system/node > /dev/null; then
         testpmd_mem=""
 
         for node in $(ls -1d node*); do
             NODE_NUM=$(echo ${node} | sed -e "s/node//")
-            if pushd $node > /dev/null; then
-                NODE_CPU_PRESENT=0
-
-                for cpu in ${WORKLOAD_CPUS_SEPARATED}; do
-                    if [ -d "cpu${cpu}" ]; then
-                        NODE_CPU_PRESENT=1
-                        break
-                    fi
-                done
-
-                if [ "${NODE_CPU_PRESENT}" == "1" ]; then
-                    testpmd_mem+="1024,"
-                else
-                    testpmd_mem+="0,"
-                fi
-
-                popd > /dev/null
+            if echo " "${!num_devs_node[@]}" " | grep -q -P "\s$NODE_NUM\s"; then
+                testpmd_mem+="1024,"
+            else
+                testpmd_mem+="0,"
             fi
         done
 
@@ -315,7 +234,7 @@ if [ "$switch_type" == "testpmd" ]; then
     testpmd_opts+=" --huge-dir /dev/hugepages ${testpmd_devices}"
     testpmd_opts+=" -v"
     testpmd_opts+=" --"
-    testpmd_opts+=" --nb-ports 2 --nb-cores ${testpmd_cores} --auto-start --stats-period=5"
+    testpmd_opts+=" --nb-ports $total_devs --nb-cores ${cpu_idx} --auto-start --stats-period=5"
     testpmd_opts+=" --rxq ${testpmd_queues} --txq ${testpmd_queues}"
     testpmd_opts+=" --rxd ${testpmd_descriptors} --txd ${testpmd_descriptors}"
     testpmd_opts+=" --max-pkt-len=${testpmd_mtu}"
@@ -361,26 +280,51 @@ if [ "$switch_type" == "testpmd" ]; then
     fi
 
     if [ "$testpmd_forward_mode" == "mac" ]; then
-        # TODO: use regex instead:
-        if [ -z "$peermac0" -o -z "$peermac1" ]; then
+        mac_file="msgs/rx/infra-start-end:1"
+        if [ -z "$testpmd_dst_macs" ]; then
             exit_error  "[ERROR] Using forware-mode = mac, but did not get MAC addresses from TREX or --testpmd-dst-macs" 1 "$sample_dir"
         fi
-        testpmd_opts+=" --eth-peer 0,$peermac0 --eth-peer 1,$peermac1 --forward-mode mac"
+        idx=0
+        for this_mac in `echo $testpmd_dst_macs | sed -e 's/,/ /g'`; do
+            testpmd_opts+=" --eth-peer $idx,$this_mac"
+            ((idx++))
+        done
+        testpmd_opts+=" --forward-mode mac"
+        if [ $idx -ne $total_devs ]; then
+            exit_error "The number of destination macs did not match the number of devices for testpmd.  In order to use forward-mode=mac, the number of TRex devices and number of testpmd devices must match exactly." 1 $sample_dir
+        fi
     else
         testpmd_opts+=" "
     fi
 
+
     echo "Going to run: $testpmd_bin $testpmd_opts"
     ( ${testpmd_bin} ${testpmd_opts} 2>&1 & echo $! > trafficgen-server.pid ) | ${TOOLBOX_HOME}/bin/timestamper.py > ${testpmd_output} &
     sleep 5 # TODO: need a better wait
-    mac0=`egrep "Port 0: [A-Fa-f0-9]{2}:[A-Fa-f0-9]{2}:[A-Fa-f0-9]{2}:[A-Fa-f0-9]{2}:[A-Fa-f0-9]{2}:[A-Fa-f0-9]{2}" $testpmd_output | awk -F"0: " '{print $2}'`
-    mac1=`egrep "Port 1: [A-Fa-f0-9]{2}:[A-Fa-f0-9]{2}:[A-Fa-f0-9]{2}:[A-Fa-f0-9]{2}:[A-Fa-f0-9]{2}:[A-Fa-f0-9]{2}" $testpmd_output | awk -F"1: " '{print $2}'`
-    echo "MAC0: $mac0"
-    echo "MAC1: $mac1"
-    # TODO: fail if MACs are not found in testpmd output
+    if [ ! -e $testpmd_output ]; then
+        exit_error "Could not find testpmd output file: [$testpmd_output]" 1 $sample_dir
+    fi
+
+    # Find the MACs for all devices, to be sent to TRex
     if [ "$testpmd_forward_mode" == "mac" ]; then
-        # MAC info, to be sent to endpoint and then forwarded to the client
-        echo '{"recipient":{"type":"all","id":"all"},"user-object":{"macs":["'$mac0'","'$mac1'"]}}' >msgs/tx/svc
+        sleep 10 # TODO: need a better wait
+        if [ ! -e $testpmd_output ]; then
+            exit_error "Could not find testpmd output file: [$testpmd_output]" 1 $sample_dir
+        fi
+        echo '{"recipient":{"type":"all","id":"all"},"user-object":{"macs":[' >>msgs/tx/svc
+        dev_idx=0
+        while [ $dev_idx -lt $total_devs ]; do
+            this_mac=`egrep "Port $dev_idx: [A-Fa-f0-9]{2}:[A-Fa-f0-9]{2}:[A-Fa-f0-9]{2}:[A-Fa-f0-9]{2}:[A-Fa-f0-9]{2}:[A-Fa-f0-9]{2}" $testpmd_output | awk -F"$dev_idx: " '{print $2}'`
+            echo "MAC$dev_idx: $this_mac"
+            ## MAC info, to be sent to endpoint and then forwarded to the client
+            echo '"'$this_mac'"' >>msgs/tx/svc
+            if [ $dev_idx -lt $((total_devs-1)) ]; then
+                echo ', ' >>msgs/tx/svc
+            fi
+            dev_mac[$dev_idx]=$this_mac
+            let dev_idx=$dev_idx+1
+        done
+        echo "]}}" >>msgs/tx/svc
     fi
 elif [ "$switch_type" == "null" ]; then
     echo "Using switch_type null, no setup required"

@@ -248,5 +248,5 @@ done
 mac_list=$(echo "${mac_list}" | sed -e 's/,$//')
 echo "TRex source MACs: ${mac_list}"
 
-# MAC info, to be sent to endpoint and then forwarded to the server 
+# MAC info, to be sent to endpoint and then forwarded to the server
 echo '{"recipient":{"type":"all","id":"all"},"user-object":{"macs":['${mac_list}']}}' >msgs/tx/macs
