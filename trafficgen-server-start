@@ -100,13 +100,6 @@ while [ $# -gt 0 ]; do
         --testpmd-dst-macs)
             testpmd_dst_macs="$val"
             ;;
-        --testpmd-dev-cpu-ratio)
-            # a value N, where N:1 is a ratio of N devices per CPU used for PMD threads
-            # ex:
-            # --testpmd-dev-cpu-ratio 1  :   1 cpu needed for every device
-            # --testpmd-dev-cpu-ratio 4  :   1 cpu needed for every 4 devices
-            testpmd_dev_cpu_ratio="$val"
-            ;;
     esac
 done
 
@@ -135,6 +128,7 @@ if [ "$switch_type" == "testpmd" ]; then
         res_devs[$count]=$this_res_dev
         this_node=$(cat "/sys/bus/pci/devices/${res_devs[$count]}/numa_node")
         if [ "$this_node" == "-1" ]; then
+            echo "Reassigning NUMA node to 0 (from -1) for device $this_device"
             this_node=0
         fi
         res_devs_node[$count]=$this_node
