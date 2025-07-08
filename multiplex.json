@@ -131,7 +131,7 @@
 	},
 	"trial_results": {
 	    "description": "supported trial result handling modes",
-	    "args": [ "duplicate-packet-failure", "rate-tolerance-failure", "--negative-packet-loss" ],
+	    "args": [ "duplicate-packet-failure", "rate-tolerance-failure", "negative-packet-loss" ],
 	    "vals": [ "^(fail|quit|retry-to-fail|retry-to-quit)$" ]
 	},
 	"loss_granularity": {
