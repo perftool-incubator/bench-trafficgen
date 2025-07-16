@@ -67,7 +67,7 @@
 	    "args": [ "frame-size", "num-flows", "teaching-warmup-packet-rate",
 		      "teaching-measurement-packet-rate", "warmup-trial-runtime",
 		      "trex-mem-limit", "testpmd-mtu", "testpmd-burst", "trex-mbuf-factor" ],
-	    "vals": [ "^[1-9][0-9]*$" ]
+	    "vals": [ "^[1-9][0-9]*$|^IMIX$" ]
 	},
 	"positive_integer": {
 	    "description": "any positive integer value",
