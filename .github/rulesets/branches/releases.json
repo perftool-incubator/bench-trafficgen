@@ -9,7 +9,8 @@
     "ref_name": {
       "exclude": [],
       "include": [
-        "refs/heads/20[2-9][0-9]\\.[1234]"
+        "refs/heads/20[2-9][0-9]\\.[1234]",
+        "refs/heads/ci-version-test"
       ]
     }
   },
@@ -28,11 +29,18 @@
         "require_code_owner_review": false,
         "require_last_push_approval": false,
         "required_review_thread_resolution": true,
+        "automatic_copilot_code_review_enabled": false,
         "allowed_merge_methods": [
           "merge"
         ]
       }
     }
   ],
-  "bypass_actors": []
+  "bypass_actors": [
+    {
+      "actor_id": 962037,
+      "actor_type": "Integration",
+      "bypass_mode": "always"
+    }
+  ]
 }
