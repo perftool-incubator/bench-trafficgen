@@ -1776,12 +1776,18 @@ def evaluate_trial(trial_params, trial_stats):
                                trial_result))
 
           if 'rx_total_loss_error' in trial_stats[dev_pair['rx']]:
-               trial_result = 'abort'
-               bs_logger("\t(critical requirement failure, individual stream 100%% RX packet loss , device pair: %d -> %d, pg_ids: [%s], trial result: %s)" %
-                         (dev_pair['tx'],
-                          dev_pair['rx'],
-                          trial_stats[dev_pair['rx']]['rx_total_loss_error'],
-                          trial_result))
+               if trial_params['loss_granularity'] == 'segment':
+                    trial_result = 'abort'
+                    bs_logger("\t(critical requirement failure, individual stream 100%% RX packet loss , device pair: %d -> %d, pg_ids: [%s], trial result: %s)" %
+                              (dev_pair['tx'],
+                               dev_pair['rx'],
+                               trial_stats[dev_pair['rx']]['rx_total_loss_error'],
+                               trial_result))
+               elif trial_params['loss_granularity'] == 'direction':
+                    bs_logger("\t(trial information, individual stream 100%% RX packet loss , device pair: %d -> %d, pg_ids: [%s])" %
+                              (dev_pair['tx'],
+                               dev_pair['rx'],
+                               trial_stats[dev_pair['rx']]['rx_total_loss_error']))
 
           if 'rx_negative_loss_error' in trial_stats[dev_pair['rx']]:
                if trial_params['negative_packet_loss_mode'] == 'quit':
@@ -1810,6 +1816,11 @@ def evaluate_trial(trial_params, trial_stats):
                               bs_logger("\t(critical requirement failure, negative direction packet loss, direction: %s, trial result: %s)" %
                                         (direction,
                                          trial_result))
+                    elif trial_stats['directional'][direction]['rx_lost_packets_pct'] == 100.00:
+                         trial_result = 'abort'
+                         bs_logger("\t(critical requirement failure, 100%% RX packet loss, direction: %s, trial result: %s)" %
+                                   (direction,
+                                    trial_result))
 
      if 'latency_device_pair' in trial_params and trial_params['latency_device_pair'] != '--':
           latency_device_pair = trial_params['latency_device_pair'].split(':')
