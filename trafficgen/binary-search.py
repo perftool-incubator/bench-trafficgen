@@ -1774,6 +1774,11 @@ def evaluate_trial(trial_params, trial_stats):
                                dev_pair['rx'],
                                trial_stats[dev_pair['rx']]['latency_duplicate_error'],
                                trial_result))
+               else:
+                    bs_logger("\t(trial information, duplicate latency packets detected, device pair: %d -> %d, pg_ids: [%s])" %
+                              (dev_pair['tx'],
+                               dev_pair['rx'],
+                               trial_stats[dev_pair['rx']]['latency_duplicate_error']))
 
           if 'rx_total_loss_error' in trial_stats[dev_pair['rx']]:
                if trial_params['loss_granularity'] == 'segment':
@@ -1797,6 +1802,11 @@ def evaluate_trial(trial_params, trial_stats):
                                dev_pair['rx'],
                                trial_stats[dev_pair['rx']]['rx_negative_loss_error'],
                                trial_result))
+               else:
+                    bs_logger("\t(trial information, negative individual stream RX packet loss, device pair: %d -> %d, pg_ids: [%s])" %
+                              (dev_pair['tx'],
+                               dev_pair['rx'],
+                               trial_stats[dev_pair['rx']]['rx_negative_loss_error']))
 
           if trial_params['loss_granularity'] == 'device' and trial_stats[dev_pair['rx']]['rx_active']:
                if trial_stats[dev_pair['rx']]['rx_lost_packets_pct'] < 0:
@@ -1806,6 +1816,10 @@ def evaluate_trial(trial_params, trial_stats):
                                    (dev_pair['tx'],
                                     dev_pair['rx'],
                                     trial_result))
+                    else:
+                         bs_logger("\t(trial information, negative device packet loss, device pair: %d -> %d)" %
+                                   (dev_pair['tx'],
+                                    dev_pair['rx']))
 
      if trial_params['loss_granularity'] == 'direction':
           for direction in trial_stats['directional']:
@@ -1816,6 +1830,9 @@ def evaluate_trial(trial_params, trial_stats):
                               bs_logger("\t(critical requirement failure, negative direction packet loss, direction: %s, trial result: %s)" %
                                         (direction,
                                          trial_result))
+                         else:
+                              bs_logger("\t(trial information, negative direction packet loss, direction: %s)" %
+                                        (direction))
                     elif trial_stats['directional'][direction]['rx_lost_packets_pct'] == 100.00:
                          trial_result = 'abort'
                          bs_logger("\t(critical requirement failure, 100%% RX packet loss, direction: %s, trial result: %s)" %
