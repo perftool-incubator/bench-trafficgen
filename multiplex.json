@@ -12,7 +12,7 @@
 	    "args": [ "trex-devices", "trex-active-devices", "server-devices" ],
 	    "vals": [
 		"^0{4}(:[0-9a-fA-F]{2}){2}\\.[0-9],0{4}(:[0-9a-fA-F]{2}){2}\\.[0-9](,0{4}(:[0-9a-fA-F]{2}){2}\\.[0-9],0{4}(:[0-9a-fA-F]{2}){2}\\.[0-9])*$",
-        "^VAR:\\w+(:(.+)){0,1},VAR:\\w+(:(.+)){0,1}(,VAR:\\w+(:(.+)){0,1},VAR:\\w+(:(.+)){0,1})*$"
+		"^VAR:\\w+(:(.+)){0,1},VAR:\\w+(:(.+)){0,1}(,VAR:\\w+(:(.+)){0,1},VAR:\\w+(:(.+)){0,1})*$"
 	    ]
 	},
 	"trex_cpus": {
@@ -64,10 +64,15 @@
 	},
 	"nonzero_positive_integer": {
 	    "description": "any non-zero postive integer value",
-	    "args": [ "frame-size", "num-flows", "teaching-warmup-packet-rate",
+	    "args": [ "num-flows", "teaching-warmup-packet-rate",
 		      "teaching-measurement-packet-rate", "warmup-trial-runtime",
 		      "trex-mem-limit", "testpmd-mtu", "testpmd-burst", "trex-mbuf-factor" ],
 	    "vals": [ "^[1-9][0-9]*$" ]
+	},
+	"frame_size": {
+	    "description": "frame size is unique in that it is either an integer or a specific string",
+	    "args": [ "frame-size" ],
+	    "vals": [ "^[1-9][0-9]*$|^IMIX$" ]
 	},
 	"positive_integer": {
 	    "description": "any positive integer value",
