@@ -373,6 +373,11 @@ def process_options ():
                         help='Should individual segments be monitored for pass/fail status relative to --max-loss-pct in order to short circuit trials',
                         action = 'store_true',
                         )
+    parser.add_argument('--enable-segment-monitor-noop',
+                        dest='enable_segment_monitor_noop',
+                        help='Should individual segments be monitored for pass/fail status relative to --max-loss-pct but no action is taken',
+                        action = 'store_true',
+                        )
     parser.add_argument('--device-pairs',
                         dest='device_pairs',
                         help='List of device pairs in the form A:B[,C:D][,E:F][,...]',
@@ -934,8 +939,11 @@ def run_trial (trial_params, port_info, stream_info, detailed_stats):
         cmd = cmd + ' --packet-protocol=' + str(trial_params['packet_protocol'])
         cmd = cmd + ' --stream-mode=' + trial_params['stream_mode']
         cmd = cmd + ' --max-loss-pct=' + str(trial_params['max_loss_pct'])
-        if trial_params['stream_mode'] == "segmented" and trial_params['enable_segment_monitor']:
-             cmd = cmd + ' --enable-segment-monitor'
+        if trial_params['stream_mode'] == "segmented" and ( trial_params['enable_segment_monitor'] or trial_params['enable_segment_monitor_noop'] ):
+             if trial_params['trial_mode'] == "warmup" or trial_params['enable_segment_monitor_noop']:
+                  cmd = cmd + ' --enable-segment-monitor-noop'
+             else:
+                  cmd = cmd + ' --enable-segment-monitor'
         if trial_params['use_device_stats']:
              cmd = cmd + ' --skip-hw-flow-stats'
         if not trial_params['enable_flow_cache']:
@@ -2242,6 +2250,7 @@ def main():
          setup_config_var("packet_protocol", t_global.args.packet_protocol, trial_params)
          setup_config_var("stream_mode", t_global.args.stream_mode, trial_params)
          setup_config_var("enable_segment_monitor", t_global.args.enable_segment_monitor, trial_params)
+         setup_config_var("enable_segment_monitor_noop", t_global.args.enable_segment_monitor_noop, trial_params)
          setup_config_var('teaching_warmup_packet_type', t_global.args.teaching_warmup_packet_type, trial_params)
          setup_config_var('teaching_measurement_packet_type', t_global.args.teaching_measurement_packet_type, trial_params)
          setup_config_var("use_device_stats", t_global.args.use_device_stats, trial_params)

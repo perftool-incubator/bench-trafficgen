@@ -600,6 +600,11 @@ def process_options ():
                         help='Should individual segments be monitored for pass/fail status relative to --max-loss-pct in order to short circuit trials',
                         action = 'store_true',
                         )
+    parser.add_argument('--enable-segment-monitor-noop',
+                        dest='enable_segment_monitor_noop',
+                        help='Should individual segments be monitored for pass/fail status relative to --max-loss-pct but no action is taken',
+                        action = 'store_true',
+                        )
     parser.add_argument('--max-loss-pct',
                         dest='max_loss_pct',
                         help='Maximum percentage of packet loss',
@@ -682,9 +687,14 @@ def process_options ():
                                                      use_protocol_flows = t_global.args.use_protocol_flows)
     myprint(t_global.args)
 
-def segment_monitor(connection, device_pairs, run_ports, normal_exit_event, early_exit_event):
+def segment_monitor(connection, device_pairs, run_ports, normal_exit_event, early_exit_event, noop):
+    segment_failures = False
+
     try:
-         myprint("Segment Monitor: Running")
+         if noop:
+              myprint("Segment Monitor: Running in noop mode")
+         else:
+              myprint("Segment Monitor: Running")
 
          directions = [ '->', '<-' ]
          for device_pair in device_pairs:
@@ -743,8 +753,10 @@ def segment_monitor(connection, device_pairs, run_ports, normal_exit_event, earl
                                   loss_ratio = 100.0 * (1.0 - float(pg_id_stats['flow_stats'][pg_id]['rx_pkts']['total']) / float(pg_id_stats['flow_stats'][pg_id]['tx_pkts']['total']))
                                   #myprint("Analyzing pg_id=%d with rx_pkts=%d, tx_pkts=%d, and loss_ratio=%f" % (pg_id,float(pg_id_stats['flow_stats'][pg_id]['rx_pkts']['total']), float(pg_id_stats['flow_stats'][pg_id]['tx_pkts']['total']), loss_ratio))
                                   if loss_ratio > t_global.args.max_loss_pct:
-                                       normal_exit_event.set()
-                                       early_exit_event.set()
+                                       segment_failures = True
+                                       if not noop:
+                                            normal_exit_event.set()
+                                            early_exit_event.set()
                                        myprint("Segment Monitor: device pair %s with pg_id=%d (direction=%s/type=%s) failed max loss percentage requirement: %f%% > %f%% (TX:%d/RX:%d)" %
                                                (
                                                     device_pair['device_pair'],
@@ -766,11 +778,14 @@ def segment_monitor(connection, device_pairs, run_ports, normal_exit_event, earl
 
     finally:
          if early_exit_event.is_set():
-              myprint("Segment Monitor: Exiting early")
+              myprint("Segment Monitor: Exiting early due to segment failures")
 
               connection.stop(ports = run_ports)
          else:
-               myprint("Segment Monitor: Did not detect any segment failures")
+              if noop and segment_failures:
+                   myprint("Segment Monitor: Segment failures detected but noop active")
+              else:
+                   myprint("Segment Monitor: Did not detect any segment failures")
 
          return(0)
 
@@ -1195,7 +1210,7 @@ def main():
 
         thread_normal_exit = threading.Event()
         thread_early_exit = threading.Event()
-        segment_monitor_thread = threading.Thread(target = segment_monitor, args = (c, device_pairs, run_ports, thread_normal_exit, thread_early_exit))
+        segment_monitor_thread = threading.Thread(target = segment_monitor, args = (c, device_pairs, run_ports, thread_normal_exit, thread_early_exit, t_global.args.enable_segment_monitor_noop))
 
         # log start of test
         timeout_seconds = math.ceil(float(t_global.args.runtime) * (1 + (float(t_global.args.runtime_tolerance) / 100)))
@@ -1223,7 +1238,7 @@ def main():
         # start the traffic
         c.start(ports = run_ports, force = True, duration = t_global.args.runtime, total = False, core_mask = STLClient.CORE_MASK_PIN)
 
-        if t_global.args.stream_mode == "segmented" and t_global.args.enable_segment_monitor:
+        if t_global.args.stream_mode == "segmented" and ( t_global.args.enable_segment_monitor or t_global.args.enable_segment_monitor_noop ):
              segment_monitor_thread.start()
 
         timeout = False
@@ -1249,7 +1264,7 @@ def main():
         total_time = stop_time - start_time
         myprint("Test ran for %d seconds (%s)" % (total_time.total_seconds(), total_time))
 
-        if t_global.args.stream_mode == "segmented" and t_global.args.enable_segment_monitor:
+        if t_global.args.stream_mode == "segmented" and ( t_global.args.enable_segment_monitor or t_global.args.enable_segment_monitor_noop ):
              thread_normal_exit.set()
              segment_monitor_thread.join()
 

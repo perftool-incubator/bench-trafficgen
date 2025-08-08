@@ -154,7 +154,8 @@
 	    "args": [ "use-device-stats", "enable-segment-monitor", "disable-flow-cache",
 		      "send-teaching-warmup", "send-teaching-measurement", "disable-trex-profiler",
 		      "process-all-profiler-data", "repeat-final-validation", "warmup-trial",
-		      "disable-upward-search", "no-promisc", "compress-files" ],
+		      "disable-upward-search", "no-promisc", "compress-files",
+		      "enable-segment-monitor-noop" ],
 	    "vals": [ "^(ON|OFF)$" ]
 	},
 	"device_pair_list": {
