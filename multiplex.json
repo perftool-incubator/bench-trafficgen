@@ -53,7 +53,7 @@
 	"testpmd_on_off_toggles": {
 	    "description": "testpmd options which are toggled with on/off values",
 	    "args": [ "testpmd-smt", "testpmd-enable-scatter", "estpmd-enable-rx-cksum",
-		      "testpmd-enable-rss-udp" ],
+		      "testpmd-enable-rss-udp", "testpmd-flow-control" ],
 	    "vals": [ "^(on|off)$" ]
 	},
 	"string": {
