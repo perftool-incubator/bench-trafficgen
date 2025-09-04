@@ -32,6 +32,7 @@ testpmd_devopt=""
 testpmd_mbuf_size=""
 testpmd_burst=""
 testpmd_dst_macs=""
+testpmd_flow_control="off"
 
 # Options processing
 re='^(--[^=]+)=([^=]+)'
@@ -100,6 +101,9 @@ while [ $# -gt 0 ]; do
         --testpmd-dst-macs)
             testpmd_dst_macs="$val"
             ;;
+	--testpmd-flow-control)
+	    testpmd_flow_control="$val"
+	    ;;
     esac
 done
 
@@ -227,6 +231,7 @@ if [ "$switch_type" == "testpmd" ]; then
         popd > /dev/null
     fi
 
+    testpmd_cmdline_file="trafficgen-testpmd-cmdline-file.txt"
     testpmd_output="trafficgen-testpmd-stderrout.txt"
     testpmd_bin=$( command -v dpdk-testpmd || command -v testpmd )
     testpmd_opts=" --lcores ${testpmd_cpus}"
@@ -235,6 +240,7 @@ if [ "$switch_type" == "testpmd" ]; then
     testpmd_opts+=" --huge-dir /dev/hugepages ${testpmd_devices}"
     testpmd_opts+=" -v"
     testpmd_opts+=" --"
+    testpmd_opts+=" --cmdline-file ${testpmd_cmdline_file}"
     testpmd_opts+=" --nb-ports $total_devs --nb-cores ${cpu_idx} --auto-start --stats-period=5"
     testpmd_opts+=" --rxq ${testpmd_queues} --txq ${testpmd_queues}"
     testpmd_opts+=" --rxd ${testpmd_descriptors} --txd ${testpmd_descriptors}"
@@ -298,6 +304,31 @@ if [ "$switch_type" == "testpmd" ]; then
         testpmd_opts+=" "
     fi
 
+    # prepare the script that is passed to testpmd's --cmdline-file
+    # parameter
+    echo > ${testpmd_cmdline_file}
+
+    case "${testpmd_flow_control}" in
+	"on"|"off")
+	    echo "Testpmd flow control will be set to: ${testpmd_flow_control}"
+	    ;;
+	*)
+	    exit_error "value for --testpmd-flow-control (${testpmd_flow_contorl}) is not valid.  Use either 'on' or 'off'"
+	    ;;
+    esac
+    for packet_action in "rx" "tx"; do
+	for dev_idx in 0 1; do
+	    echo "set flow_ctrl ${packet_action} ${testpmd_flow_control} ${dev_idx}" >> ${testpmd_cmdline_file}
+	done
+    done
+    for dev_idx in 0 1; do
+	echo "show port ${dev_idx} flow_ctrl" >> ${testpmd_cmdline_file}
+    done
+
+    echo "Contents of generated testpmd cmdline file: ${testpmd_cmdline_file}"
+    echo "--- begin ---"
+    cat ${testpmd_cmdline_file}
+    echo "---- end ----"
 
     echo "Going to run: $testpmd_bin $testpmd_opts"
     ( ${testpmd_bin} ${testpmd_opts} 2>&1 & echo $! > trafficgen-server.pid ) | ${TOOLBOX_HOME}/bin/timestamper.py > ${testpmd_output} &
