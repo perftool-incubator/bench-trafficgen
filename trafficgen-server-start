@@ -238,15 +238,21 @@ if [ "$switch_type" == "testpmd" ]; then
     testpmd_opts+=" --file-prefix ${cs_label}"
     testpmd_opts+=" --socket-mem ${testpmd_mem}"
     testpmd_opts+=" --huge-dir /dev/hugepages ${testpmd_devices}"
-    testpmd_opts+=" -v"
+    testpmd_opts+=" -v" # shows the version on startup
     testpmd_opts+=" --"
     testpmd_opts+=" --cmdline-file ${testpmd_cmdline_file}"
-    testpmd_opts+=" --nb-ports $total_devs --nb-cores ${cpu_idx} --auto-start --stats-period=5"
-    testpmd_opts+=" --rxq ${testpmd_queues} --txq ${testpmd_queues}"
-    testpmd_opts+=" --rxd ${testpmd_descriptors} --txd ${testpmd_descriptors}"
+    testpmd_opts+=" --nb-ports $total_devs"
+    testpmd_opts+=" --nb-cores ${cpu_idx}"
+    testpmd_opts+=" --auto-start"
+    testpmd_opts+=" --stats-period=5"
+    testpmd_opts+=" --rxq ${testpmd_queues}"
+    testpmd_opts+=" --txq ${testpmd_queues}"
+    testpmd_opts+=" --rxd ${testpmd_descriptors}"
+    testpmd_opts+=" --txd ${testpmd_descriptors}"
     testpmd_opts+=" --max-pkt-len=${testpmd_mtu}"
     testpmd_opts+=" --record-core-cycles"
     testpmd_opts+=" --record-burst-stats"
+
     if [ "$testpmd_enable_scatter" == "on" ]; then
         testpmd_opts+=" --enable-scatter"
     elif [ "$testpmd_enable_scatter" == "off" ]; then
