@@ -9,11 +9,17 @@
       "name": "alma8",
       "requirements": [
         "dev-tools",
-        "trafficgen-os-dependencies",
+        "trafficgen-client-os-dependencies",
         "set-python3.9",
         "pip",
         "trex1",
         "trex2"
+      ]
+    },
+    {
+      "name": "default",
+      "requirements": [
+        "trafficgen-server-os-dependencies"
       ]
     }
   ],
@@ -28,7 +34,20 @@
       }
     },
     {
-      "name": "trafficgen-os-dependencies",
+      "name": "trafficgen-server-os-dependencies",
+      "type": "distro",
+      "distro_info": {
+        "packages": [
+          "rdma-core-devel",
+          "dpdk-tools",
+          "net-tools",
+          "which",
+          "bc"
+        ]
+      }
+    },
+    {
+      "name": "trafficgen-client-os-dependencies",
       "type": "distro",
       "distro_info": {
         "packages": [
