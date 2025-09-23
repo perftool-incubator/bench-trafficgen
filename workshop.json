@@ -48,8 +48,11 @@
       "name": "pip",
       "type": "python3",
       "python3_info": {
-        "packages": [
-               "pyyaml"
+         "packages": [
+           "pyyaml",
+           "jsonschema",
+           "redis",
+           "hiredis"
          ]
        }
     },
