@@ -1,5 +1,7 @@
 # bench-trafficgen
 
+Scripts and configuration to run traffic generation benchmarks (TRex/testpmd with binary search) within the [crucible](https://github.com/perftool-incubator/crucible) performance testing framework.
+
 ## Utility Scripts
 
 Name | Description
