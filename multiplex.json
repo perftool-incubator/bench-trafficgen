@@ -58,7 +58,7 @@
 	},
 	"string": {
 	    "description": "any string value",
-	    "args": [ "output-dir", "traffic-profile", "pre-trial-cmd", "warmup-traffic-profile",
+	    "args": [ "output-dir", "traffic-profile", "traffic-profile-name", "pre-trial-cmd", "warmup-traffic-profile", "warmup-traffic-profile-name",
 		      "trex-host", "testpmd-devopt", "trex-config" ],
 	    "vals": [ "^.+$" ]
 	},

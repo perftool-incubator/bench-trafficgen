@@ -166,6 +166,12 @@ def process_options ():
                         default = '',
                         type = str
                         )
+    parser.add_argument('--traffic-profile-name',
+                        dest='traffic_profile_name',
+                        help='When the traffic profile file contains multiple named profiles, select which profile to load (ignored for legacy files with top-level streams only)',
+                        default = '',
+                        type = str
+                        )
     parser.add_argument('--random-seed',
                         dest='random_seed',
                         help='Specify a fixed random seed for repeatable results (defaults to not repeatable)',
@@ -1285,8 +1291,9 @@ def main():
     return_value = 1
 
     traffic_profile = load_traffic_profile(traffic_profile = t_global.args.traffic_profile,
-                                           rate_modifier = t_global.args.rate_modifier)
-    if not 'streams' in traffic_profile:
+                                           rate_modifier = t_global.args.rate_modifier,
+                                           profile_name = t_global.args.traffic_profile_name.strip() if t_global.args.traffic_profile_name else None)
+    if traffic_profile == 1 or not 'streams' in traffic_profile:
          return return_value
 
     for stream in traffic_profile['streams']:

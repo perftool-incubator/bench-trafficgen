@@ -38,6 +38,16 @@ def bs_logger(msg, bso = True, prefix = ""):
                                        'prefix':    prefix })
      return(0)
 
+def write_resolved_traffic_profile(profile, output_dir, filename, log_function = print):
+     resolved_path = "%s/%s" % (output_dir, filename)
+     try:
+          streams_only = { 'streams': profile['streams'] }
+          with open(resolved_path, 'w') as fp:
+               json.dump(streams_only, fp, indent=4, separators=(',', ': '), sort_keys=False, default=not_json_serializable)
+          log_function("Wrote resolved traffic profile to %s" % (resolved_path))
+     except:
+          log_function("WARNING: Could not write resolved traffic profile to %s: %s" % (resolved_path, traceback.format_exc()))
+
 def file_open(filename, mode):
      fp = None
 
@@ -494,6 +504,18 @@ def process_options ():
                         default = '',
                         type = str
                         )
+    parser.add_argument('--traffic-profile-name',
+                        dest='traffic_profile_name',
+                        help='When the traffic profile file contains multiple named profiles, select which profile to load (trex-txrx-profile only)',
+                        default = '',
+                        type = str
+                        )
+    parser.add_argument('--warmup-traffic-profile-name',
+                        dest='warmup_traffic_profile_name',
+                        help='Named profile to use with --warmup-traffic-profile during a warmup trial (trex-txrx-profile only)',
+                        default = '',
+                        type = str
+                        )
     parser.add_argument('--disable-upward-search',
                         dest = 'disable_upward_search',
                         help = 'Do not allow binary search to increase beyond the initial rate if it passes final validation',
@@ -880,8 +902,12 @@ def run_trial (trial_params, port_info, stream_info, detailed_stats):
              cmd = cmd + ' --teaching-measurement-packet-rate=' + str(trial_params['teaching_measurement_packet_rate'])
         if trial_params['trial_mode'] == 'warmup' and len(trial_params['warmup_traffic_profile']):
              cmd = cmd + ' --traffic-profile=' + trial_params['warmup_traffic_profile']
+             if len(trial_params.get('warmup_traffic_profile_name', '')):
+                  cmd = cmd + ' --traffic-profile-name=' + trial_params['warmup_traffic_profile_name']
         else:
              cmd = cmd + ' --traffic-profile=' + trial_params['traffic_profile']
+             if len(trial_params.get('traffic_profile_name', '')):
+                  cmd = cmd + ' --traffic-profile-name=' + trial_params['traffic_profile_name']
         if trial_params['no_promisc']:
              cmd = cmd + ' --no-promisc'
 
@@ -2156,6 +2182,11 @@ def main():
          bs_logger_cleanup(bs_logger_exit, bs_logger_thread)
          return(1)
 
+    if t_global.args.traffic_generator == 'trex-txrx' and (len(t_global.args.traffic_profile_name) or len(t_global.args.warmup_traffic_profile_name)):
+         bs_logger(error("The trex-txrx traffic generator does not support --traffic-profile-name or --warmup-traffic-profile-name"))
+         bs_logger_cleanup(bs_logger_exit, bs_logger_thread)
+         return(1)
+
     if t_global.args.traffic_generator == 'null-txrx' and t_global.args.measure_latency:
          bs_logger(error("The null-txrx traffic generator does not support latency measurements"))
          bs_logger_cleanup(bs_logger_exit, bs_logger_thread)
@@ -2279,6 +2310,8 @@ def main():
          setup_config_var('random_seed', t_global.args.random_seed, trial_params)
          setup_config_var('traffic_profile', t_global.args.traffic_profile, trial_params)
          setup_config_var('warmup_traffic_profile', t_global.args.warmup_traffic_profile, trial_params)
+         setup_config_var('traffic_profile_name', t_global.args.traffic_profile_name, trial_params)
+         setup_config_var('warmup_traffic_profile_name', t_global.args.warmup_traffic_profile_name, trial_params)
          setup_config_var("enable_trex_profiler", t_global.args.enable_trex_profiler, trial_params)
          setup_config_var("trex_profiler_interval", t_global.args.trex_profiler_interval, trial_params)
          setup_config_var('process_all_profiler_data', t_global.args.process_all_profiler_data, trial_params)
@@ -2290,12 +2323,19 @@ def main():
          trial_params['disable_upward_search'] = True
 
     if t_global.args.traffic_generator == 'trex-txrx-profile':
+         _tpn = str(trial_params.get('traffic_profile_name', '') or '').strip()
          trial_params['loaded_traffic_profile'] = load_traffic_profile(traffic_profile = trial_params['traffic_profile'],
                                                                        rate_modifier = 100.0,
-                                                                       log_function = bs_logger)
+                                                                       log_function = bs_logger,
+                                                                       profile_name = _tpn if len(_tpn) else None)
          if trial_params['loaded_traffic_profile'] == 1:
               bs_logger_cleanup(bs_logger_exit, bs_logger_thread)
               return(1)
+
+         write_resolved_traffic_profile(trial_params['loaded_traffic_profile'],
+                                        trial_params['output_dir'],
+                                        "traffic-profile-active.json",
+                                        log_function = bs_logger)
 
          tmp_latency_traffic_direction = trial_params["loaded_traffic_profile"]["streams"][0]["traffic_direction"]
          if tmp_latency_traffic_direction != "bidirectional":
@@ -2308,12 +2348,19 @@ def main():
 
          trial_params['loaded_warmup_traffic_profile'] = None
          if t_global.args.warmup_trial and len(t_global.args.warmup_traffic_profile):
+              _wtpn = str(trial_params.get('warmup_traffic_profile_name', '') or '').strip()
               trial_params['loaded_warmup_traffic_profile'] = load_traffic_profile(traffic_profile = trial_params['warmup_traffic_profile'],
                                                                                    rate_modifier = 100.0,
-                                                                                   log_function = bs_logger)
+                                                                                   log_function = bs_logger,
+                                                                                   profile_name = _wtpn if len(_wtpn) else None)
               if trial_params['loaded_warmup_traffic_profile'] == 1:
                    bs_logger_cleanup(bs_logger_exit, bs_logger_thread)
                    return(1)
+
+              write_resolved_traffic_profile(trial_params['loaded_warmup_traffic_profile'],
+                                             trial_params['output_dir'],
+                                             "warmup-traffic-profile-active.json",
+                                             log_function = bs_logger)
 
               bs_logger("Loaded warmup traffic profile from %s:" % (trial_params['warmup_traffic_profile']))
               bs_logger(dump_json_readable(trial_params['loaded_warmup_traffic_profile']))
