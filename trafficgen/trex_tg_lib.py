@@ -558,7 +558,7 @@ def process_profile_stream(stream, rate_modifier):
 
     return(0)
 
-def load_traffic_profile (traffic_profile = "", rate_modifier = 100.0, log_function = print):
+def load_traffic_profile (traffic_profile = "", rate_modifier = 100.0, log_function = print, profile_name = None):
      try:
           traffic_profile_fp = open(traffic_profile, 'r')
           profile = json.load(traffic_profile_fp)
@@ -589,6 +589,53 @@ def load_traffic_profile (traffic_profile = "", rate_modifier = 100.0, log_funct
          log_function("EXCEPTION: %s" % traceback.format_exc())
          log_function(error("The loaded JSON traffic profile (%s) failed to validate against the traffic profile schema (%s)" % (traffic_profile, schema_file)))
          return(1)
+
+     try:
+         if 'profiles' in profile:
+              profiles_list = profile['profiles']
+              names_seen = {}
+              for p in profiles_list:
+                   n = p['name']
+                   if n in names_seen:
+                        log_function(error("Duplicate traffic profile name '%s' in %s" % (n, traffic_profile)))
+                        return(1)
+                   names_seen[n] = True
+
+              chosen_streams = None
+              if profile_name is not None and len(str(profile_name).strip()):
+                   want = str(profile_name).strip()
+                   for p in profiles_list:
+                        if p['name'] == want:
+                             chosen_streams = p['streams']
+                             break
+                   if chosen_streams is None:
+                        log_function(error("Traffic profile name '%s' not found in %s" % (want, traffic_profile)))
+                        return(1)
+              else:
+                   default_name = profile.get('default_profile')
+                   if default_name is not None and len(str(default_name).strip()):
+                        dn = str(default_name).strip()
+                        for p in profiles_list:
+                             if p['name'] == dn:
+                                  chosen_streams = p['streams']
+                                  break
+                        if chosen_streams is None:
+                             log_function(error("default_profile '%s' not found in %s" % (dn, traffic_profile)))
+                             return(1)
+                   elif len(profiles_list) == 1:
+                        chosen_streams = profiles_list[0]['streams']
+                   else:
+                        log_function(error("Traffic profile file %s contains multiple named profiles; set default_profile in the JSON or pass profile_name / --traffic-profile-name" % (traffic_profile)))
+                        return(1)
+              profile = { 'streams': chosen_streams }
+         elif 'streams' not in profile:
+              log_function(error("Traffic profile %s is missing 'streams' or 'profiles'" % (traffic_profile)))
+              return(1)
+
+     except:
+          log_function("EXCEPTION: %s" % traceback.format_exc())
+          log_function(error("Could not resolve named traffic profiles from %s" % (traffic_profile)))
+          return(1)
 
      try:
          stream_counter = 0
