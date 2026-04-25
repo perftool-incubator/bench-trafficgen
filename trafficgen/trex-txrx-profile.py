@@ -277,7 +277,7 @@ def setup_stream_packet_values (stream, device_pairs):
                          elif layer.name == 'Dot1Q':
                               stream['packet_values']['vlan'] = { 'A': layer.vlan,
                                                                   'B': layer.vlan }
-                         elif layer.name == 'IP':
+                         elif layer.name == 'IP' or layer.name == 'IPv6':
                               stream['packet_values']['ips'] = { 'A': layer.src,
                                                                  'B': layer.dst }
                          elif layer.name == 'TCP' or layer.name == 'UDP':

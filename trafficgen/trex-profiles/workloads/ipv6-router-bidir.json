@@ -1,0 +1,21 @@
+{
+    "streams": [
+        {
+            "flows": 1024,
+            "frame_size": 78,
+            "flow_mods": "function:create_flow_mod_object(use_src_ip_flows=True, use_dst_ip_flows=True)",
+            "rate": 2000000,
+            "frame_type": "generic",
+            "stream_types": [
+                "measurement",
+                "teaching_warmup",
+                "teaching_measurement"
+            ],
+            "traffic_direction": "bidirectional",
+            "latency": false,
+            "protocol": "UDP",
+            "stream_id": "ipv6-bidir",
+            "the_packet": "scapy:Ether(src='40:a6:b7:0c:01:a1', dst='40:a6:b7:0c:01:a0')/IPv6(src='fd00:1::100', dst='fd00:2::100')/UDP(sport=5000, dport=6000)"
+        }
+    ]
+}
