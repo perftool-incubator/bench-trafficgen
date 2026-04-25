@@ -294,27 +294,27 @@ def load_user_pkt (the_packet, size, mac_src, mac_dst, ip_src, ip_dst, port_src,
     size -= 4
 
     packet_protocol = "UDP"
+    packet_ip_version = 4
 
     layer_counter = 0
     while True:
         layer = the_packet.getlayer(layer_counter)
         if not layer is None:
-            #print("Layer %d is '%s'" % (layer_counter, layer.name))
-            #print(dump_json_readable(layer))
-
             if layer.name == "TCP" or layer.name == "UDP":
                 packet_protocol = layer.name
-
                 layer.sport = port_src
                 layer.dport = port_dst
             elif layer.name == "IP":
                 layer.src = str(int_to_ip(ip_to_int(ip_src)))
                 layer.dst = str(int_to_ip(ip_to_int(ip_dst)))
+                packet_ip_version = 4
+            elif layer.name == "IPv6":
+                layer.src = ip_src
+                layer.dst = ip_dst
+                packet_ip_version = 6
             elif layer.name == "Ethernet":
                 layer.src = mac_src
                 layer.dst = mac_dst
-
-            #print(dump_json_readable(layer))
         else:
             break
         layer_counter += 1
@@ -353,21 +353,43 @@ def load_user_pkt (the_packet, size, mac_src, mac_dst, ip_src, ip_dst, port_src,
 
     tmp_num_flows = num_flows - 1
 
-    ip_src = { "start": int_to_ip(ip_to_int(ip_src) + flow_offset), "end": int_to_ip(ip_to_int(ip_src) + tmp_num_flows + flow_offset) }
-    ip_dst = { "start": int_to_ip(ip_to_int(ip_dst) + flow_offset), "end": int_to_ip(ip_to_int(ip_dst) + tmp_num_flows + flow_offset) }
+    if packet_ip_version == 6:
+        ip_src_int = ipv6_to_int(ip_src)
+        ip_dst_int = ipv6_to_int(ip_dst)
+        ip_src = { "start": int_to_ipv6(ip_src_int + flow_offset), "end": int_to_ipv6(ip_src_int + tmp_num_flows + flow_offset) }
+        ip_dst = { "start": int_to_ipv6(ip_dst_int + flow_offset), "end": int_to_ipv6(ip_dst_int + tmp_num_flows + flow_offset) }
+    else:
+        ip_src = { "start": int_to_ip(ip_to_int(ip_src) + flow_offset), "end": int_to_ip(ip_to_int(ip_src) + tmp_num_flows + flow_offset) }
+        ip_dst = { "start": int_to_ip(ip_to_int(ip_dst) + flow_offset), "end": int_to_ip(ip_to_int(ip_dst) + tmp_num_flows + flow_offset) }
 
     vm = []
-    if flow_mods['ip']['src'] and tmp_num_flows:
-        vm = vm + [
-            STLVmFlowVar(name="ip_src",min_value=ip_src['start'],max_value=ip_src['end'],size=4,op="inc"),
-            STLVmWrFlowVar(fv_name="ip_src",pkt_offset= "IP.src")
-        ]
+    if packet_ip_version == 6:
+        # Extract the low 32 bits of the base IPv6 addresses to use as flow var start
+        ip_src_low32 = ip_src_int & 0xFFFFFFFF
+        ip_dst_low32 = ip_dst_int & 0xFFFFFFFF
+        if flow_mods['ip']['src'] and tmp_num_flows:
+            vm = vm + [
+                STLVmFlowVar(name="ip_src", min_value=ip_src_low32 + flow_offset, max_value=ip_src_low32 + tmp_num_flows + flow_offset, size=4, op="inc"),
+                STLVmWrFlowVar(fv_name="ip_src", pkt_offset="IPv6.src", offset_fixup=12)
+            ]
 
-    if flow_mods['ip']['dst'] and tmp_num_flows:
-        vm = vm + [
-            STLVmFlowVar(name="ip_dst",min_value=ip_dst['start'],max_value=ip_dst['end'],size=4,op="inc"),
-            STLVmWrFlowVar(fv_name="ip_dst",pkt_offset= "IP.dst")
-        ]
+        if flow_mods['ip']['dst'] and tmp_num_flows:
+            vm = vm + [
+                STLVmFlowVar(name="ip_dst", min_value=ip_dst_low32 + flow_offset, max_value=ip_dst_low32 + tmp_num_flows + flow_offset, size=4, op="inc"),
+                STLVmWrFlowVar(fv_name="ip_dst", pkt_offset="IPv6.dst", offset_fixup=12)
+            ]
+    else:
+        if flow_mods['ip']['src'] and tmp_num_flows:
+            vm = vm + [
+                STLVmFlowVar(name="ip_src",min_value=ip_src['start'],max_value=ip_src['end'],size=4,op="inc"),
+                STLVmWrFlowVar(fv_name="ip_src",pkt_offset= "IP.src")
+            ]
+
+        if flow_mods['ip']['dst'] and tmp_num_flows:
+            vm = vm + [
+                STLVmFlowVar(name="ip_dst",min_value=ip_dst['start'],max_value=ip_dst['end'],size=4,op="inc"),
+                STLVmWrFlowVar(fv_name="ip_dst",pkt_offset= "IP.dst")
+            ]
 
     if flow_mods['mac']['src'] and tmp_num_flows:
          if old_mac_flow:
@@ -411,13 +433,12 @@ def load_user_pkt (the_packet, size, mac_src, mac_dst, ip_src, ip_dst, port_src,
         pad = max(0, size-len(the_packet)) * 'x'
         the_packet = the_packet/pad
 
-    #print("load_user_pkt: scapy:%s\n" % (the_packet.command()))
-
+    l3_layer = "IPv6" if packet_ip_version == 6 else "IP"
     if tmp_num_flows and (flow_mods['ip']['src'] or flow_mods['ip']['dst'] or flow_mods['mac']['src'] or flow_mods['mac']['dst'] or flow_mods['port']['src'] or flow_mods['port']['dst']):
         if packet_protocol == "UDP":
-            vm = vm + [ STLVmFixChecksumHw(l3_offset = "IP", l4_offset = "UDP", l4_type = CTRexVmInsFixHwCs.L4_TYPE_UDP) ]
+            vm = vm + [ STLVmFixChecksumHw(l3_offset = l3_layer, l4_offset = "UDP", l4_type = CTRexVmInsFixHwCs.L4_TYPE_UDP) ]
         elif packet_protocol == "TCP":
-            vm = vm + [ STLVmFixChecksumHw(l3_offset = "IP", l4_offset = "TCP", l4_type = CTRexVmInsFixHwCs.L4_TYPE_TCP) ]
+            vm = vm + [ STLVmFixChecksumHw(l3_offset = l3_layer, l4_offset = "TCP", l4_type = CTRexVmInsFixHwCs.L4_TYPE_TCP) ]
 
         if enable_flow_cache:
             vm = STLScVmRaw(list_of_commands = vm,

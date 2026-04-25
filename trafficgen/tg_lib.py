@@ -1,6 +1,7 @@
 import sys
 import json
 import datetime
+import ipaddress
 
 
 def format_timestamp(ts):
@@ -73,6 +74,32 @@ def int_to_ip (_int):
         raise ValueError("Error converting integer %d to IP address (calculated '%s' with remainder %d)" % (orig__int, ip, _int))
 
     return ip
+
+
+def is_ipv6 (ip):
+    return ':' in str(ip)
+
+
+def ipv6_to_int (ip):
+    return int(ipaddress.IPv6Address(ip))
+
+
+def int_to_ipv6 (_int):
+    return str(ipaddress.IPv6Address(_int))
+
+
+def ip_to_int_auto (ip):
+    if is_ipv6(ip):
+        return ipv6_to_int(ip)
+    else:
+        return ip_to_int(ip)
+
+
+def int_to_ip_auto (_int, ipv6=False):
+    if ipv6:
+        return int_to_ipv6(_int)
+    else:
+        return int_to_ip(_int)
 
 
 def calculate_latency_pps (dividend, divisor, total_rate, protocols):
