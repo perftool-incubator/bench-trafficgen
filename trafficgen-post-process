@@ -85,6 +85,185 @@ my @trial_stats_device_metrics = (
       'type' => 'lost-rx-pps' },
     );
 
+# ASTF (Advanced Stateful) trial metrics -- extracted from stats['astf']
+# Used when traffic-generator=trex-astf; source is 'trafficgen-astf'
+my @trial_stats_astf_metrics = (
+    # Primary KPI
+    { 'field' => 'cps',
+      'class' => 'throughput',
+      'type'  => 'connections-per-second' },
+
+    # Connection state counters
+    { 'field' => 'active_flows',
+      'class' => 'count',
+      'type'  => 'active-flows' },
+
+    { 'field' => 'established_flows',
+      'class' => 'count',
+      'type'  => 'established-flows' },
+
+    { 'field' => 'connections_attempted',
+      'class' => 'throughput',
+      'type'  => 'connections-attempted-per-second' },
+
+    { 'field' => 'connections_dropped',
+      'class' => 'throughput',
+      'type'  => 'connections-dropped-per-second' },
+
+    # Error/quality percentages
+    { 'field' => 'connection_error_pct',
+      'class' => 'count',
+      'type'  => 'connection-error-pct' },
+
+    { 'field' => 'retransmit_pct',
+      'class' => 'count',
+      'type'  => 'retransmit-pct' },
+
+    { 'field' => 'out_of_order_pct',
+      'class' => 'count',
+      'type'  => 'out-of-order-pct' },
+
+    # TCP retransmit absolute count
+    { 'field' => 'tcp_retransmit_packets',
+      'class' => 'count',
+      'type'  => 'tcp-retransmit-packets' },
+
+    # L7 application-layer bandwidth
+    { 'field' => 'tx_l7_bps',
+      'class' => 'throughput',
+      'type'  => 'l7-tx-bps' },
+
+    { 'field' => 'rx_l7_bps',
+      'class' => 'throughput',
+      'type'  => 'l7-rx-bps' },
+
+    # Raw L2 bandwidth (from global stats)
+    { 'field' => 'tx_bps',
+      'class' => 'throughput',
+      'type'  => 'tx-bps' },
+
+    { 'field' => 'rx_bps',
+      'class' => 'throughput',
+      'type'  => 'rx-bps' },
+
+    # Raw packet rates (from global stats)
+    { 'field' => 'tx_pps',
+      'class' => 'throughput',
+      'type'  => 'tx-pps' },
+
+    { 'field' => 'rx_pps',
+      'class' => 'throughput',
+      'type'  => 'rx-pps' },
+
+    # Total packet counts
+    { 'field' => 'tx_packets',
+      'class' => 'count',
+      'type'  => 'tx-packets' },
+
+    { 'field' => 'rx_packets',
+      'class' => 'count',
+      'type'  => 'rx-packets' },
+
+    # UDP per-protocol counters (populated in mixed/UDP mode)
+    { 'field' => 'udp_tx_packets',
+      'class' => 'count',
+      'type'  => 'udp-tx-packets' },
+
+    { 'field' => 'udp_rx_packets',
+      'class' => 'count',
+      'type'  => 'udp-rx-packets' },
+
+    # ICMP latency (from start(latency_pps=N); available in v3.04+)
+    { 'field' => 'latency_avg_usec',
+      'class' => 'count',
+      'type'  => 'latency-avg-usec' },
+
+    { 'field' => 'latency_max_usec',
+      'class' => 'count',
+      'type'  => 'latency-max-usec' },
+
+    { 'field' => 'latency_min_usec',
+      'class' => 'count',
+      'type'  => 'latency-min-usec' },
+
+    { 'field' => 'latency_jitter_usec',
+      'class' => 'count',
+      'type'  => 'latency-jitter-usec' },
+
+    # TCP latency (available in TRex >= v3.06; 0 on earlier versions)
+    { 'field' => 'tcp_syn_ack_latency_usec',
+      'class' => 'count',
+      'type'  => 'tcp-syn-ack-latency-usec' },
+
+    { 'field' => 'tcp_req_resp_latency_usec',
+      'class' => 'count',
+      'type'  => 'tcp-request-response-latency-usec' },
+
+    # Server-side counters
+    { 'field' => 'server_accepts',
+      'class' => 'count',
+      'type'  => 'server-accepts' },
+
+    { 'field' => 'server_connects',
+      'class' => 'count',
+      'type'  => 'server-connects' },
+
+    { 'field' => 'server_drops',
+      'class' => 'count',
+      'type'  => 'server-drops' },
+
+    # TCP overhead counters
+    { 'field' => 'tcp_overhead_pct',
+      'class' => 'count',
+      'type'  => 'tcp-overhead-pct' },
+
+    { 'field' => 'tcp_snd_bytes',
+      'class' => 'count',
+      'type'  => 'tcp-snd-bytes' },
+
+    { 'field' => 'tcp_rcv_bytes',
+      'class' => 'count',
+      'type'  => 'tcp-rcv-bytes' },
+
+    # TCP stack RTT/RTO (from get_flow_info() per-connection sampling)
+    { 'field' => 'tcp_rtt_avg_usec',
+      'class' => 'count',
+      'type'  => 'tcp-rtt-avg-usec' },
+
+    { 'field' => 'tcp_rtt_min_usec',
+      'class' => 'count',
+      'type'  => 'tcp-rtt-min-usec' },
+
+    { 'field' => 'tcp_rtt_max_usec',
+      'class' => 'count',
+      'type'  => 'tcp-rtt-max-usec' },
+
+    { 'field' => 'tcp_rto_avg_usec',
+      'class' => 'count',
+      'type'  => 'tcp-rto-avg-usec' },
+
+    # Error-scenario counters (non-zero indicates DUT problems)
+    { 'field' => 'tcp_keepalive_drops',
+      'class' => 'count',
+      'type'  => 'tcp-keepalive-drops' },
+
+    { 'field' => 'tcp_persist_drops',
+      'class' => 'count',
+      'type'  => 'tcp-persist-drops' },
+
+    { 'field' => 'tcp_retransmit_timeouts',
+      'class' => 'count',
+      'type'  => 'tcp-retransmit-timeouts' },
+
+    { 'field' => 'tcp_syn_retransmit_timeouts',
+      'class' => 'count',
+      'type'  => 'tcp-syn-retransmit-timeouts' },
+
+    { 'field' => 'tcp_conn_drops',
+      'class' => 'count',
+      'type'  => 'tcp-conn-drops' },
+    );
+
 my @trial_profiler_metrics = (
     { 'key' => 'tsdelta',
       'subkey' => '',
@@ -396,19 +575,46 @@ for (my $index=0; $index<scalar(@{ $$bs_json_ref{'trials'} }); $index++) {
         log_sample($period_name, \%desc, \%names, \%s);
     }
 
-    foreach my $dev_pair ( @{ $trial{'trial_params'}{'test_dev_pairs'} } ) {
-        for my $trial_stats_device_metric ( @trial_stats_device_metrics ) {
-            #printf "processing field:%s value:%s\n",
-            #    $$trial_stats_device_metric{'field'},
-            #    $trial{'stats'}{$$dev_pair{$$trial_stats_device_metric{'key'}}}{$$trial_stats_device_metric{'field'}};
-            my %desc = ('class' => $$trial_stats_device_metric{'class'},
+    # Detect ASTF trial by presence of 'astf' key in stats
+    my $is_astf = exists($trial{'stats'}{'astf'}) ? 1 : 0;
+
+    if ($is_astf) {
+        # ASTF trial: extract connection-level metrics from stats['astf']
+        # Source is 'trafficgen-astf' to separate from STL 'trafficgen' metrics
+        printf "ASTF trial detected -- extracting ASTF metrics\n";
+        for my $astf_metric ( @trial_stats_astf_metrics ) {
+            my $value = 0;
+            if (exists($trial{'stats'}{'astf'}{$$astf_metric{'field'}})) {
+                $value = $trial{'stats'}{'astf'}{$$astf_metric{'field'}};
+                $value = 0 unless defined($value);
+            }
+            my %desc = ('class'  => $$astf_metric{'class'},
                         'source' => 'trafficgen',
-                        'type' => $$trial_stats_device_metric{'type'});
-            my %sample = ('end' => int $trial_end,
+                        'type'   => $$astf_metric{'type'});
+            my %sample = ('end'   => int $trial_end,
                           'begin' => int $trial_begin,
-                          'value' =>  $trial{'stats'}{$$dev_pair{$$trial_stats_device_metric{'key'}}}{$$trial_stats_device_metric{'field'}});
-            my %names = ('tx_port' => $$dev_pair{'tx'}, 'rx_port' => $$dev_pair{'rx'}, 'port_pair' => $$dev_pair{'dev_pair'});
+                          'value' => $value);
+            my %names = ();
             log_sample($period_name, \%desc, \%names, \%sample);
+        }
+    } else {
+        # STL trial (trex-txrx / trex-txrx-profile): extract per-port metrics
+        foreach my $dev_pair ( @{ $trial{'trial_params'}{'test_dev_pairs'} } ) {
+            for my $trial_stats_device_metric ( @trial_stats_device_metrics ) {
+                #printf "processing field:%s value:%s\n",
+                #    $$trial_stats_device_metric{'field'},
+                #    $trial{'stats'}{$$dev_pair{$$trial_stats_device_metric{'key'}}}{$$trial_stats_device_metric{'field'}};
+                my %desc = ('class'  => $$trial_stats_device_metric{'class'},
+                            'source' => 'trafficgen',
+                            'type'   => $$trial_stats_device_metric{'type'});
+                my %sample = ('end'   => int $trial_end,
+                              'begin' => int $trial_begin,
+                              'value' => $trial{'stats'}{$$dev_pair{$$trial_stats_device_metric{'key'}}}{$$trial_stats_device_metric{'field'}});
+                my %names = ('tx_port'   => $$dev_pair{'tx'},
+                             'rx_port'   => $$dev_pair{'rx'},
+                             'port_pair' => $$dev_pair{'dev_pair'});
+                log_sample($period_name, \%desc, \%names, \%sample);
+            }
         }
     }
 
@@ -627,7 +833,21 @@ $sample{'rickshaw-bench-metric'}{'schema'}{'version'} = "2021.04.12";
 $sample{'periods'} = \@periods;
 $sample{'primary-period'} = 'measurement';
 $sample{'benchmark'} = 'trafficgen';
-$sample{'primary-metric'} = 'rx-pps';
+
+# Set primary-metric dynamically based on traffic generator backend:
+#   trex-astf  -> connections-per-second (CPS-based stateful search)
+#   trex-txrx / trex-txrx-profile -> rx-pps (packet-rate stateless search)
+my $is_astf_run = 0;
+if (scalar(@{ $$bs_json_ref{'trials'} }) > 0) {
+    my %first_trial = %{ $$bs_json_ref{'trials'}[0] };
+    $is_astf_run = exists($first_trial{'stats'}{'astf'}) ? 1 : 0;
+}
+if ($is_astf_run) {
+    printf "ASTF run detected -- setting primary-metric to connections-per-second\n";
+    $sample{'primary-metric'} = 'connections-per-second';
+} else {
+    $sample{'primary-metric'} = 'rx-pps';
+}
 
 my $ppd_json = "post-process-data.json.xz";
 if (put_json_file($ppd_json, \%sample)) {

@@ -34,8 +34,8 @@ while [ $# -gt 0 ]; do
         --trex-devices)
             devices="$val"
             ;;
-        # Skip options not intended for binary-search
-        --trex-cpus|--trex-mem-limit|--trex-mbuf-factor|--trex-software-mode|--trex-mellanox-support)
+        # Skip options not intended for binary-search (infra-only params)
+        --trex-cpus|--trex-mem-limit|--trex-mbuf-factor|--trex-software-mode|--trex-mellanox-support|--trex-version)
             ;;
         # All other options should be supported natively by binary-search
         *)
@@ -74,7 +74,7 @@ if [ ! -z "$devices" ]; then
     else
         #total_device_pairs=$(echo "${total_devices} / 2" | bc)
         total_device_pairs=$(($total_devices / 2))
-        if [ $traffic_generator == "trex-txrx" -o $traffic_generator == "trex-txrx-profile" ]; then
+        if [ $traffic_generator == "trex-txrx" -o $traffic_generator == "trex-txrx-profile" -o $traffic_generator == "trex-astf" ]; then
             device_pair_index=0
             device_pairs_opt+=" --device-pairs="
             for device in $(seq 1 2 ${total_devices}); do
@@ -98,10 +98,11 @@ if [ ! -z "$devices" ]; then
     else
         if [ $traffic_generator != "trex-txrx" -a \
              $traffic_generator != "trex-txrx-profile" -a \
+             $traffic_generator != "trex-astf" -a \
              "${devices}" != "${active_devices}" ]; then
-            exit_error "only the trex-txrx* traffic generators support --client-devices != --active-client-devices" 1 "$sample_dir"
+            exit_error "only the trex-txrx* and trex-astf traffic generators support --client-devices != --active-client-devices" 1 "$sample_dir"
         else
-            if [ $traffic_generator == "trex-txrx" -o $traffic_generator == "trex-txrx-profile" ]; then
+            if [ $traffic_generator == "trex-txrx" -o $traffic_generator == "trex-txrx-profile" -o $traffic_generator == "trex-astf" ]; then
                 active_device_pair_index=0
                 device_pairs_opt+=" --active-device-pairs="
                 active_device_state=0
