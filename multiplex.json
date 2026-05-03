@@ -152,7 +152,7 @@
 	    "vals": [ "^(trex-txrx|trex-txrx-profile|trex-astf|valkyrie2544|null-txrx)$" ]
 	},
 	"trex_version": {
-	    "description": "TRex version to install/use (e.g. v3.06, v2.87)",
+	    "description": "TRex version to install/use (e.g. v3.04, v2.87)",
 	    "args": [ "trex-version" ],
 	    "vals": [ "^v[0-9]+\\.[0-9]+(\\.[0-9]+)?$" ]
 	},

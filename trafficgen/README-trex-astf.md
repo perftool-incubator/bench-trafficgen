@@ -33,10 +33,10 @@ The `--astf-protocol` flag selects the mode. Use `mixed` for a combined TCP+UDP 
 
 ### System Requirements
 
-1. **TRex >= v3.06** -- required for SACK, cubic/newreno TCP congestion control, XXV710 i40e fixes:
+1. **TRex >= v3.04** -- recommended for SACK, cubic/newreno TCP congestion control, XXV710 i40e/iavf SR-IOV fixes:
    ```bash
    # Specify version via multiplex parameter
-   --trex-version=v3.06
+   --trex-version=v3.04
    ```
 
 2. **TRex started in `--astf` mode** -- handled automatically by `trafficgen-infra` when
@@ -93,7 +93,7 @@ ovs-ofctl add-flows br0 /tmp/ct-flows.txt
 ```bash
 crucible run --tool trafficgen \
   --traffic-generator=trex-astf \
-  --trex-version=v3.06 \
+  --trex-version=v3.04 \
   --trex-devices=0000:18:00.0,0000:18:00.1,0000:18:02.0,0000:18:02.1,... \
   --astf-protocol=tcp \
   --astf-num-messages=1 \
@@ -115,7 +115,7 @@ PCI addresses are injected as environment variables by the SR-IOV Network Operat
 ```bash
 crucible run --tool trafficgen \
   --traffic-generator=trex-astf \
-  --trex-version=v3.06 \
+  --trex-version=v3.04 \
   --trex-devices=VAR:PCIDEVICE_OPENSHIFT_IO_DPDK_NIC_1,VAR:PCIDEVICE_OPENSHIFT_IO_DPDK_NIC_2 \
   --no-promisc=ON \
   --trex-software-mode=on \
@@ -143,7 +143,7 @@ Available presets: `astf_short_lived_tcp`, `astf_long_lived_tcp`, `astf_mixed_nf
 | Parameter | Default | Description |
 |-----------|---------|-------------|
 | `--traffic-generator` | `trex-txrx` | Set to `trex-astf` to enable ASTF mode |
-| `--trex-version` | (image default) | TRex version: `v3.06`, `v2.87`, etc. |
+| `--trex-version` | (image default) | TRex version: `v3.04` (recommended), `v2.87`, etc. |
 | `--rate` | 100.0 | CPS multiplier start rate (actual CPS = rate × 100) |
 | `--rate-unit` | `%` | Use `cps-mult` for multiplier or `cps` for absolute CPS |
 | `--search-runtime` | 30 | Trial duration in seconds (after ramp-up) |
@@ -406,7 +406,7 @@ Key fields in the ASTF result JSON:
 
 - Verify `--traffic-generator=trex-astf` is set (trafficgen-infra adds `--astf` automatically)
 - Check `trex-server-stderrout.txt` in the sample directory
-- Verify TRex v3.06+ is installed: `ls /opt/trex/`
+- Verify TRex v3.04+ is installed: `ls /opt/trex/`
 - Verify TRex started correctly: check `trex-server-stderrout.txt` for library errors
 
 ### CPS Not Stabilizing (Ramp-Up Issues)

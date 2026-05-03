@@ -21,17 +21,17 @@ For ASTF documentation see [README-trex-astf.md](README-trex-astf.md).
 
     ```bash
     cd bench-trafficgen/trafficgen
-    ./install-trex.sh --version=v3.06
-    # TRex installed to /opt/trex/v3.06
-    # Symlink: /opt/trex/current -> v3.06
+    ./install-trex.sh --version=v3.04
+    # TRex installed to /opt/trex/v3.04
+    # Symlink: /opt/trex/current -> v3.04
     ls -l /opt/trex
-    # lrwxrwxrwx 1 root root 5 ... current -> v3.06
-    # drwxr-xr-x 17 ...        ... v3.06
+    # lrwxrwxrwx 1 root root 5 ... current -> v3.04
+    # drwxr-xr-x 17 ...        ... v3.04
     ```
 
-    **Recommended version**: `v3.06` for all use cases including ASTF (stateful mode).
-    `v3.06` includes SACK/cubic TCP improvements (v2.96), iavf/XXV710 SR-IOV fix (v3.04),
-    and DPDK 24.03 with mature i40e driver support.
+    **Recommended version**: `v3.04` for all use cases including ASTF (stateful mode).
+    `v3.04` includes SACK/cubic TCP improvements (v2.96), iavf/XXV710 SR-IOV fix,
+    and DPDK 23.03 with stable i40e driver support.
 
 ## TRex Version Selection
 
@@ -40,15 +40,16 @@ rebuilding the container image:
 
 ```bash
 # In your run specification or multiplex parameters:
---trex-version=v3.06
+--trex-version=v3.04
 ```
 
 This causes `trafficgen-infra` to:
-1. Check if `/opt/trex/v3.06` is already installed in the image
+1. Check if `/opt/trex/v3.04` is already installed in the image
 2. Download and install it if not (requires internet access at runtime)
 3. Update `/opt/trex/current` symlink to point to the requested version
 
-The `workshop.json` container image build pre-installs `v3.06` as the default.
+The `workshop.json` container image build pre-installs `v2.87` as the default. Specify
+`--trex-version` in your profile to use a different version at runtime.
 
 ## Configuration
 
@@ -86,7 +87,7 @@ For stateful traffic (OVS+conntrack, NAT, firewalls):
 
 ```
 --traffic-generator=trex-astf
---trex-version=v3.06
+--trex-version=v3.04
 --astf-protocol=tcp          (tcp, udp, or mixed)
 --astf-max-flows=50000       (stay within DUT conntrack table limits)
 --astf-ramp-time=10

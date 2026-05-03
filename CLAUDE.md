@@ -28,7 +28,7 @@ Uses TRex and testpmd with binary search optimization for:
 | `trafficgen/trex-astf-query.py` | Port info query for ASTF-mode TRex (STLClient cannot connect to ASTF server) |
 | `trafficgen/astf-profiles/` | NFV scenario profiles: short-lived-tcp, long-lived-tcp, short-lived-udp, mixed-tcp-udp, http-like-tcp, vlan-tcp |
 | `trafficgen/README-trex-astf.md` | Complete ASTF user guide |
-| `workshop.json` | Container image build: TRex v3.06, DPDK, Python dependencies |
+| `workshop.json` | Container image build: TRex v2.87 (default), DPDK, Python dependencies |
 
 ## Conventions
 - Primary branch is `main`; ASTF feature development on `astf-feature-test` (pradiptapks fork)
