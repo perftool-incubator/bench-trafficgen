@@ -23,8 +23,10 @@ mem_limit=2048
 trex_software_mode="off"
 trex_mellanox_support="off"
 mbuf_factor=""
+trex_version=""
+traffic_generator=""
 
-longopts="trex-active-devices:,trex-devices:,trex-cpus:,trex-mem-limit:,trex-software-mode:,trex-mellanox-support:,trex-mbuf-factor:"
+longopts="trex-active-devices:,trex-devices:,trex-cpus:,trex-mem-limit:,trex-software-mode:,trex-mellanox-support:,trex-mbuf-factor:,trex-version:,traffic-generator:"
 opts=$(getopt -q -o "" --longoptions "$longopts" -- "$@");
 eval set -- "$opts";
 while true; do
@@ -64,6 +66,16 @@ while true; do
             mbuf_factor=" --mbuf-factor $1"
             shift
             ;;
+        --trex-version)
+            shift
+            trex_version=$1
+            shift
+            ;;
+        --traffic-generator)
+            shift
+            traffic_generator=$1
+            shift
+            ;;
         --)
             shift
             break
@@ -88,6 +100,32 @@ if [ ! -e /usr/bin/python3 ]; then
 fi
 
 echo "Checking for TRex service"
+
+# --- TRex version selection ---
+if [ -n "${trex_version}" ]; then
+    trex_version_dir="/opt/trex/${trex_version}"
+    if [ ! -d "${trex_version_dir}" ]; then
+        echo "TRex ${trex_version} not pre-installed in image, downloading..."
+        if [ -z "$(command -v install-trex.sh)" ]; then
+            exit_error "install-trex.sh is missing, cannot install TRex ${trex_version}" 1 "$sample_dir"
+        fi
+        install-trex.sh --version="${trex_version}" --insecure
+        if [ $? -ne 0 ]; then
+            exit_error "Failed to install TRex ${trex_version}" 1 "$sample_dir"
+        fi
+    else
+        echo "TRex ${trex_version} already installed at ${trex_version_dir}"
+    fi
+    ln -sfn "${trex_version_dir}" /opt/trex/current
+    echo "Active TRex version: ${trex_version} -> /opt/trex/current"
+else
+    active_ver=$(readlink /opt/trex/current 2>/dev/null | xargs basename 2>/dev/null || echo "unknown")
+    echo "No --trex-version specified, using current: ${active_ver}"
+    if [ "${traffic_generator}" == "trex-astf" ]; then
+        echo "INFO: ASTF mode works best with TRex >= v3.06 (installed: ${active_ver})"
+    fi
+fi
+
 if pgrep $trex_bin; then
     echo "TRex launched from previous test" | tee $sample_dir/trex-server-running.txt
 else
@@ -199,7 +237,14 @@ else
 	    ;;
     esac
 
-    trex_server_cmd="./$trex_bin ${trex_software_mode} -i --checksum-offload --cfg $trex_cfg --iom 0 -v 4 --prefix trafficgen_trex_ ${trex_mellanox_support} --close-at-end ${mbuf_factor}"
+    # Determine ASTF mode flag
+    astf_flag=""
+    if [ "${traffic_generator}" == "trex-astf" ]; then
+        astf_flag="--astf"
+        echo "ASTF mode enabled via traffic-generator=trex-astf"
+    fi
+
+    trex_server_cmd="./$trex_bin ${trex_software_mode} -i ${astf_flag} --checksum-offload --cfg $trex_cfg --iom 0 -v 4 --prefix trafficgen_trex_ ${trex_mellanox_support} --close-at-end ${mbuf_factor}"
     echo "about to run: $trex_server_cmd"
     $trex_server_cmd >$sample_dir/trex-server-stderrout.txt 2>&1 &
     echo $! >$sample_dir/trex-server-pid.txt
@@ -225,9 +270,21 @@ else
 fi
 
 sleep 20 # Waiting for device to init
-trex_query_bin=$(command -v trex-query.py)
+
+# Select the appropriate TRex query tool depending on traffic generator mode.
+# STLClient cannot connect to an ASTF-mode TRex server, so use trex-astf-query.py
+# when traffic-generator=trex-astf.
+if [ "${traffic_generator}" == "trex-astf" ]; then
+    trex_query_bin=$(command -v trex-astf-query.py)
+    if [ -z "${trex_query_bin}" ]; then
+        echo "WARNING: trex-astf-query.py not found, falling back to trex-query.py"
+        trex_query_bin=$(command -v trex-query.py)
+    fi
+else
+    trex_query_bin=$(command -v trex-query.py)
+fi
 if [ -z "${trex_query_bin}" ]; then
-    exit_error "trex-query.py is missing" 1 "$sample_dir"
+    exit_error "trex-query.py (or trex-astf-query.py) is missing" 1 "$sample_dir"
 fi
 echo
 echo "Active Device MAC info:"

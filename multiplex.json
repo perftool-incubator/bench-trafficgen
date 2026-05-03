@@ -4,6 +4,33 @@
 	    { "arg": "compress-files", "vals": [ "ON" ] },
 	    { "arg": "result-output", "vals": [ "none" ] },
 	    { "arg": "process-all-profiler-data", "vals": [ "ON" ] }
+	],
+	"astf_short_lived_tcp": [
+	    { "arg": "traffic-generator",  "vals": [ "trex-astf" ] },
+	    { "arg": "astf-protocol",      "vals": [ "tcp" ] },
+	    { "arg": "astf-num-messages",  "vals": [ "1" ] },
+	    { "arg": "astf-message-size",  "vals": [ "20" ] },
+	    { "arg": "astf-server-wait-ms","vals": [ "0" ] },
+	    { "arg": "astf-ramp-time",     "vals": [ "10" ] },
+	    { "arg": "astf-max-error-pct", "vals": [ "0.1" ] }
+	],
+	"astf_long_lived_tcp": [
+	    { "arg": "traffic-generator",  "vals": [ "trex-astf" ] },
+	    { "arg": "astf-protocol",      "vals": [ "tcp" ] },
+	    { "arg": "astf-num-messages",  "vals": [ "500" ] },
+	    { "arg": "astf-message-size",  "vals": [ "20" ] },
+	    { "arg": "astf-server-wait-ms","vals": [ "50" ] },
+	    { "arg": "astf-ramp-time",     "vals": [ "30" ] },
+	    { "arg": "astf-max-error-pct", "vals": [ "0.1" ] }
+	],
+	"astf_mixed_nfv": [
+	    { "arg": "traffic-generator",  "vals": [ "trex-astf" ] },
+	    { "arg": "astf-protocol",      "vals": [ "mixed" ] },
+	    { "arg": "astf-udp-percent",   "vals": [ "1.0" ] },
+	    { "arg": "astf-num-messages",  "vals": [ "1" ] },
+	    { "arg": "astf-message-size",  "vals": [ "20" ] },
+	    { "arg": "astf-ramp-time",     "vals": [ "10" ] },
+	    { "arg": "astf-max-error-pct", "vals": [ "0.1" ] }
 	]
     },
     "validations": {
@@ -122,12 +149,56 @@
 	"traffic_generator": {
 	    "description": "available traffic generators",
 	    "args": [ "traffic-generator" ],
-	    "vals": [ "^(trex-txrx|trex-txrx-profile|valkyrie2544|null-txrx)$" ]
+	    "vals": [ "^(trex-txrx|trex-txrx-profile|trex-astf|valkyrie2544|null-txrx)$" ]
+	},
+	"trex_version": {
+	    "description": "TRex version to install/use (e.g. v3.04, v2.87)",
+	    "args": [ "trex-version" ],
+	    "vals": [ "^v[0-9]+\\.[0-9]+(\\.[0-9]+)?$" ]
 	},
 	"rate_unit": {
 	    "description": "the unit that the traffic rate is specified in",
 	    "args": [ "rate-unit" ],
-	    "vals": [ "^(%|mpps)$" ]
+	    "vals": [ "^(%|mpps|cps-mult|cps)$" ]
+	},
+	"astf_protocol": {
+	    "description": "ASTF traffic protocol (tcp, udp, or mixed TCP+UDP)",
+	    "args": [ "astf-protocol" ],
+	    "vals": [ "^(tcp|udp|mixed)$" ]
+	},
+	"astf_string": {
+	    "description": "ASTF string parameters (profile path, IP MSB, etc.)",
+	    "args": [ "astf-profile", "astf-ipv6-client-msb", "astf-ipv6-server-msb" ],
+	    "vals": [ "^.+$" ]
+	},
+	"astf_nonzero_positive_integer": {
+	    "description": "ASTF non-zero positive integer parameters",
+	    "args": [ "astf-message-size", "astf-num-messages", "astf-ramp-time",
+		      "astf-tcp-mss", "astf-tcp-port", "astf-udp-port" ],
+	    "vals": [ "^[1-9][0-9]*$" ]
+	},
+	"astf_positive_integer": {
+	    "description": "ASTF positive integer parameters (0 allowed)",
+	    "args": [ "astf-max-flows", "astf-server-wait-ms", "astf-vlan-id",
+		      "astf-max-latency-us", "astf-latency-pps" ],
+	    "vals": [ "^[0-9]+$" ]
+	},
+	"astf_positive_float": {
+	    "description": "ASTF positive float parameters",
+	    "args": [ "astf-max-error-pct", "astf-max-retransmit-pct", "astf-udp-percent" ],
+	    "vals": [ "^([1-9][0-9]*\\.?[0-9]*)|(0?\\.[0-9]+)|(0)$" ]
+	},
+	"astf_on_off": {
+	    "description": "ASTF ON/OFF flag parameters",
+	    "args": [ "astf-ipv6" ],
+	    "vals": [ "^(ON|OFF)$" ]
+	},
+	"astf_ip_address": {
+	    "description": "ASTF single IPv4 address parameters",
+	    "args": [ "astf-client-ip-start", "astf-client-ip-end",
+		      "astf-server-ip-start", "astf-server-ip-end",
+		      "astf-ip-offset" ],
+	    "vals": [ "^([0-9]{1,3}\\.){3}[0-9]{1,3}$" ]
 	},
 	"protocol": {
 	    "description": "supported packet protocols",
