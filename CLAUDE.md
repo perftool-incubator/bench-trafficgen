@@ -5,8 +5,7 @@ Scripts and configuration to run traffic generation benchmarks within the crucib
 
 ## Languages
 - Bash: wrapper scripts (trafficgen-base, trafficgen-client, trafficgen-server-start/stop, trafficgen-infra, trafficgen-import-files)
-- Python: core implementation in `trafficgen/` subdirectory (binary-search.py, tg_lib.py, trex-txrx.py, profile-builder.py, etc.)
-- Perl: trafficgen-post-process
+- Python: core implementation in `trafficgen/` subdirectory (binary-search.py, tg_lib.py, trex-txrx.py, profile-builder.py, etc.) and `trafficgen-post-process.py`
 
 ## Key Files
 | File | Purpose |
