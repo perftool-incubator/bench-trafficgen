@@ -98,7 +98,8 @@ def process_profiler_data(trial, period_name, metrics):
 
         for pgid in ts_data.get("pgids", {}):
             trex_pgids.add(pgid)
-            if "latency" in ts_data["pgids"][pgid]:
+            pgid_data = ts_data["pgids"][pgid]
+            if pgid_data and "latency" in pgid_data:
                 trex_latency_pgids.add(pgid)
 
     print(f"profiler_begin:{profiler_begin}")
@@ -113,7 +114,7 @@ def process_profiler_data(trial, period_name, metrics):
         later_timestamp = None
         for timestamp in sorted(sorted_timestamps, key=lambda x: float(x), reverse=True):
             ts_data = profiler_data[timestamp]
-            pgid_data = ts_data.get("pgids", {}).get(pgid, {}).get("latency", {})
+            pgid_data = (ts_data.get("pgids", {}).get(pgid) or {}).get("latency", {})
             if "dropped" in pgid_data:
                 if later_value is not None:
                     if later_value < pgid_data["dropped"]:
@@ -180,12 +181,12 @@ def process_profiler_data(trial, period_name, metrics):
                         prev_float = float(prev_timestamp)
                         value = 0
 
-                        pgid_data = profiler_data[timestamp].get("pgids", {}).get(pgid, {}).get("latency", {})
+                        pgid_data = (profiler_data[timestamp].get("pgids", {}).get(pgid) or {}).get("latency", {})
                         if pm["field"] in pgid_data:
                             value = pgid_data[pm["field"]]
 
                             if pm["cumulative"] and ts_float != prev_float:
-                                prev_pgid_data = profiler_data[prev_timestamp].get("pgids", {}).get(pgid, {}).get("latency", {})
+                                prev_pgid_data = (profiler_data[prev_timestamp].get("pgids", {}).get(pgid) or {}).get("latency", {})
                                 if pm["field"] in prev_pgid_data:
                                     value -= prev_pgid_data[pm["field"]]
                                     value /= (ts_float - prev_float)
@@ -207,12 +208,12 @@ def process_profiler_data(trial, period_name, metrics):
                             prev_float = float(prev_timestamp)
                             value = 0
 
-                            pgid_subkey = profiler_data[timestamp].get("pgids", {}).get(pgid, {}).get(pm["subkey"], {})
+                            pgid_subkey = (profiler_data[timestamp].get("pgids", {}).get(pgid) or {}).get(pm["subkey"], {})
                             if port in pgid_subkey:
                                 value = pgid_subkey[port]
 
                                 if pm["cumulative"] and ts_float != prev_float:
-                                    prev_pgid_subkey = profiler_data[prev_timestamp].get("pgids", {}).get(pgid, {}).get(pm["subkey"], {})
+                                    prev_pgid_subkey = (profiler_data[prev_timestamp].get("pgids", {}).get(pgid) or {}).get(pm["subkey"], {})
                                     if port in prev_pgid_subkey:
                                         value -= prev_pgid_subkey[port]
                                         value /= (ts_float - prev_float)
