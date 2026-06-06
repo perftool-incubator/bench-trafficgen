@@ -15,12 +15,6 @@
         "trex1",
         "trex2"
       ]
-    },
-    {
-      "name": "default",
-      "requirements": [
-        "trafficgen-server-os-dependencies"
-      ]
     }
   ],
   "requirements": [
@@ -30,19 +24,6 @@
       "distro_info": {
         "groups": [
           "\"Development Tools\""
-        ]
-      }
-    },
-    {
-      "name": "trafficgen-server-os-dependencies",
-      "type": "distro",
-      "distro_info": {
-        "packages": [
-          "rdma-core-devel",
-          "dpdk-tools",
-          "net-tools",
-          "which",
-          "bc"
         ]
       }
     },
