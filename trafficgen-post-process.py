@@ -311,7 +311,7 @@ def main():
         "periods": periods,
     }
 
-    _, err = save_json_file("post-process-data.json", sample_data)
+    _, err = save_json_file("postprocess/post-process-data.json", sample_data)
     if err:
         print(f"Failed to write post-process-data.json: {err}")
         sys.exit(1)
