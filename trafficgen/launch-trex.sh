@@ -22,8 +22,9 @@ use_vlan="n"
 devices=""
 yaml_file=""
 mem_limit=2048
+trex_mode="stl"
 
-opts=$(getopt -q -o c: --longoptions "tmp-dir:,trex-dir:,use-ht:,use-l2:,use-vlan:,devices:,cpu-list:,yaml-file:,mem-limit:" -n "getopt.sh" -- "$@")
+opts=$(getopt -q -o c: --longoptions "tmp-dir:,trex-dir:,use-ht:,use-l2:,use-vlan:,devices:,cpu-list:,yaml-file:,mem-limit:,mode:" -n "getopt.sh" -- "$@")
 if [ $? -ne 0 ]; then
     printf -- "$*\n"
     printf -- "\n"
@@ -62,7 +63,11 @@ if [ $? -ne 0 ]; then
     printf -- "\n"
     printf -- "--mem-limit=num\n"
     printf -- "  Optional parameter to specify the per node memory limit for DPDK.\n"
-    printf -- "  Default is ${mem_limit}"
+    printf -- "  Default is ${mem_limit}\n"
+    printf -- "\n"
+    printf -- "--mode=<stl|astf>\n"
+    printf -- "  TRex server mode: stl (stateless) or astf (advanced stateful).\n"
+    printf -- "  Default is ${trex_mode}\n"
     exit 1
 fi
 eval set -- "$opts"
@@ -133,6 +138,20 @@ while true; do
 	    if [ -n "${1}" ]; then
 		mem_limit=${1}
 		shift
+	    fi
+	    ;;
+	--mode)
+	    shift
+	    if [ -n "${1}" ]; then
+		trex_mode=${1}
+		shift
+		case "${trex_mode}" in
+		    stl|astf) ;;
+		    *)
+			echo "ERROR: --mode must be 'stl' or 'astf', got '${trex_mode}'"
+			exit 1
+			;;
+		esac
 	    fi
 	    ;;
 	--)
@@ -233,7 +252,17 @@ if [ -d ${trex_dir} -a -d ${tmp_dir} ]; then
     else
         vlan_opt=""
     fi
-    trex_server_cmd="./t-rex-64 -i --no-ofed-check --checksum-offload --cfg ${yaml_file} --iom 0 -v 4 --prefix trafficgen_trex_ ${vlan_opt}"
+
+    # Set ASTF mode flag
+    if [ "${trex_mode}" == "astf" ]; then
+        mode_opt="--astf"
+        echo "Starting TRex in ASTF (Advanced Stateful) mode"
+    else
+        mode_opt=""
+        echo "Starting TRex in STL (Stateless) mode"
+    fi
+
+    trex_server_cmd="./t-rex-64 -i --no-ofed-check --checksum-offload --cfg ${yaml_file} --iom 0 -v 4 --prefix trafficgen_trex_ ${vlan_opt} ${mode_opt}"
     echo "about to run: ${trex_server_cmd}"
     echo "trex yaml:"
     echo "-------------------------------------------------------------------"

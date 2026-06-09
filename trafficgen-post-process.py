@@ -35,6 +35,49 @@ TRIAL_STATS_DEVICE_METRICS = [
     {"key": "rx", "field": "rx_lost_pps", "class": "throughput", "type": "lost-rx-pps"},
 ]
 
+TRIAL_STATS_ASTF_METRICS = [
+    {"field": "cps", "class": "throughput", "type": "connections-per-second"},
+    {"field": "active_flows", "class": "count", "type": "active-flows"},
+    {"field": "established_flows", "class": "count", "type": "established-flows"},
+    {"field": "connections_attempted", "class": "throughput", "type": "connections-attempted-per-second"},
+    {"field": "connections_dropped", "class": "throughput", "type": "connections-dropped-per-second"},
+    {"field": "connection_error_pct", "class": "count", "type": "connection-error-pct"},
+    {"field": "retransmit_pct", "class": "count", "type": "retransmit-pct"},
+    {"field": "out_of_order_pct", "class": "count", "type": "out-of-order-pct"},
+    {"field": "tcp_retransmit_packets", "class": "count", "type": "tcp-retransmit-packets"},
+    {"field": "tx_l7_bps", "class": "throughput", "type": "l7-tx-bps"},
+    {"field": "rx_l7_bps", "class": "throughput", "type": "l7-rx-bps"},
+    {"field": "tx_bps", "class": "throughput", "type": "tx-bps"},
+    {"field": "rx_bps", "class": "throughput", "type": "rx-bps"},
+    {"field": "tx_pps", "class": "throughput", "type": "tx-pps"},
+    {"field": "rx_pps", "class": "throughput", "type": "rx-pps"},
+    {"field": "tx_packets", "class": "count", "type": "tx-packets"},
+    {"field": "rx_packets", "class": "count", "type": "rx-packets"},
+    {"field": "udp_tx_packets", "class": "count", "type": "udp-tx-packets"},
+    {"field": "udp_rx_packets", "class": "count", "type": "udp-rx-packets"},
+    {"field": "latency_avg_usec", "class": "count", "type": "latency-avg-usec"},
+    {"field": "latency_max_usec", "class": "count", "type": "latency-max-usec"},
+    {"field": "latency_min_usec", "class": "count", "type": "latency-min-usec"},
+    {"field": "latency_jitter_usec", "class": "count", "type": "latency-jitter-usec"},
+    {"field": "tcp_syn_ack_latency_usec", "class": "count", "type": "tcp-syn-ack-latency-usec"},
+    {"field": "tcp_req_resp_latency_usec", "class": "count", "type": "tcp-request-response-latency-usec"},
+    {"field": "server_accepts", "class": "count", "type": "server-accepts"},
+    {"field": "server_connects", "class": "count", "type": "server-connects"},
+    {"field": "server_drops", "class": "count", "type": "server-drops"},
+    {"field": "tcp_overhead_pct", "class": "count", "type": "tcp-overhead-pct"},
+    {"field": "tcp_snd_bytes", "class": "count", "type": "tcp-snd-bytes"},
+    {"field": "tcp_rcv_bytes", "class": "count", "type": "tcp-rcv-bytes"},
+    {"field": "tcp_rtt_avg_usec", "class": "count", "type": "tcp-rtt-avg-usec"},
+    {"field": "tcp_rtt_min_usec", "class": "count", "type": "tcp-rtt-min-usec"},
+    {"field": "tcp_rtt_max_usec", "class": "count", "type": "tcp-rtt-max-usec"},
+    {"field": "tcp_rto_avg_usec", "class": "count", "type": "tcp-rto-avg-usec"},
+    {"field": "tcp_keepalive_drops", "class": "count", "type": "tcp-keepalive-drops"},
+    {"field": "tcp_persist_drops", "class": "count", "type": "tcp-persist-drops"},
+    {"field": "tcp_retransmit_timeouts", "class": "count", "type": "tcp-retransmit-timeouts"},
+    {"field": "tcp_syn_retransmit_timeouts", "class": "count", "type": "tcp-syn-retransmit-timeouts"},
+    {"field": "tcp_conn_drops", "class": "count", "type": "tcp-conn-drops"},
+]
+
 TRIAL_PROFILER_METRICS = [
     {"key": "tsdelta", "subkey": "", "field": "", "class": "count", "type": "tsdelta", "extra_field": "", "cumulative": False},
     {"key": "global", "subkey": "rx", "field": "pps", "class": "throughput", "type": "rx-pps", "extra_field": "", "cumulative": False},
@@ -287,13 +330,24 @@ def main():
             sample = {"end": trial_end, "begin": trial_begin, "value": metric_value}
             metrics.log_sample(period_name, desc, {}, sample)
 
-        for dev_pair in trial["trial_params"].get("test_dev_pairs", []):
-            for tsdm in TRIAL_STATS_DEVICE_METRICS:
-                desc = {"class": tsdm["class"], "source": "trafficgen", "type": tsdm["type"]}
-                value = trial["stats"].get(str(dev_pair[tsdm["key"]]), {}).get(tsdm["field"], 0)
+        is_astf = "astf" in trial.get("stats", {})
+
+        if is_astf:
+            print("ASTF trial detected -- extracting ASTF metrics")
+            astf_stats = trial["stats"]["astf"]
+            for am in TRIAL_STATS_ASTF_METRICS:
+                desc = {"class": am["class"], "source": "trafficgen", "type": am["type"]}
+                value = astf_stats.get(am["field"], 0) or 0
                 sample = {"end": trial_end, "begin": trial_begin, "value": value}
-                names = {"tx_port": dev_pair["tx"], "rx_port": dev_pair["rx"], "port_pair": dev_pair["dev_pair"]}
-                metrics.log_sample(period_name, desc, names, sample)
+                metrics.log_sample(period_name, desc, {}, sample)
+        else:
+            for dev_pair in trial["trial_params"].get("test_dev_pairs", []):
+                for tsdm in TRIAL_STATS_DEVICE_METRICS:
+                    desc = {"class": tsdm["class"], "source": "trafficgen", "type": tsdm["type"]}
+                    value = trial["stats"].get(str(dev_pair[tsdm["key"]]), {}).get(tsdm["field"], 0)
+                    sample = {"end": trial_end, "begin": trial_begin, "value": value}
+                    names = {"tx_port": dev_pair["tx"], "rx_port": dev_pair["rx"], "port_pair": dev_pair["dev_pair"]}
+                    metrics.log_sample(period_name, desc, names, sample)
 
         process_profiler_data(trial, period_name, metrics)
 
@@ -303,11 +357,18 @@ def main():
             "metric-files": [metric_data_name],
         })
 
+    is_astf_run = "astf" in trials[0].get("stats", {}) if trials else False
+    if is_astf_run:
+        print("ASTF run detected -- setting primary-metric to connections-per-second")
+        primary_metric = "connections-per-second"
+    else:
+        primary_metric = "rx-pps"
+
     sample_data = {
         "rickshaw-bench-metric": {"schema": {"version": "2021.04.12"}},
         "benchmark": "trafficgen",
         "primary-period": "measurement",
-        "primary-metric": "rx-pps",
+        "primary-metric": primary_metric,
         "periods": periods,
     }
 

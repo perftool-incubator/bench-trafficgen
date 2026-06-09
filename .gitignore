@@ -1,4 +1,6 @@
 *.*~
+__pycache__/
+*.pyc
 binary-search.trial-*.txt
 binary-search.json
 MoonGen
