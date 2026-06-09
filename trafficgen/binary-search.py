@@ -199,6 +199,15 @@ def process_options ():
                         default=30,
                         type = int,
                         )
+    parser.add_argument('--uniform-trial-runtime',
+                        dest='uniform_trial_runtime',
+                        help='When set, use this duration for ALL trial phases (search and '
+                             'validation). Eliminates duration-based bias between search '
+                             'and validation trials. Default 0 = disabled (use separate '
+                             'search-runtime and validation-runtime).',
+                        default=0,
+                        type = int,
+                        )
     parser.add_argument('--sniff-runtime',
                         dest='sniff_runtime',
                         help='trial period in seconds during sniff search',
@@ -219,9 +228,9 @@ def process_options ():
                         )
     parser.add_argument('--rate-unit',
                         dest='rate_unit',
-                        help='rate unit per device',
+                        help='rate unit per device; use cps-mult or cps for trex-astf',
                         default = "mpps",
-                        choices = [ '%', 'mpps' ]
+                        choices = [ '%', 'mpps', 'cps-mult', 'cps' ]
                         )
     parser.add_argument('--packet-protocol',
                         dest='packet_protocol',
@@ -333,9 +342,186 @@ def process_options ():
                         )
     parser.add_argument('--traffic-generator', 
                         dest='traffic_generator',
-                        help='name of traffic generator: trex-txrx or trex-txrx-profile or Valkyrie2544 or null-txrx',
+                        help='name of traffic generator: trex-txrx or trex-txrx-profile or trex-astf or Valkyrie2544 or null-txrx',
                         default = "trex-txrx",
-                        choices = [ 'trex-txrx', 'trex-txrx-profile', 'valkyrie2544', 'null-txrx' ]
+                        choices = [ 'trex-txrx', 'trex-txrx-profile', 'trex-astf', 'valkyrie2544', 'null-txrx' ]
+                        )
+    # ASTF-specific options (only used when --traffic-generator=trex-astf)
+    parser.add_argument('--astf-protocol',
+                        dest='astf_protocol',
+                        help='ASTF protocol: tcp, udp, or mixed',
+                        default='tcp',
+                        choices=['tcp', 'udp', 'mixed']
+                        )
+    parser.add_argument('--astf-tcp-port',
+                        dest='astf_tcp_port',
+                        help='Destination port for TCP template',
+                        default=8080, type=int
+                        )
+    parser.add_argument('--astf-udp-port',
+                        dest='astf_udp_port',
+                        help='Destination port for UDP template',
+                        default=5353, type=int
+                        )
+    parser.add_argument('--astf-udp-percent',
+                        dest='astf_udp_percent',
+                        help='UDP percentage in mixed mode (0.0-100.0)',
+                        default=1.0, type=float
+                        )
+    parser.add_argument('--astf-message-size',
+                        dest='astf_message_size',
+                        help='Payload size in bytes per message',
+                        default=64, type=int
+                        )
+    parser.add_argument('--astf-num-messages',
+                        dest='astf_num_messages',
+                        help='Number of request/response pairs per connection',
+                        default=1, type=int
+                        )
+    parser.add_argument('--astf-server-wait-ms',
+                        dest='astf_server_wait_ms',
+                        help='Server response delay in milliseconds',
+                        default=0, type=int
+                        )
+    parser.add_argument('--astf-tcp-mss',
+                        dest='astf_tcp_mss',
+                        help='TCP Maximum Segment Size in bytes',
+                        default=1400, type=int
+                        )
+    parser.add_argument('--astf-client-ip-start',
+                        dest='astf_client_ip_start',
+                        help='First client IP address',
+                        default='16.0.0.0'
+                        )
+    parser.add_argument('--astf-client-ip-end',
+                        dest='astf_client_ip_end',
+                        help='Last client IP address',
+                        default='16.0.255.255'
+                        )
+    parser.add_argument('--astf-server-ip-start',
+                        dest='astf_server_ip_start',
+                        help='First server IP address',
+                        default='48.0.0.0'
+                        )
+    parser.add_argument('--astf-server-ip-end',
+                        dest='astf_server_ip_end',
+                        help='Last server IP address',
+                        default='48.0.255.255'
+                        )
+    parser.add_argument('--astf-ip-offset',
+                        dest='astf_ip_offset',
+                        help='Global IP offset for dual-port pair isolation',
+                        default='1.0.0.0'
+                        )
+    parser.add_argument('--astf-ip-offset-server',
+                        dest='astf_ip_offset_server',
+                        help='Server-side IP offset per dual-port pair (default: same as --astf-ip-offset)',
+                        default=''
+                        )
+    parser.add_argument('--astf-per-core-distribution',
+                        dest='astf_per_core_distribution',
+                        help='IP distribution across TRex DP cores: seq (exclusive subsets) or default (shared)',
+                        default='seq',
+                        choices=['default', 'seq']
+                        )
+    parser.add_argument('--astf-use-subprocess',
+                        dest='astf_use_subprocess',
+                        help='Use legacy subprocess-per-trial model instead of '
+                             'persistent in-process connection (default: in-process)',
+                        default=False, action='store_true'
+                        )
+    parser.add_argument('--astf-flush-on-pass',
+                        dest='astf_flush_on_pass',
+                        help='Stop traffic and flush conntrack after passing trials instead of '
+                             'hot-update (slower but provides per-trial isolation for '
+                             'conntrack-sensitive DUTs like OVS-DPDK)',
+                        default=False, action='store_true'
+                        )
+    parser.add_argument('--astf-max-cps-deviation-pct',
+                        dest='astf_max_cps_deviation_pct',
+                        help='Maximum allowed CPS under-delivery percentage. Fails trial if '
+                             'actual CPS < target * (1 - deviation/100). Default 50 means fail '
+                             'if actual CPS is less than half the target. Set 0 to disable.',
+                        default=50.0, type=float
+                        )
+    parser.add_argument('--astf-max-udp-drop-pct',
+                        dest='astf_max_udp_drop_pct',
+                        help='Maximum UDP packet drop percentage for Phase 5 evaluation. '
+                             'Default 0 means use --astf-max-error-pct as the threshold. '
+                             'Set explicitly for mixed-mode profiles where a small UDP '
+                             'percentage should tolerate higher drop rates.',
+                        default=0.0, type=float
+                        )
+    parser.add_argument('--astf-max-flows',
+                        dest='astf_max_flows',
+                        help='Max concurrent flows per template (0=unlimited)',
+                        default=0, type=int
+                        )
+    parser.add_argument('--astf-ramp-time',
+                        dest='astf_ramp_time',
+                        help='Seconds to wait for CPS to stabilize before sampling',
+                        default=5, type=int
+                        )
+    parser.add_argument('--astf-vlan-id',
+                        dest='astf_vlan_id',
+                        help='VLAN ID for tagged traffic (0=no VLAN)',
+                        default=0, type=int
+                        )
+    parser.add_argument('--astf-ipv6',
+                        dest='astf_ipv6',
+                        help='Enable IPv6 mode (ON/OFF)',
+                        default='OFF'
+                        )
+    parser.add_argument('--astf-ipv6-client-msb',
+                        dest='astf_ipv6_client_msb',
+                        help='IPv6 MSB for client addresses',
+                        default='ff02::'
+                        )
+    parser.add_argument('--astf-ipv6-server-msb',
+                        dest='astf_ipv6_server_msb',
+                        help='IPv6 MSB for server addresses',
+                        default='ff03::'
+                        )
+    parser.add_argument('--astf-profile',
+                        dest='astf_profile',
+                        help='Path to external ASTF .py profile file (overrides built-in)',
+                        default=''
+                        )
+    parser.add_argument('--astf-max-error-pct',
+                        dest='astf_max_error_pct',
+                        help='Maximum connection error percentage for ASTF pass/fail',
+                        default=0.1, type=float
+                        )
+    parser.add_argument('--astf-max-retransmit-pct',
+                        dest='astf_max_retransmit_pct',
+                        help='Maximum TCP retransmit percentage (0.0=disabled)',
+                        default=0.0, type=float
+                        )
+    parser.add_argument('--astf-max-latency-us',
+                        dest='astf_max_latency_us',
+                        help='Maximum SYN-ACK latency in microseconds (0=disabled)',
+                        default=0, type=int
+                        )
+    parser.add_argument('--astf-ignore-errors',
+                        dest='astf_ignore_errors',
+                        help='Comma-separated ASTF error counters to treat as non-critical (e.g. err_cwf,err_s_nf_throttled)',
+                        default='',
+                        type=str
+                        )
+    parser.add_argument('--astf-e-duration',
+                        dest='astf_e_duration',
+                        help='Max seconds for ASTF flow establishment timeout (0=disabled)',
+                        default=0, type=float
+                        )
+    parser.add_argument('--astf-t-duration',
+                        dest='astf_t_duration',
+                        help='Max seconds for ASTF graceful teardown after stop (0=disabled)',
+                        default=0, type=float
+                        )
+    parser.add_argument('--astf-latency-pps',
+                        dest='astf_latency_pps',
+                        help='ICMP latency probe rate in pps alongside ASTF traffic (0=disabled)',
+                        default=0, type=int
                         )
     parser.add_argument('--measure-latency',
                         dest='measure_latency',
@@ -462,7 +648,9 @@ def process_options ():
                         )
     parser.add_argument('--pre-trial-cmd',
                         dest='pre_trial_cmd',
-                        help='Specify a script/binary to execute prior to each trial',
+                        help='Command or script to execute prior to each trial. '
+                             'Can be a local executable path or a shell command string '
+                             '(e.g., "ssh host ovs-appctl dpctl/flush-conntrack")',
                         default = '',
                         type = str
                         )
@@ -623,7 +811,11 @@ def get_trex_port_info(trial_params, dev_pairs):
                else:
                     devices[dev_pair[direction]] += 1
 
-     cmd = 'python3 -u ' + t_global.trafficgen_dir + '/trex-query.py'
+     if trial_params.get('traffic_generator') == 'trex-astf':
+          query_script = '/trex-astf-query.py'
+     else:
+          query_script = '/trex-query.py'
+     cmd = 'python3 -u ' + t_global.trafficgen_dir + query_script
      cmd = cmd + ' --trex-host=' + str(trial_params['trex_host'])
      cmd = cmd + ' --mirrored-log'
      cmd = cmd + device_string
@@ -810,7 +1002,7 @@ def run_trial (trial_params, port_info, stream_info, detailed_stats):
          stats[1] = dict()
          stats[1]['tx_packets'] = 0
          stats[1]['rx_packets'] = 0
-    elif trial_params['traffic_generator'] == 'trex-txrx' or trial_params['traffic_generator'] == 'trex-txrx-profile':
+    elif trial_params['traffic_generator'] in ('trex-txrx', 'trex-txrx-profile', 'trex-astf'):
          stats['directional'] = dict()
          stats['directional']['->'] = dict()
          stats['directional']['->']['active'] = False
@@ -991,6 +1183,56 @@ def run_trial (trial_params, port_info, stream_info, detailed_stats):
         if trial_params['no_promisc']:
              cmd = cmd + ' --no-promisc'
 
+    elif trial_params['traffic_generator'] == 'trex-astf':
+        cmd = 'python3 -u ' + t_global.trafficgen_dir + '/trex-astf.py'
+        cmd = cmd + ' --trex-host=' + str(trial_params['trex_host'])
+        cmd = cmd + ' --device-pairs=' + str(trial_params['device_pairs'])
+        cmd = cmd + ' --active-device-pairs=' + str(trial_params['active_device_pairs'])
+        cmd = cmd + ' --mult=' + str(trial_params['rate'])
+        cmd = cmd + ' --rate-unit=' + str(trial_params['rate_unit'])
+        cmd = cmd + ' --runtime=' + str(trial_params['runtime'])
+        cmd = cmd + ' --runtime-tolerance=' + str(trial_params['runtime_tolerance'])
+        cmd = cmd + ' --astf-protocol=' + str(trial_params['astf_protocol'])
+        cmd = cmd + ' --astf-message-size=' + str(trial_params['astf_message_size'])
+        cmd = cmd + ' --astf-num-messages=' + str(trial_params['astf_num_messages'])
+        cmd = cmd + ' --astf-server-wait-ms=' + str(trial_params['astf_server_wait_ms'])
+        cmd = cmd + ' --astf-tcp-mss=' + str(trial_params['astf_tcp_mss'])
+        cmd = cmd + ' --astf-tcp-port=' + str(trial_params['astf_tcp_port'])
+        cmd = cmd + ' --astf-udp-port=' + str(trial_params['astf_udp_port'])
+        cmd = cmd + ' --astf-udp-percent=' + str(trial_params['astf_udp_percent'])
+        cmd = cmd + ' --astf-client-ip-start=' + str(trial_params['astf_client_ip_start'])
+        cmd = cmd + ' --astf-client-ip-end=' + str(trial_params['astf_client_ip_end'])
+        cmd = cmd + ' --astf-server-ip-start=' + str(trial_params['astf_server_ip_start'])
+        cmd = cmd + ' --astf-server-ip-end=' + str(trial_params['astf_server_ip_end'])
+        cmd = cmd + ' --astf-ip-offset=' + str(trial_params['astf_ip_offset'])
+        if trial_params.get('astf_ip_offset_server', ''):
+             cmd = cmd + ' --astf-ip-offset-server=' + str(trial_params['astf_ip_offset_server'])
+        if trial_params.get('astf_per_core_distribution', 'seq') != 'seq':
+             cmd = cmd + ' --astf-per-core-distribution=' + str(trial_params['astf_per_core_distribution'])
+        cmd = cmd + ' --astf-max-flows=' + str(trial_params['astf_max_flows'])
+        cmd = cmd + ' --astf-ramp-time=' + str(trial_params['astf_ramp_time'])
+        if trial_params.get('astf_latency_pps', 0) > 0:
+             cmd = cmd + ' --astf-latency-pps=' + str(trial_params['astf_latency_pps'])
+        if trial_params.get('astf_e_duration', 0) > 0:
+             cmd = cmd + ' --astf-e-duration=' + str(trial_params['astf_e_duration'])
+        if trial_params.get('astf_t_duration', 0) > 0:
+             cmd = cmd + ' --astf-t-duration=' + str(trial_params['astf_t_duration'])
+        if trial_params['astf_vlan_id'] > 0:
+             cmd = cmd + ' --astf-vlan-id=' + str(trial_params['astf_vlan_id'])
+        if trial_params['astf_ipv6'].upper() == 'ON':
+             cmd = cmd + ' --astf-ipv6'
+             cmd = cmd + ' --astf-ipv6-client-msb=' + str(trial_params['astf_ipv6_client_msb'])
+             cmd = cmd + ' --astf-ipv6-server-msb=' + str(trial_params['astf_ipv6_server_msb'])
+        if len(trial_params['astf_profile']):
+             cmd = cmd + ' --astf-profile=' + str(trial_params['astf_profile'])
+        if 'dst_macs' in trial_params and trial_params['dst_macs'] != '':
+             cmd = cmd + ' --dst-macs=' + str(trial_params['dst_macs'])
+        if 'src_macs' in trial_params and trial_params['src_macs'] != '':
+             cmd = cmd + ' --src-macs=' + str(trial_params['src_macs'])
+        cmd = cmd + ' --mirrored-log'
+        if trial_params['no_promisc']:
+             cmd = cmd + ' --no-promisc'
+
     previous_sig_handler = signal.signal(signal.SIGINT, sigint_handler)
 
     bs_logger('cmd: %s' % (cmd))
@@ -1108,6 +1350,270 @@ def run_trial (trial_params, port_info, stream_info, detailed_stats):
 
     stream_info['streams'] = streams
     return stats
+
+
+def setup_astf_client(trial_params, log_fn=None):
+    """
+    One-time ASTF client setup: connect, configure ports, load profile.
+    Returns an astf_client_state dict for use across trials.
+    """
+    if log_fn is None:
+        log_fn = bs_logger
+
+    sys.path.append('/opt/trex/current/automation/trex_control_plane/interactive')
+    from trex.astf.api import ASTFClient
+    from trex_astf_lib import (configure_astf_ports, wait_for_cps_stable,
+                                build_tcp_profile, build_udp_profile,
+                                build_mixed_profile, load_astf_profile_file,
+                                validate_ip_ranges, ASTF_MULTIPLIER)
+
+    state = {
+        'client': None,
+        'connected': False,
+        'traffic_running': False,
+        'profile_loaded': False,
+        'all_ports': [],
+        'current_mult': 0,
+    }
+
+    log_fn("ASTF in-process: connecting to TRex at %s" % trial_params['trex_host'])
+    c = ASTFClient(server=trial_params['trex_host'])
+    c.connect()
+    state['client'] = c
+    state['connected'] = True
+    c.reset()
+
+    state['all_ports'] = configure_astf_ports(
+        c, trial_params['device_pairs'],
+        trial_params.get('dst_macs', ''),
+        trial_params.get('no_promisc', False),
+        log_fn=log_fn)
+
+    # Build profile
+    profile_path = trial_params.get('astf_profile', '')
+    if profile_path:
+        log_fn("ASTF in-process: loading external profile from %s" % profile_path)
+        profile = load_astf_profile_file(profile_path)
+    else:
+        validate_ip_ranges(trial_params['astf_client_ip_start'],
+                           trial_params['astf_client_ip_end'],
+                           trial_params['astf_server_ip_start'],
+                           trial_params['astf_server_ip_end'])
+
+        common_kwargs = dict(
+            message_size      = trial_params['astf_message_size'],
+            num_messages      = trial_params['astf_num_messages'],
+            server_wait_ms    = trial_params['astf_server_wait_ms'],
+            max_flows         = trial_params['astf_max_flows'],
+            client_ip_start   = trial_params['astf_client_ip_start'],
+            client_ip_end     = trial_params['astf_client_ip_end'],
+            server_ip_start   = trial_params['astf_server_ip_start'],
+            server_ip_end     = trial_params['astf_server_ip_end'],
+            ip_offset         = trial_params['astf_ip_offset'],
+            ip_offset_server  = trial_params.get('astf_ip_offset_server') or None,
+            per_core_distribution = trial_params.get('astf_per_core_distribution', 'seq'),
+            rampup_sec        = trial_params['astf_ramp_time'],
+            enable_ipv6       = trial_params.get('astf_ipv6', 'OFF').upper() == 'ON',
+            ipv6_client_msb   = trial_params.get('astf_ipv6_client_msb', 'ff02::'),
+            ipv6_server_msb   = trial_params.get('astf_ipv6_server_msb', 'ff03::'),
+        )
+
+        proto = trial_params.get('astf_protocol', 'tcp')
+        if proto == 'tcp':
+            profile = build_tcp_profile(
+                tcp_port=trial_params.get('astf_tcp_port', 8080),
+                tcp_mss=trial_params.get('astf_tcp_mss', 1400),
+                **common_kwargs)
+        elif proto == 'udp':
+            profile = build_udp_profile(
+                udp_port=trial_params.get('astf_udp_port', 5353),
+                **common_kwargs)
+        else:
+            udp_ratio = trial_params.get('astf_udp_percent', 1.0) / 100.0
+            tcp_ratio = 1.0 - udp_ratio
+            profile = build_mixed_profile(
+                tcp_cps_base=max(1, int(ASTF_MULTIPLIER * tcp_ratio)),
+                udp_cps_base=max(1, int(ASTF_MULTIPLIER * udp_ratio)),
+                tcp_port=trial_params.get('astf_tcp_port', 8080),
+                udp_port=trial_params.get('astf_udp_port', 5353),
+                tcp_mss=trial_params.get('astf_tcp_mss', 1400),
+                **common_kwargs)
+
+    log_fn("ASTF in-process: loading profile into TRex")
+    c.load_profile(profile)
+    state['profile_loaded'] = True
+    state['profile'] = profile
+
+    return state
+
+
+def cleanup_astf_client(state, log_fn=None):
+    """Graceful shutdown: stop traffic if running, disconnect."""
+    if log_fn is None:
+        log_fn = bs_logger
+
+    c = state.get('client')
+    if c is None:
+        return
+
+    if state.get('traffic_running'):
+        try:
+            log_fn("ASTF in-process: stopping traffic")
+            c.stop()
+            state['traffic_running'] = False
+        except Exception as e:
+            log_fn("WARNING: client.stop() failed during cleanup: %s" % str(e))
+
+    if state.get('connected'):
+        try:
+            log_fn("ASTF in-process: disconnecting")
+            c.disconnect()
+            state['connected'] = False
+        except Exception as e:
+            log_fn("WARNING: client.disconnect() failed: %s" % str(e))
+
+
+def run_astf_trial_inprocess(trial_params, astf_state, detailed_stats):
+    """
+    Execute one ASTF trial using a persistent ASTFClient connection.
+    Returns the same stats dict shape as run_trial() for compatibility.
+    """
+    import datetime
+    from trex_astf_lib import (ASTF_MULTIPLIER, extract_astf_stats,
+                                wait_for_cps_stable, sample_astf_trial,
+                                assemble_astf_result)
+
+    c = astf_state['client']
+    all_ports = astf_state['all_ports']
+
+    stats = dict()
+    stats['latency'] = dict()
+    stats['directional'] = dict()
+    stats['directional']['->'] = {'active': False, 'tx_packets': 0, 'rx_packets': 0,
+                                   'rx_lost_packets': 0, 'rx_lost_packets_pct': 0}
+    stats['directional']['<-'] = {'active': False, 'tx_packets': 0, 'rx_packets': 0,
+                                   'rx_lost_packets': 0, 'rx_lost_packets_pct': 0}
+
+    from trex_astf_lib import astf_null_stats as _null
+    for dev_pair in trial_params['test_dev_pairs']:
+        for port_key in ['tx', 'rx']:
+            if dev_pair[port_key] not in stats:
+                stats[dev_pair[port_key]] = copy.deepcopy(_null())
+
+    trial_start_ms = time.time() * 1000
+    start_wall = time.time()
+
+    # Compute mult from rate
+    mult = trial_params['rate']
+    if trial_params.get('rate_unit') == 'cps':
+        mult = mult / ASTF_MULTIPLIER
+
+    protocol = trial_params.get('astf_protocol', 'tcp')
+    runtime = trial_params['runtime']
+
+    # Adaptive dump_interval for TCP flow info
+    if protocol in ('tcp', 'mixed'):
+        dump_iv = min(5.0, max(1.0, float(runtime) / 4.0))
+    else:
+        dump_iv = 0
+
+    # Trial log file setup
+    trial_primary_file = "binary-search.trial-%03d.txt" % trial_params['trial']
+    trial_extra_file   = "binary-search.trial-%03d.extra.txt" % trial_params['trial']
+    trial_params['trial_primary_output_file'] = trial_primary_file
+    trial_params['trial_secondary_output_file'] = trial_extra_file
+
+    log_lines = []
+    def trial_log(msg):
+        bs_logger(msg)
+        log_lines.append(msg + "\n")
+
+    try:
+        if not astf_state.get('traffic_running'):
+            trial_log("ASTF in-process: starting traffic at mult=%.4f (target CPS=%.0f)" % (
+                mult, mult * ASTF_MULTIPLIER))
+            c.clear_stats()
+            c.start(mult=mult, dump_interval=dump_iv, nc=True)
+            astf_state['traffic_running'] = True
+            astf_state['current_mult'] = mult
+
+            wait_for_cps_stable(c, trial_params.get('astf_ramp_time', 5),
+                                log_fn=trial_log,
+                                e_duration=trial_params.get('astf_e_duration', 0))
+        else:
+            trial_log("ASTF in-process: traffic already running at mult=%.4f, sampling" % (
+                astf_state['current_mult']))
+
+        raw_stats, tcp_rtt_info = sample_astf_trial(
+            c, runtime, protocol=protocol,
+            latency_pps=trial_params.get('astf_latency_pps', 0),
+            client_ip_start=trial_params.get('astf_client_ip_start', '16.0.0.0'),
+            server_ip_start=trial_params.get('astf_server_ip_start', '48.0.0.0'),
+            ip_offset=trial_params.get('astf_ip_offset', '1.0.0.0'),
+            log_fn=trial_log)
+
+        measured_runtime = time.time() - start_wall
+        result = assemble_astf_result(c, raw_stats, all_ports, trial_start_ms,
+                                      measured_runtime, tcp_rtt_info, log_fn=trial_log)
+
+        stats['trial_start'] = result['trial_start']
+        stats['trial_stop']  = result['trial_stop']
+        stats['global'] = {
+            'runtime':      result['global']['runtime'],
+            'timeout':      result['global'].get('timeout', False),
+            'early_exit':   result['global'].get('early_exit', False),
+            'force_quit':   result['global'].get('force_quit', False),
+            'tx_cps':       result['global'].get('tx_cps', 0.0),
+            'active_flows': result['global'].get('active_flows', 0),
+        }
+        stats['astf'] = extract_astf_stats(result)
+
+        detailed_stats['stats'] = copy.deepcopy(result)
+        stats['retval'] = 0
+
+        trial_log("ASTF in-process trial complete: CPS=%.0f active=%d err%%=%.4f%% retx%%=%.4f%%" % (
+            stats['astf']['cps'], stats['astf']['active_flows'],
+            stats['astf']['connection_error_pct'], stats['astf']['retransmit_pct']))
+
+        if stats['astf']['has_astf_errors']:
+            trial_log("ASTF error counters: %s" % str(stats['astf']['astf_error_detail']))
+
+    except Exception as e:
+        bs_logger("ASTF in-process trial exception: %s" % str(e))
+        stats['trial_start'] = trial_start_ms
+        stats['trial_stop'] = time.time() * 1000
+        stats['global'] = {
+            'runtime': 0.0, 'timeout': False, 'early_exit': False,
+            'force_quit': True, 'tx_cps': 0.0, 'active_flows': 0,
+        }
+        from trex_astf_lib import astf_null_stats
+        stats['astf'] = astf_null_stats()
+        stats['astf']['has_astf_errors'] = True
+        stats['astf']['astf_error_detail'] = {'exception': str(e)}
+        stats['retval'] = 1
+        astf_state['traffic_running'] = False
+
+    # Write trial log files
+    try:
+        from tg_lib import dump_json_parsable
+        (primary_fn, primary_fp) = file_open(trial_primary_file, "w")
+        trial_params['trial_primary_output_file'] = primary_fn
+        for line in log_lines:
+            primary_fp.write(line)
+        primary_fp.close()
+
+        (extra_fn, extra_fp) = file_open(trial_extra_file, "w")
+        trial_params['trial_secondary_output_file'] = extra_fn
+        if detailed_stats.get('stats'):
+            extra_fp.write("PARSABLE RESULT: %s\n" % dump_json_parsable(detailed_stats['stats']))
+        extra_fp.close()
+    except Exception as e:
+        bs_logger("WARNING: failed to write trial log files: %s" % str(e))
+
+    trial_params['trial_profiler_file'] = "N/A"
+
+    return stats
+
 
 def handle_process_output(process, process_stream, capture):
      lines = []
@@ -1268,7 +1774,7 @@ def handle_trial_process_stdout(process, trial_params, stats, exit_event):
                                  stats[0]['rx_pps'] = float(fail_packets) / float(trial_params['runtime'])
                                  stats[0]['rx_lost_packets'] = total_packets - fail_packets
                                  stats[0]['rx_lost_packets_pct'] = float(stats[0]['rx_lost_packets']) / float(total_packets)
-             elif trial_params['traffic_generator'] == 'trex-txrx' or trial_params['traffic_generator'] == 'trex-txrx-profile':
+             elif trial_params['traffic_generator'] in ('trex-txrx', 'trex-txrx-profile'):
                   if line.rstrip('\n') == "Connection severed":
                        capture_output = False
                        exit_event.set()
@@ -1709,6 +2215,55 @@ def handle_trial_process_stderr(process, trial_params, stats, tmp_stats, streams
 
                        continue
 
+             elif trial_params['traffic_generator'] == 'trex-astf':
+                  if line.rstrip('\n') == "Connection severed":
+                       exit_event.set()
+                       do_loop = False
+                       continue
+
+                  # Echo key trex-astf.py milestones to the main log for visibility
+                  stripped = line.rstrip('\n')
+                  if 'CPS stable' in stripped or 'ramp-up' in stripped or 'ERROR:' in stripped or 'WARNING:' in stripped:
+                       bs_logger(stripped, prefix="%03d" % trial_params['trial'])
+
+                  m = re.search(r"PARSABLE RESULT:\s+(.*)$", line)
+                  if m:
+                       if secondary_close_file:
+                            secondary_output_file.write(line)
+                       else:
+                            print(line.rstrip('\n'))
+
+                       results = json.loads(m.group(1))
+                       detailed_stats['stats'] = copy.deepcopy(results)
+
+                       if 'trial_start' in results:
+                            stats['trial_start'] = results['trial_start']
+                       if 'trial_stop' in results:
+                            stats['trial_stop'] = results['trial_stop']
+
+                       stats['global'] = dict()
+                       stats['global']['runtime']    = results['global']['runtime']
+                       stats['global']['timeout']    = results['global'].get('timeout', False)
+                       stats['global']['early_exit'] = results['global'].get('early_exit', False)
+                       stats['global']['force_quit'] = results['global'].get('force_quit', False)
+                       stats['global']['tx_cps']     = results['global'].get('tx_cps', 0.0)
+                       stats['global']['active_flows']= results['global'].get('active_flows', 0)
+
+                       # Extract and normalize ASTF-specific stats using shared library
+                       from trex_astf_lib import extract_astf_stats
+                       stats['astf'] = extract_astf_stats(results)
+
+                       bs_logger("ASTF trial stats: CPS=%.0f active_flows=%d error_pct=%.4f%% retransmit_pct=%.4f%%" % (
+                            stats['astf']['cps'],
+                            stats['astf']['active_flows'],
+                            stats['astf']['connection_error_pct'],
+                            stats['astf']['retransmit_pct']))
+
+                       if stats['astf']['has_astf_errors']:
+                            bs_logger("ASTF error counters detected: %s" % str(stats['astf']['astf_error_detail']))
+
+                       continue
+
              if primary_close_file:
                   primary_output_file.write(line)
              else:
@@ -1736,7 +2291,7 @@ def print_stats(trial_params, stats):
           string += '\n]\n'
 
           bs_logger(string)
-     elif t_global.args.traffic_generator == 'trex-txrx' or t_global.args.traffic_generator == 'trex-txrx-profile':
+     elif t_global.args.traffic_generator in ('trex-txrx', 'trex-txrx-profile'):
           string = ""
 
           string += '[\n'
@@ -1753,6 +2308,95 @@ def print_stats(trial_params, stats):
 
           bs_logger(string)
 
+     elif t_global.args.traffic_generator == 'trex-astf':
+          astf = stats.get('astf', {})
+          from trex_astf_lib import ASTF_MULTIPLIER as _ASTF_MULT
+          target_cps = trial_params.get('rate', 0) * _ASTF_MULT
+          bs_logger("ASTF Trial: CPS=%s (target=%s)" % (
+               commify(astf.get('cps', 0.0)), commify(target_cps)))
+          bs_logger("ASTF Trial: active_flows=%s  established=%s" % (
+               commify(astf.get('active_flows', 0)),
+               commify(astf.get('established_flows', 0))))
+          bs_logger("ASTF Trial: TX: packets=%s  pps=%s  l7_bps=%s  l2_bps=%s" % (
+               commify(astf.get('tx_packets', 0)),
+               commify(astf.get('tx_pps', 0.0)),
+               commify(astf.get('tx_l7_bps', 0.0)),
+               commify(astf.get('tx_bps', 0.0))))
+          bs_logger("ASTF Trial: RX: packets=%s  pps=%s  l7_bps=%s  l2_bps=%s" % (
+               commify(astf.get('rx_packets', 0)),
+               commify(astf.get('rx_pps', 0.0)),
+               commify(astf.get('rx_l7_bps', 0.0)),
+               commify(astf.get('rx_bps', 0.0))))
+          bs_logger("ASTF Trial: TCP: attempts=%s  connects=%s  drops=%s  retransmits=%s" % (
+               commify(astf.get('connections_attempted', 0)),
+               commify(astf.get('connections_established', 0)),
+               commify(astf.get('connections_dropped', 0)),
+               commify(astf.get('tcp_retransmit_packets', 0))))
+          bs_logger("ASTF Trial: UDP: tx_pkts=%s  rx_pkts=%s" % (
+               commify(astf.get('udp_tx_packets', 0)),
+               commify(astf.get('udp_rx_packets', 0))))
+          bs_logger("ASTF Trial: Server: accepts=%s  connects=%s  drops=%s" % (
+               commify(astf.get('server_accepts', 0)),
+               commify(astf.get('server_connects', 0)),
+               commify(astf.get('server_drops', 0))))
+          bs_logger("ASTF Trial: error_pct=%.4f%%  retransmit_pct=%.4f%%  out_of_order_pct=%.4f%%  tcp_overhead=%.1f%%" % (
+               astf.get('connection_error_pct', 0.0),
+               astf.get('retransmit_pct', 0.0),
+               astf.get('out_of_order_pct', 0.0),
+               astf.get('tcp_overhead_pct', 0.0)))
+          # TCP wire-level detail
+          if astf.get('tcp_snd_total', 0) > 0:
+               bs_logger("ASTF Trial: TCP wire: total_pkts=%s  data=%s  ctrl(SYN/FIN)=%s  acks=%s  payload_bytes=%s" % (
+                    commify(astf.get('tcp_snd_total', 0)),
+                    commify(astf.get('tcp_retransmit_packets', 0) + astf.get('connections_established', 0)),
+                    commify(astf.get('tcp_snd_ctrl', 0)),
+                    commify(astf.get('tcp_snd_acks', 0)),
+                    commify(astf.get('tcp_snd_bytes', 0))))
+          # TCP RTT/RTO from get_flow_info() sampling
+          if astf.get('tcp_rtt_avg_usec', 0) > 0:
+               bs_logger("ASTF Trial: TCP RTT: avg=%.1f min=%.1f max=%.1f usec  RTO: avg=%.1f usec" % (
+                    astf.get('tcp_rtt_avg_usec', 0.0),
+                    astf.get('tcp_rtt_min_usec', 0.0),
+                    astf.get('tcp_rtt_max_usec', 0.0),
+                    astf.get('tcp_rto_avg_usec', 0.0)))
+          # Error-scenario counters (only log if non-zero)
+          err_counters = []
+          if astf.get('tcp_keepalive_drops', 0) > 0:
+               err_counters.append("keepalive_drops=%s" % commify(astf['tcp_keepalive_drops']))
+          if astf.get('tcp_persist_drops', 0) > 0:
+               err_counters.append("persist_drops=%s" % commify(astf['tcp_persist_drops']))
+          if astf.get('tcp_retransmit_timeouts', 0) > 0:
+               err_counters.append("retx_timeouts=%s" % commify(astf['tcp_retransmit_timeouts']))
+          if astf.get('tcp_syn_retransmit_timeouts', 0) > 0:
+               err_counters.append("syn_retx_timeouts=%s" % commify(astf['tcp_syn_retransmit_timeouts']))
+          if astf.get('tcp_conn_drops', 0) > 0:
+               err_counters.append("conn_drops=%s" % commify(astf['tcp_conn_drops']))
+          if err_counters:
+               bs_logger("ASTF Trial: TCP errors: %s" % "  ".join(err_counters))
+          # ICMP Latency (if latency_pps > 0)
+          if astf.get('latency_avg_usec', 0) > 0:
+               bs_logger("ASTF Trial: Latency: avg=%sus  min=%sus  max=%sus  jitter=%sus" % (
+                    commify(astf.get('latency_avg_usec', 0.0)),
+                    commify(astf.get('latency_min_usec', 0.0)),
+                    commify(astf.get('latency_max_usec', 0.0)),
+                    commify(astf.get('latency_jitter_usec', 0.0))))
+          # Per-port stats (if available)
+          for ps in astf.get('port_stats', []):
+               if isinstance(ps, dict) and ps.get('opackets', 0) > 0:
+                    bs_logger("ASTF Trial: Port %d: TX=%s pkts (%s bytes)  RX=%s pkts (%s bytes)" % (
+                         ps.get('port', -1),
+                         commify(ps.get('opackets', 0)), commify(ps.get('obytes', 0)),
+                         commify(ps.get('ipackets', 0)), commify(ps.get('ibytes', 0))))
+          # Per-template stats (if available)
+          for tg_name, tg in astf.get('template_stats', {}).items():
+               if isinstance(tg, dict):
+                    tcp_a = tg.get('tcps_connattempt', 0)
+                    udp_c = tg.get('udps_connects', 0)
+                    if tcp_a > 0 or udp_c > 0:
+                         bs_logger("ASTF Trial: Template '%s': tcp_attempts=%s tcp_connects=%s tcp_drops=%s udp_connects=%s" % (
+                              tg_name, commify(tcp_a), commify(tg.get('tcps_connects', 0)),
+                              commify(tg.get('tcps_drops', 0)), commify(udp_c)))
+
 def setup_config_var(variable, value, trial_params, config_tag = True, silent = False):
      trial_params[variable] = value
 
@@ -1762,8 +2406,184 @@ def setup_config_var(variable, value, trial_params, config_tag = True, silent = 
           if not silent:
                bs_logger("%s=%s" % (variable, value))
 
+def evaluate_trial_astf(trial_params, trial_stats):
+     """
+     Pass/fail evaluation for TRex ASTF (stateful) trials.
+
+     Phase 1: Zero traffic abort -- no connections were attempted.
+     Phase 2: ASTF internal error counters -- any non-zero = definitive problem.
+     Phase 3: Connection error rate exceeds threshold.
+     Phase 4: TCP retransmit rate exceeds threshold (optional).
+     Phase 5: UDP packet drop rate exceeds threshold (optional, mixed mode).
+     Phase 6: CPS rate info -- logged but NOT enforced (ASTF CPS is imprecise).
+     Phase 7: Global timeout, early_exit, force_quit.
+     """
+     from trex_astf_lib import ASTF_MULTIPLIER
+
+     trial_result = 'pass'
+     astf = trial_stats.get('astf', {})
+     global_stats = trial_stats.get('global', {})
+
+     # Phase 1: Hard abort -- no traffic at all (TCP or UDP)
+     # connections_attempted combines tcps_connattempt + udps_connects;
+     # tx_packets is a fallback check for any packet activity
+     total_activity = astf.get('connections_attempted', 0) + astf.get('tx_packets', 0)
+     if total_activity == 0:
+          trial_result = 'abort'
+          bs_logger("\t(ASTF Phase 1: zero traffic (no connections and no packets), trial result: %s)" % trial_result)
+
+     # Phase 1b: Traffic collapse detection -- CPS near zero with no connections
+     # This catches the case where traffic started during ramp-up but collapsed
+     # before the measurement window (e.g., DUT overloaded). After clear_stats(),
+     # the measurement window sees only ICMP probes (tx_packets > 0) but zero
+     # ASTF connections. Without this check, the trial would falsely pass.
+     elif astf.get('cps', 0) < 1.0 and astf.get('connections_attempted', 0) == 0:
+          trial_result = 'fail'
+          bs_logger("\t(ASTF Phase 1b: CPS=%.1f with zero connections during measurement -- traffic collapsed, trial result: %s)" % (
+               astf.get('cps', 0), trial_result))
+
+     # Phase 1c: Flow table saturation detection
+     # When active_flows reaches astf-max-flows, TRex cannot create new connections.
+     # The CPS measurement becomes unreliable (throttled by flow table, not DUT).
+     # This is critical for UDP where flows don't close actively.
+     if trial_result == 'pass' and trial_params.get('astf_max_flows', 0) > 0:
+          saturation_threshold = trial_params['astf_max_flows'] * 0.95
+          if astf.get('active_flows', 0) >= saturation_threshold:
+               trial_result = 'fail'
+               bs_logger("\t(ASTF Phase 1c: flow table saturated: active=%s >= 95%% of max=%s, "
+                         "CPS measurement unreliable, trial result: %s)" % (
+                         commify(astf.get('active_flows', 0)),
+                         commify(trial_params['astf_max_flows']),
+                         trial_result))
+
+     # Phase 2: Catastrophic ASTF errors only (flow overflow, throttling, routing)
+     # Non-catastrophic counters (SYN retransmits, keepalive drops) are normal
+     # operational behavior in OVS-DPDK/NAT/firewall deployments and are evaluated
+     # by their percentage impact in Phases 3-4 instead of hard-failing here.
+     # Counters listed in --astf-ignore-errors are excluded from the catastrophic set.
+     if trial_result == 'pass' and astf.get('has_astf_errors', False):
+          ignore_list = trial_params.get('astf_ignore_errors', '')
+          ignore_set = set(x.strip() for x in ignore_list.split(',') if x.strip())
+          catastrophic = {'err_flow_overflow', 'err_cwf', 'err_s_nf_throttled',
+                          'err_no_memory', 'err_dport_map'} - ignore_set
+          err_detail = astf.get('astf_error_detail', {})
+          has_catastrophic = bool(catastrophic & set(err_detail.keys()))
+          if has_catastrophic:
+               trial_result = 'fail'
+               bs_logger("\t(ASTF Phase 2: catastrophic error counters: %s, trial result: %s)" % (
+                    str({k: v for k, v in err_detail.items() if k in catastrophic}), trial_result))
+          else:
+               ignored_found = set(err_detail.keys()) & ignore_set
+               if ignored_found:
+                    bs_logger("\t(ASTF Phase 2: ignored counters per --astf-ignore-errors: %s)" % str(ignored_found))
+               bs_logger("\t(ASTF Phase 2: non-critical error counters (evaluated in Phase 3/4): %s)" % (
+                    str(err_detail)))
+
+     # Phase 3: Connection error rate
+     if trial_result == 'pass' and astf.get('connection_error_pct', 0.0) > trial_params['astf_max_error_pct']:
+          trial_result = 'fail'
+          bs_logger("\t(ASTF Phase 3: connection error pct %.4f%% > max %.4f%%, drops=%s/%s attempts, trial result: %s)" % (
+               astf['connection_error_pct'],
+               trial_params['astf_max_error_pct'],
+               commify(astf.get('connections_dropped', 0)),
+               commify(astf.get('connections_attempted', 0)),
+               trial_result))
+
+     # Phase 4: TCP retransmit rate (only if threshold configured)
+     if trial_result == 'pass' and trial_params.get('astf_max_retransmit_pct', 0.0) > 0.0:
+          if astf.get('retransmit_pct', 0.0) > trial_params['astf_max_retransmit_pct']:
+               trial_result = 'fail'
+               bs_logger("\t(ASTF Phase 4: retransmit pct %.4f%% > max %.4f%%, retransmits=%s packets, trial result: %s)" % (
+                    astf['retransmit_pct'],
+                    trial_params['astf_max_retransmit_pct'],
+                    commify(astf.get('tcp_retransmit_packets', 0)),
+                    trial_result))
+
+     # Phase 5: UDP packet drop rate (pure UDP and mixed mode)
+     if trial_result == 'pass' and trial_params.get('astf_protocol', 'tcp') in ('udp', 'mixed'):
+          udp_drop = astf.get('udp_drop_pct', 0.0)
+          udp_threshold = trial_params.get('astf_max_udp_drop_pct', 0.0)
+          if udp_threshold <= 0:
+               udp_threshold = trial_params['astf_max_error_pct']
+          if udp_drop > udp_threshold:
+               trial_result = 'fail'
+               bs_logger("\t(ASTF Phase 5: UDP drop pct %.4f%% > max %.4f%%, udp_tx=%s udp_rx=%s, trial result: %s)" % (
+                    udp_drop, udp_threshold,
+                    commify(astf.get('udp_tx_packets', 0)),
+                    commify(astf.get('udp_rx_packets', 0)),
+                    trial_result))
+
+     # Phase 6: CPS under-delivery detection
+     # Fails if actual CPS is far below target (indicates flow saturation, DUT collapse,
+     # or other systemic issue). The default 50% threshold catches catastrophic
+     # under-delivery while allowing the normal 5-10% TCP scheduling variance.
+     if trial_result == 'pass':
+          actual_cps = astf.get('cps', 0.0)
+          if trial_params.get('rate_unit') == 'cps':
+               target_cps = trial_params['rate']
+          else:
+               target_cps = trial_params['rate'] * ASTF_MULTIPLIER
+          max_deviation = trial_params.get('astf_max_cps_deviation_pct', 50.0)
+          if target_cps > 0:
+               deviation_pct = (target_cps - actual_cps) / target_cps * 100.0
+               if max_deviation > 0 and deviation_pct > max_deviation:
+                    trial_result = 'fail'
+                    bs_logger("\t(ASTF Phase 6: CPS under-delivery %.1f%% > max %.1f%% "
+                              "(target=%s actual=%s), trial result: %s)" % (
+                              deviation_pct, max_deviation,
+                              commify(target_cps), commify(actual_cps), trial_result))
+               else:
+                    bs_logger("\t(ASTF Phase 6: CPS rate info: target=%.0f actual=%.0f "
+                              "deviation=%.2f%% (max allowed=%.0f%%))" % (
+                              target_cps, actual_cps, deviation_pct, max_deviation))
+
+     # Phase 7: Global timeout / early_exit / force_quit
+     if global_stats.get('force_quit', False):
+          trial_result = 'quit'
+          bs_logger("\t(ASTF Phase 7: force_quit received, trial result: %s)" % trial_result)
+          return trial_result
+     if global_stats.get('timeout', False):
+          if trial_result == 'pass':
+               trial_result = 'retry-to-fail'
+               bs_logger("\t(ASTF Phase 7: trial timed out, trial result: %s)" % trial_result)
+     if global_stats.get('early_exit', False):
+          if trial_result == 'pass':
+               trial_result = 'fail'
+               bs_logger("\t(ASTF Phase 7: early_exit received, trial result: %s)" % trial_result)
+
+     # Convert abort to quit (matching STL evaluate_trial behavior at lines 2688+).
+     # Without this, 'abort' falls through the main loop without adjusting rate,
+     # causing an infinite retry at zero-traffic conditions.
+     if trial_result == 'abort':
+          if trial_params['trial_mode'] == 'warmup':
+               trial_result = 'pass'
+               bs_logger("\t(ASTF: abort during warmup overridden to pass)")
+          else:
+               trial_result = 'quit'
+               bs_logger(error("(ASTF: aborting binary search due to zero traffic, trial result: %s)" % trial_result))
+
+     # Warmup override
+     if trial_params['trial_mode'] == 'warmup':
+          trial_result = 'pass'
+          bs_logger("\t(ASTF warmup trial: results ignored, trial result: %s)" % trial_result)
+
+     bs_logger("\t(ASTF evaluation complete: CPS=%.0f active_flows=%d error_pct=%.4f%% retransmit_pct=%.4f%% trial_result: %s)" % (
+          astf.get('cps', 0.0),
+          astf.get('active_flows', 0),
+          astf.get('connection_error_pct', 0.0),
+          astf.get('retransmit_pct', 0.0),
+          trial_result))
+
+     return trial_result
+
+
 def evaluate_trial(trial_params, trial_stats):
      bs_logger("(Evaluating trial)")
+
+     # ASTF evaluation uses a completely separate logic path from STL.
+     # It returns early so no STL-specific code runs.
+     if trial_params['traffic_generator'] == 'trex-astf':
+          return evaluate_trial_astf(trial_params, trial_stats)
 
      trial_result = 'pass'
      total_tx_packets = 0
@@ -2182,6 +3002,11 @@ def main():
          bs_logger_cleanup(bs_logger_exit, bs_logger_thread)
          return(1)
 
+    if t_global.args.traffic_generator == 'trex-astf' and t_global.args.rate_unit == "mpps":
+         bs_logger(error("The trex-astf traffic generator does not support --rate-unit=mpps; use cps-mult or cps"))
+         bs_logger_cleanup(bs_logger_exit, bs_logger_thread)
+         return(1)
+
     if t_global.args.traffic_generator == 'trex-txrx' and (len(t_global.args.traffic_profile_name) or len(t_global.args.warmup_traffic_profile_name)):
          bs_logger(error("The trex-txrx traffic generator does not support --traffic-profile-name or --warmup-traffic-profile-name"))
          bs_logger_cleanup(bs_logger_exit, bs_logger_thread)
@@ -2202,7 +3027,7 @@ def main():
 
     # the packet rate in millions/sec is based on 10Gbps, update for other Ethernet speeds
     if rate == 0:
-        if t_global.args.traffic_generator == "null-txrx" or t_global.args.traffic_generator == "trex-txrx-profile" or (t_global.args.traffic_generator == "trex-txrx" and t_global.args.rate_unit == "%"):
+        if t_global.args.traffic_generator == "null-txrx" or t_global.args.traffic_generator == "trex-txrx-profile" or t_global.args.traffic_generator == "trex-astf" or (t_global.args.traffic_generator == "trex-txrx" and t_global.args.rate_unit == "%"):
              rate = 100.0
         else:
              rate = 9999 / ((t_global.args.frame_size) * 8 + 64 + 96.0)
@@ -2244,8 +3069,15 @@ def main():
     setup_config_var("min_rate", t_global.args.min_rate, trial_params)
     setup_config_var("max_loss_pct", t_global.args.max_loss_pct, trial_params)
     setup_config_var("trial_gap", t_global.args.trial_gap, trial_params)
-    setup_config_var("search_runtime", t_global.args.search_runtime, trial_params)
-    setup_config_var("validation_runtime", t_global.args.validation_runtime, trial_params)
+    if t_global.args.uniform_trial_runtime > 0:
+         bs_logger("Uniform trial runtime enabled: using %ds for both search and validation" % t_global.args.uniform_trial_runtime)
+         t_global.args.search_runtime = t_global.args.uniform_trial_runtime
+         t_global.args.validation_runtime = t_global.args.uniform_trial_runtime
+         setup_config_var("search_runtime", t_global.args.uniform_trial_runtime, trial_params)
+         setup_config_var("validation_runtime", t_global.args.uniform_trial_runtime, trial_params)
+    else:
+         setup_config_var("search_runtime", t_global.args.search_runtime, trial_params)
+         setup_config_var("validation_runtime", t_global.args.validation_runtime, trial_params)
     setup_config_var("sniff_runtime", t_global.args.sniff_runtime, trial_params)
     setup_config_var("search_granularity", t_global.args.search_granularity, trial_params)
     setup_config_var("max_retries", t_global.args.max_retries, trial_params)
@@ -2317,6 +3149,51 @@ def main():
          setup_config_var('process_all_profiler_data', t_global.args.process_all_profiler_data, trial_params)
 
          setup_config_var('traffic_direction', 'bidirectional', trial_params, config_tag = False, silent = True)
+
+    if t_global.args.traffic_generator == "trex-astf":
+         from trex_astf_lib import astf_null_stats as _astf_null_stats
+         setup_config_var('trex_host',              t_global.args.trex_host,              trial_params)
+         setup_config_var('device_pairs',           t_global.args.device_pairs,           trial_params)
+         setup_config_var('active_device_pairs',    t_global.args.active_device_pairs,    trial_params)
+         setup_config_var('no_promisc',             t_global.args.no_promisc,             trial_params)
+         setup_config_var('rate_unit',              t_global.args.rate_unit,              trial_params)
+         setup_config_var('astf_protocol',          t_global.args.astf_protocol,          trial_params)
+         setup_config_var('astf_tcp_port',          t_global.args.astf_tcp_port,          trial_params)
+         setup_config_var('astf_udp_port',          t_global.args.astf_udp_port,          trial_params)
+         setup_config_var('astf_udp_percent',       t_global.args.astf_udp_percent,       trial_params)
+         setup_config_var('astf_message_size',      t_global.args.astf_message_size,      trial_params)
+         setup_config_var('astf_num_messages',      t_global.args.astf_num_messages,      trial_params)
+         setup_config_var('astf_server_wait_ms',    t_global.args.astf_server_wait_ms,    trial_params)
+         setup_config_var('astf_tcp_mss',           t_global.args.astf_tcp_mss,           trial_params)
+         setup_config_var('astf_client_ip_start',   t_global.args.astf_client_ip_start,   trial_params)
+         setup_config_var('astf_client_ip_end',     t_global.args.astf_client_ip_end,     trial_params)
+         setup_config_var('astf_server_ip_start',   t_global.args.astf_server_ip_start,   trial_params)
+         setup_config_var('astf_server_ip_end',     t_global.args.astf_server_ip_end,     trial_params)
+         setup_config_var('astf_ip_offset',         t_global.args.astf_ip_offset,         trial_params)
+         setup_config_var('astf_ip_offset_server',  t_global.args.astf_ip_offset_server,  trial_params)
+         setup_config_var('astf_per_core_distribution', t_global.args.astf_per_core_distribution, trial_params)
+         setup_config_var('astf_use_subprocess', t_global.args.astf_use_subprocess, trial_params)
+         setup_config_var('astf_flush_on_pass', t_global.args.astf_flush_on_pass, trial_params)
+         setup_config_var('astf_max_cps_deviation_pct', t_global.args.astf_max_cps_deviation_pct, trial_params)
+         setup_config_var('astf_max_udp_drop_pct', t_global.args.astf_max_udp_drop_pct, trial_params)
+         setup_config_var('astf_max_flows',         t_global.args.astf_max_flows,         trial_params)
+         setup_config_var('astf_ramp_time',         t_global.args.astf_ramp_time,         trial_params)
+         setup_config_var('astf_vlan_id',           t_global.args.astf_vlan_id,           trial_params)
+         setup_config_var('astf_ipv6',              t_global.args.astf_ipv6,              trial_params)
+         setup_config_var('astf_ipv6_client_msb',  t_global.args.astf_ipv6_client_msb,   trial_params)
+         setup_config_var('astf_ipv6_server_msb',  t_global.args.astf_ipv6_server_msb,   trial_params)
+         setup_config_var('astf_profile',           t_global.args.astf_profile,           trial_params)
+         setup_config_var('astf_max_error_pct',     t_global.args.astf_max_error_pct,     trial_params)
+         setup_config_var('astf_max_retransmit_pct',t_global.args.astf_max_retransmit_pct,trial_params)
+         setup_config_var('astf_max_latency_us',    t_global.args.astf_max_latency_us,    trial_params)
+         setup_config_var('astf_ignore_errors',     t_global.args.astf_ignore_errors,     trial_params)
+         setup_config_var('astf_e_duration',        t_global.args.astf_e_duration,        trial_params)
+         setup_config_var('astf_t_duration',        t_global.args.astf_t_duration,        trial_params)
+         setup_config_var('astf_latency_pps',      t_global.args.astf_latency_pps,      trial_params)
+         setup_config_var('dst_macs',               t_global.args.dst_macs,               trial_params)
+         setup_config_var('src_macs',               t_global.args.src_macs,               trial_params)
+         setup_config_var('traffic_direction',      'bidirectional',                       trial_params, config_tag=False, silent=True)
+         trial_params['null_stats'] = _astf_null_stats()
 
     if t_global.args.traffic_generator == "trex-txrx" and t_global.args.rate_unit == "%" and rate == 100.0:
          bs_logger("Disabling upward binary searching since the traffic generator is trex-txrx and the rate is 100% which is line rate")
@@ -2463,7 +3340,7 @@ def main():
     port_speed_verification_fail = False
 
     port_info = None
-    if t_global.args.traffic_generator == "trex-txrx" or t_global.args.traffic_generator == 'trex-txrx-profile':
+    if t_global.args.traffic_generator in ("trex-txrx", "trex-txrx-profile", "trex-astf"):
          port_info = get_trex_port_info(trial_params, trial_params['claimed_dev_pairs'])
 
          if not isinstance(port_info, list) and 'retval' in port_info:
@@ -2487,15 +3364,15 @@ def main():
          return(1)
 
     if len(trial_params['pre_trial_cmd']):
-         if not os.path.isfile(trial_params['pre_trial_cmd']):
-              bs_logger(error("The pre-trial-cmd file does not exist [%s]" % (trial_params['pre_trial_cmd'])))
-              bs_logger_cleanup(bs_logger_exit, bs_logger_thread)
-              return(1)
-
-         if not os.access(trial_params['pre_trial_cmd'], os.X_OK):
-              bs_logger(error("The pre-trial-cmd file is not executable [%s]" % (trial_params['pre_trial_cmd'])))
-              bs_logger_cleanup(bs_logger_exit, bs_logger_thread)
-              return(1)
+         cmd = trial_params['pre_trial_cmd']
+         cmd_executable = cmd.split()[0]
+         if os.path.isfile(cmd_executable):
+              if not os.access(cmd_executable, os.X_OK):
+                   bs_logger(error("The pre-trial-cmd file is not executable [%s]" % cmd_executable))
+                   bs_logger_cleanup(bs_logger_exit, bs_logger_thread)
+                   return(1)
+         else:
+              bs_logger("pre-trial-cmd is not a local file; will execute as shell command [%s]" % cmd)
 
     in_repeat_validation = False
     perform_sniffs = False
@@ -2513,6 +3390,35 @@ def main():
          do_search = False
 
     trial_params['trial'] = 0
+    trial_params['prev_trial_result'] = None
+
+    # ASTF in-process persistent connection setup
+    astf_client_state = None
+    consecutive_false_positives = 0
+    force_next_flush = False
+    astf_inprocess = (trial_params.get('traffic_generator') == 'trex-astf' and
+                      not trial_params.get('astf_use_subprocess', False))
+    if astf_inprocess:
+         bs_logger("ASTF mode: in-process persistent connection (use --astf-use-subprocess for legacy mode)")
+         try:
+              astf_client_state = setup_astf_client(trial_params, log_fn=bs_logger)
+         except Exception as e:
+              bs_logger(error("ASTF in-process setup failed: %s" % str(e)))
+              bs_logger_cleanup(bs_logger_exit, bs_logger_thread)
+              return(1)
+    elif trial_params.get('traffic_generator') == 'trex-astf':
+         bs_logger("ASTF mode: subprocess per trial (legacy)")
+
+    if astf_inprocess and astf_client_state:
+         max_flows = trial_params.get('astf_max_flows', 0)
+         ramp_time = trial_params.get('astf_ramp_time', 5)
+         start_rate = trial_params.get('rate', 0)
+         if max_flows > 0 and start_rate * ramp_time > max_flows:
+              bs_logger("WARNING: initial rate (%s CPS) x ramp_time (%ds) = %s potential flows, "
+                        "exceeds astf-max-flows (%s). Flow table may saturate -- "
+                        "consider reducing rate or increasing astf-max-flows." % (
+                        commify(start_rate), ramp_time,
+                        commify(start_rate * ramp_time), commify(max_flows)))
 
     minimum_rate = initial_rate * trial_params['search_granularity'] / 100
     if trial_params['min_rate'] != 0:
@@ -2550,22 +3456,68 @@ def main():
               stream_info = { 'streams': None }
               detailed_stats = { 'stats': None }
 
-              bs_logger('running trial %03d, rate %s%s' % (trial_params['trial'], commify(trial_params['rate']), trial_params['rate_unit']))
+              if trial_params.get('traffic_generator') == 'trex-astf':
+                   from trex_astf_lib import ASTF_MULTIPLIER as _MULT
+                   _target_cps = trial_params['rate'] if trial_params.get('rate_unit') == 'cps' else trial_params['rate'] * _MULT
+                   bs_logger('running trial %03d, rate %s%s (target CPS=%s)' % (trial_params['trial'], commify(trial_params['rate']), trial_params['rate_unit'], commify(_target_cps)))
+              else:
+                   bs_logger('running trial %03d, rate %s%s' % (trial_params['trial'], commify(trial_params['rate']), trial_params['rate_unit']))
 
               trial_params['pre_trial_cmd_output_file'] = None
-              if len(trial_params['pre_trial_cmd']):
-                   if execute_pre_trial_cmd(trial_params):
-                        bs_logger(error("pre trial command exited with a non-zero return value"))
-                        bs_logger_cleanup(bs_logger_exit, bs_logger_thread)
-                        return(1)
 
-              trial_stats = run_trial(trial_params, port_info, stream_info, detailed_stats)
+              if astf_inprocess and astf_client_state and astf_client_state.get('traffic_running'):
+                   if trial_params.get('trial_mode') == 'validation':
+                        bs_logger("ASTF in-process: stopping traffic before validation (clean conntrack)")
+                        try:
+                             astf_client_state['client'].stop()
+                             astf_client_state['traffic_running'] = False
+                             if trial_params.get('astf_protocol', 'tcp') in ('udp', 'mixed'):
+                                  astf_client_state['client'].reset()
+                                  astf_client_state['client'].load_profile(astf_client_state.get('profile'))
+                             t_dur = trial_params.get('astf_t_duration', 0)
+                             if t_dur > 0:
+                                  bs_logger("ASTF in-process: waiting %ds for teardown before validation" % t_dur)
+                                  time.sleep(t_dur)
+                        except Exception as e:
+                             bs_logger("WARNING: client.stop() failed before validation: %s" % str(e))
+                             astf_client_state['traffic_running'] = False
+
+              if len(trial_params['pre_trial_cmd']):
+                   is_first_trial = (trial_params['trial'] == 1)
+                   is_validation = (trial_params.get('trial_mode') == 'validation')
+                   prev_failed = (trial_params.get('prev_trial_result') in ('fail', 'abort'))
+                   flush_on_pass_stopped = (trial_params.get('astf_flush_on_pass', False) and
+                                            astf_inprocess and astf_client_state and
+                                            not astf_client_state.get('traffic_running', True))
+                   should_flush = is_first_trial or is_validation or prev_failed or flush_on_pass_stopped or force_next_flush
+
+                   if should_flush:
+                        if force_next_flush:
+                             reason = "false-positive recovery"
+                             force_next_flush = False
+                        elif flush_on_pass_stopped:
+                             reason = "flush-on-pass (traffic stopped)"
+                        else:
+                             reason = "first trial" if is_first_trial else ("validation" if is_validation else "previous trial failed")
+                        bs_logger("Running pre-trial-cmd (%s)" % reason)
+                        if execute_pre_trial_cmd(trial_params):
+                             bs_logger(error("pre trial command exited with a non-zero return value"))
+                             bs_logger_cleanup(bs_logger_exit, bs_logger_thread)
+                             return(1)
+                   else:
+                        bs_logger("Skipping pre-trial-cmd (conntrack warm, previous trial passed)")
+
+              if astf_inprocess and astf_client_state:
+                   trial_stats = run_astf_trial_inprocess(trial_params, astf_client_state, detailed_stats)
+              else:
+                   trial_stats = run_trial(trial_params, port_info, stream_info, detailed_stats)
               if trial_stats['retval']:
                    bs_logger(error("run trial command exited with a non-zero return value"))
                    bs_logger_cleanup(bs_logger_exit, bs_logger_thread)
                    return(1)
 
               trial_result = evaluate_trial(trial_params, trial_stats)
+              trial_params['prev_trial_result'] = trial_result
               if trial_result == 'quit':
                    return(1)
 
@@ -2631,6 +3583,27 @@ def main():
                              # that at least the original passing rate (which is a special rate of 0) is never
                              # removed from the stack
                              bs_logger("Removing false positive passing result: %s" % (commify(prev_pass_rate.pop())))
+                             consecutive_false_positives += 1
+
+                             if (consecutive_false_positives >= 2 and
+                                 astf_inprocess and astf_client_state and
+                                 astf_client_state.get('traffic_running')):
+                                  bs_logger("ASTF in-process: false-positive collapse detected (%d consecutive), forcing full reset" %
+                                            consecutive_false_positives)
+                                  try:
+                                       astf_client_state['client'].stop()
+                                       astf_client_state['traffic_running'] = False
+                                       t_dur = trial_params.get('astf_t_duration', 0)
+                                       if t_dur > 0:
+                                            bs_logger("ASTF in-process: waiting %ds for teardown" % t_dur)
+                                            time.sleep(t_dur)
+                                  except Exception as e:
+                                       bs_logger("WARNING: client.stop() failed during collapse recovery: %s" % str(e))
+                                       astf_client_state['traffic_running'] = False
+                                  force_next_flush = True
+                                  consecutive_false_positives = 0
+                        else:
+                             consecutive_false_positives = 0
                         next_rate = (prev_pass_rate[len(prev_pass_rate)-1] + rate) / 2 # use the most recently added passing rate present in stack to calculate the next rate
                         if abs(rate - next_rate) < (trial_params['search_granularity'] * rate / 100):
                              next_rate = rate - (trial_params['search_granularity'] * rate / 100) # subtracting by at least search_granularity percent avoids very small reductions in rate
@@ -2706,6 +3679,7 @@ def main():
                              next_rate = rate # since this was only the sniff test, keep the current rate
                         else:
                              prev_pass_rate.append(rate) # add the newly passed rate to the stack of passed rates; this will become the new reference for passed rates
+                             consecutive_false_positives = 0
                              next_rate = (prev_fail_rate + rate) / 2
                              if abs(rate - next_rate)/rate * 100 < trial_params['search_granularity']: # trigger final validation
                                   final_validation = True
@@ -2746,6 +3720,56 @@ def main():
                    bs_logger("Sleeping for %s seconds between trial attempts" % (commify(t_global.args.trial_gap)))
                    time.sleep(t_global.args.trial_gap)
 
+              # ASTF in-process: update rate for next trial
+              if astf_inprocess and astf_client_state and astf_client_state.get('traffic_running'):
+                   from trex_astf_lib import ASTF_MULTIPLIER as _MULT, wait_for_cps_stable
+                   new_mult = rate
+                   if trial_params.get('rate_unit') == 'cps':
+                        new_mult = rate / _MULT
+
+                   if trial_result == 'pass' and not final_validation:
+                        if trial_params.get('astf_flush_on_pass', False):
+                             bs_logger("ASTF in-process: stopping traffic after pass (flush-on-pass enabled)")
+                             try:
+                                  astf_client_state['client'].stop()
+                                  astf_client_state['traffic_running'] = False
+                                  if trial_params.get('astf_protocol', 'tcp') in ('udp', 'mixed'):
+                                       astf_client_state['client'].reset()
+                                       astf_client_state['client'].load_profile(astf_client_state.get('profile'))
+                                  t_dur = trial_params.get('astf_t_duration', 0)
+                                  if t_dur > 0:
+                                       time.sleep(t_dur)
+                             except Exception as e:
+                                  bs_logger("WARNING: client.stop() failed: %s" % str(e))
+                                  astf_client_state['traffic_running'] = False
+                        else:
+                             try:
+                                  bs_logger("ASTF in-process: hot-update rate to mult=%.4f (CPS=%.0f)" % (new_mult, new_mult * _MULT))
+                                  astf_client_state['client'].update(new_mult)
+                                  astf_client_state['current_mult'] = new_mult
+                             except Exception as e:
+                                  bs_logger("WARNING: client.update() failed (%s), falling back to stop/start" % str(e))
+                                  try:
+                                       astf_client_state['client'].stop()
+                                       astf_client_state['traffic_running'] = False
+                                  except Exception:
+                                       pass
+                   elif trial_result in ('fail', 'abort'):
+                        bs_logger("ASTF in-process: stopping traffic for rate change (trial %s)" % trial_result)
+                        try:
+                             astf_client_state['client'].stop()
+                             astf_client_state['traffic_running'] = False
+                             if trial_params.get('astf_protocol', 'tcp') in ('udp', 'mixed'):
+                                  astf_client_state['client'].reset()
+                                  astf_client_state['client'].load_profile(astf_client_state.get('profile'))
+                             t_dur = trial_params.get('astf_t_duration', 0)
+                             if t_dur > 0:
+                                  bs_logger("ASTF in-process: waiting %ds for teardown" % t_dur)
+                                  time.sleep(t_dur)
+                        except Exception as e:
+                             bs_logger("WARNING: client.stop() failed: %s" % str(e))
+                             astf_client_state['traffic_running'] = False
+
          if t_global.args.result_output == 'device':
               bs_logger("RESULT:")
               if prev_pass_rate[len(prev_pass_rate)-1] != 0: # show the stats for the most recent passing trial
@@ -2757,6 +3781,9 @@ def main():
                         bs_logger("There is no trial which passed")
 
     finally:
+         if astf_client_state:
+              cleanup_astf_client(astf_client_state, log_fn=bs_logger)
+
          if trial_params['traffic_generator'] == 'trex-txrx-profile' and trial_params['enable_trex_profiler'] and len(trial_results['trials']):
               bs_logger("Processing profiler data")
               for trial_result_idx in range(0, len(trial_results['trials'])):
