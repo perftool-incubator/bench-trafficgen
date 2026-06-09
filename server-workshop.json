@@ -10,6 +10,13 @@
       "requirements": [
         "trafficgen-server-os-dependencies"
       ]
+    },
+    {
+      "name": "alma8",
+      "requirements": [
+        "trafficgen-server-os-dependencies",
+        "set-python3.12"
+      ]
     }
   ],
   "requirements": [
@@ -23,6 +30,15 @@
           "net-tools",
           "which",
           "bc"
+        ]
+      }
+    },
+    {
+      "name": "set-python3.12",
+      "type": "manual",
+      "manual_info": {
+        "commands": [
+          "alternatives --set python3 /usr/bin/python3.12"
         ]
       }
     }
