@@ -9,11 +9,31 @@
       "name": "alma8",
       "requirements": [
         "dev-tools",
-        "trafficgen-client-os-dependencies",
+        "trafficgen-client-os-dependencies-el8",
         "set-python3.9",
         "pip",
         "trex1",
         "trex2"
+      ]
+    },
+    {
+      "name": "alma9",
+      "requirements": [
+        "dev-tools",
+        "trafficgen-client-os-dependencies-el9",
+        "pip",
+        "trex1-el9",
+        "trex2-el9"
+      ]
+    },
+    {
+      "name": "alma10",
+      "requirements": [
+        "dev-tools",
+        "trafficgen-client-os-dependencies-el9",
+        "pip",
+        "trex1-el9",
+        "trex2-el9"
       ]
     }
   ],
@@ -28,7 +48,7 @@
       }
     },
     {
-      "name": "trafficgen-client-os-dependencies",
+      "name": "trafficgen-client-os-dependencies-el8",
       "type": "distro",
       "distro_info": {
         "packages": [
@@ -38,6 +58,23 @@
           "which",
           "bc",
           "python39-devel",
+          "numactl-devel",
+          "cmake",
+          "libarchive"
+        ]
+      }
+    },
+    {
+      "name": "trafficgen-client-os-dependencies-el9",
+      "type": "distro",
+      "distro_info": {
+        "packages": [
+          "rdma-core-devel",
+          "dpdk-tools",
+          "net-tools",
+          "which",
+          "bc",
+          "python3-devel",
           "numactl-devel",
           "cmake",
           "libarchive"
@@ -88,6 +125,27 @@
       "manual_info": {
         "commands": [
           "alternatives --set python3 /usr/bin/python3.9"
+        ]
+      }
+    },
+    {
+      "name": "trex1-el9",
+      "type": "files",
+      "files_info": {
+        "files": [
+          {
+            "src": "%bench-dir%/trafficgen/install-trex.sh",
+            "dst": "/usr/bin"
+          }
+        ]
+      }
+    },
+    {
+      "name": "trex2-el9",
+      "type": "manual",
+      "manual_info": {
+        "commands": [
+          "/usr/bin/install-trex.sh --insecure"
         ]
       }
     }
