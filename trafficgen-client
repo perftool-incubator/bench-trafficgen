@@ -49,14 +49,13 @@ if [ -z "$active_devices" ]; then
 fi
 
 # Trafficgen-client might need MAC info from the server (testpmd)
+echo "Checking for resolved service info"
 echo "These files exist in ./msgs/rx:"
 /bin/ls -l msgs/rx
-file="msgs/rx/server-start-end:1"
-echo
-cat $file
-echo
+file="msgs/rx/svc"
 if [ -e "$file" ]; then
-    echo "Found $file"
+    echo "Found resolved service info: ${file}"
+    cat $file
     dstmacs=`jq -r '.macs[]' $file | tr "\n" "," | sed -e s/,$//`
     passthru_args+=(" --dst-macs=$dstmacs")
 fi

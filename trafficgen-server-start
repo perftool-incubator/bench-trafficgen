@@ -312,20 +312,20 @@ if [ "$switch_type" == "testpmd" ]; then
         if [ ! -e $testpmd_output ]; then
             exit_error "Could not find testpmd output file: [$testpmd_output]" 1 $sample_dir
         fi
-        echo '{"recipient":{"type":"all","id":"all"},"user-object":{"macs":[' >>msgs/tx/svc
+        local macs_json=""
         dev_idx=0
         while [ $dev_idx -lt $total_devs ]; do
             this_mac=`egrep "Port $dev_idx: [A-Fa-f0-9]{2}:[A-Fa-f0-9]{2}:[A-Fa-f0-9]{2}:[A-Fa-f0-9]{2}:[A-Fa-f0-9]{2}:[A-Fa-f0-9]{2}" $testpmd_output | awk -F"$dev_idx: " '{print $2}'`
             echo "MAC$dev_idx: $this_mac"
-            ## MAC info, to be sent to endpoint and then forwarded to the client
-            echo '"'$this_mac'"' >>msgs/tx/svc
-            if [ $dev_idx -lt $((total_devs-1)) ]; then
-                echo ', ' >>msgs/tx/svc
+            if [ $dev_idx -gt 0 ]; then
+                macs_json="${macs_json},"
             fi
+            macs_json="${macs_json}\"${this_mac}\""
             dev_mac[$dev_idx]=$this_mac
             let dev_idx=$dev_idx+1
         done
-        echo "]}}" >>msgs/tx/svc
+        # Queue MAC info for the engine infrastructure to deliver
+        echo '{"macs":['${macs_json}']}' >msgs/tx/svc
     fi
 elif [ "$switch_type" == "null" ]; then
     echo "Using switch_type null, no setup required"
