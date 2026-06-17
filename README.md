@@ -21,7 +21,8 @@ Name | Description
 -----|------------
 multiplex.json | Defines a set of presets and validations for the traffic generator tool, specifying various options and their valid values, such as device lists, traffic directions, packet protocols, and result output types.
 rickshaw.json | Defines the configuration settings for the trafficgen benchmarking tool, including the paths for required scripts and binaries, and options for the client and server components.
-workshop.json | Configuration file for a workshop environment and contains information on required dependencies and their installation methods,
+client-workshop.json | Client engine image workshop: TRex, build tools, and Python dependencies |
+server-workshop.json | Server engine image workshop: dpdk-tools and OS dependencies,
 
 ## Trafficgen
 

@@ -5,7 +5,7 @@ tgen_dir=$(dirname ${full_script_path})
 
 base_dir="/opt/trex"
 tmp_dir="/tmp"
-trex_ver="v2.87"
+trex_ver="v3.04"
 insecure_curl=0
 force_install=0
 toolbox_url=https://github.com/perftool-incubator/toolbox.git

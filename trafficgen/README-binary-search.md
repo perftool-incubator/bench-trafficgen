@@ -18,12 +18,12 @@ A script to conduct a binary-search for maximum packet throughput.  This script 
     ```
     # cd /path/to/trafficgen
     # ./install-trex.sh
-    Downloading TRex v2.81 from https://trex-tgn.cisco.com/trex/release/v2.81.tar.gz...
-    installed TRex v2.81 from https://trex-tgn.cisco.com/trex/release/v2.81.tar.gz
+    Downloading TRex v3.04 from https://trex-tgn.cisco.com/trex/release/v3.04.tar.gz...
+    installed TRex v3.04 from https://trex-tgn.cisco.com/trex/release/v3.04.tar.gz
     # ls -l /opt/trex
     total 4
-    lrwxrwxrwx  1 root  root    5 Aug 26 15:27 current -> v2.81
-    drwxr-xr-x 17 33066   25 4096 May  7 12:17 v2.81
+    lrwxrwxrwx  1 root  root    5 ... current -> v3.04
+    drwxr-xr-x 17 ...        ... v3.04
     ```
 
 ## Configuration
