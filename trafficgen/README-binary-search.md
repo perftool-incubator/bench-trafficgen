@@ -1,52 +1,78 @@
 # binary-search.py
-A script to conduct a binary-search for maximum packet throughput.  This script is designed to work with different traffic generator solutions.  Currently it natively supports TRex (https://trex-tgn.cisco.com/) with two different traffic generator implementations: trex-txrx.py and trex-txrx-profile.py.  The goal is to refine and enhance the binary-search features completely separate from the actual traffic generators.
+A script to conduct a binary search for maximum throughput or maximum connection rate.
+This script is designed to work with different traffic generator backends.  Currently it
+natively supports TRex (https://trex-tgn.cisco.com/) with three implementations:
+
+- `trex-txrx` -- stateless (STL), built-in packet templates
+- `trex-txrx-profile` -- stateless (STL), JSON-defined stream profiles
+- `trex-astf` -- **Advanced Stateful (ASTF)**, full TCP/UDP session simulation
+
+For ASTF documentation see [README-trex-astf.md](README-trex-astf.md).
 
 ## Installation
-1.  Download
 
-    First, download this git repository
+1.  Download this git repository:
 
+    ```bash
+    git clone https://github.com/perftool-incubator/bench-trafficgen
     ```
-    # git clone https://github.com/atheurer/trafficgen
-    ```
-    
-2.  Build/Install
 
-    If you intend to use TRex, the trafficgen repo includes a script (trex-install.sh) that will download and install TRex in /opt/trex:
+2.  Install TRex (requires `--version` argument):
 
-    
+    ```bash
+    cd bench-trafficgen/trafficgen
+    ./install-trex.sh --version=v3.04
+    # TRex installed to /opt/trex/v3.04
+    # Symlink: /opt/trex/current -> v3.04
+    ls -l /opt/trex
+    # lrwxrwxrwx 1 root root 5 ... current -> v3.04
+    # drwxr-xr-x 17 ...        ... v3.04
     ```
-    # cd /path/to/trafficgen
-    # ./install-trex.sh
-    Downloading TRex v2.81 from https://trex-tgn.cisco.com/trex/release/v2.81.tar.gz...
-    installed TRex v2.81 from https://trex-tgn.cisco.com/trex/release/v2.81.tar.gz
-    # ls -l /opt/trex
-    total 4
-    lrwxrwxrwx  1 root  root    5 Aug 26 15:27 current -> v2.81
-    drwxr-xr-x 17 33066   25 4096 May  7 12:17 v2.81
-    ```
+
+    **Recommended version**: `v3.04` for all use cases including ASTF (stateful mode).
+    `v3.04` includes SACK/cubic TCP improvements (v2.96), iavf/XXV710 SR-IOV fix,
+    and DPDK 23.03 with stable i40e driver support.
 
 ## Configuration
 
-1. Allocate huegpages needed by the traffic generator.  1GB page size is recommended.  Reboot after grub has been modified.
+1. Allocate hugepages needed by the traffic generator (1GB page size recommended).
+   Reboot after modifying grub:
 
-   ```         
-   # grubby --update-kernel=`grubby --default-kernel` --args="default_hugepagesz=1G hugepagesz=1G hugepages=32"
+   ```bash
+   grubby --update-kernel=`grubby --default-kernel` \
+     --args="default_hugepagesz=1G hugepagesz=1G hugepages=32"
    ```
 
-2. Bind DPDK to two network interfaces needed by the traffic generator.
+2. Bind DPDK to network interfaces using vfio-pci:
 
-   If you intend to use TRex, it also includes a binding utility under /opt/trex/current/dpdk_set_ports.py.  Binding with vfio-pci kernel module is recommended.
-      
-## Running
-   
-   binary-search.py is controlled entirely by command line options.  Please see all of the options with --help.  The recommded minimum number of optons are:
-
-   ```
-   --devices
-   --traffic-generator
-   --max-loss-pct
-   --frame-size
+   ```bash
+   driverctl set-override 0000:18:00.0 vfio-pci
+   driverctl set-override 0000:18:00.1 vfio-pci
    ```
 
-   Note that you must use two physical devices, and these device shoud be connected direcly to a "device-under-test" or to each other to enable loopback testing.
+## Running (STL Mode)
+
+`binary-search.py` is controlled entirely by command line options. See `--help` for all options.
+Minimum required options for STL mode:
+
+```
+--traffic-generator   (trex-txrx or trex-txrx-profile)
+--max-loss-pct
+--frame-size
+```
+
+Note that you must use two physical devices connected to a DUT or loopback.
+
+## Running (ASTF Mode)
+
+For stateful traffic (OVS+conntrack, NAT, firewalls):
+
+```
+--traffic-generator=trex-astf
+--astf-protocol=tcp          (tcp, udp, or mixed)
+--astf-max-flows=50000       (stay within DUT conntrack table limits)
+--astf-ramp-time=10
+--astf-max-error-pct=0.1
+```
+
+See [README-trex-astf.md](README-trex-astf.md) for complete ASTF documentation.

@@ -57,25 +57,48 @@ def generate_report(input_json):
         for trial in input_json['trials']:
             print("%d" % (trial['trial']))
     elif t_global.args.report_type == "search-summary":
-        print("%3s | %26s   %26s | %15s | %11s | %10s | %s" % ("#",
-                                                               "Start Time",
-                                                               "Stop Time",
-                                                               "Duration",
-                                                               "Rate",
-                                                               "Type",
-                                                               "Result"))
+        for trial in input_json['trials']:
+            is_astf = 'astf' in trial.get('stats', {})
+            if is_astf:
+                print("%3s | %26s   %26s | %15s | %11s | %10s | %12s | %10s | %s" % (
+                    "#", "Start Time", "Stop Time", "Duration",
+                    "Rate", "Type", "CPS", "Err%", "Result"))
+                break
+        else:
+            print("%3s | %26s   %26s | %15s | %11s | %10s | %s" % ("#",
+                                                                   "Start Time",
+                                                                   "Stop Time",
+                                                                   "Duration",
+                                                                   "Rate",
+                                                                   "Type",
+                                                                   "Result"))
         for trial in input_json['trials']:
             start_time = datetime.datetime.fromtimestamp(trial['stats']['trial_start']/1000)
             stop_time = datetime.datetime.fromtimestamp(trial['stats']['trial_stop']/1000)
             run_time = stop_time - start_time
-            print("%3d | %26s - %26s | %7.2f seconds | %10.6f%s | %10s | %s" % (trial['trial'],
-                                                                            format_datetime(start_time),
-                                                                            format_datetime(stop_time),
-                                                                            run_time.total_seconds(),
-                                                                            trial['rate'],
-                                                                            trial['rate_unit'],
-                                                                            trial['trial_params']['trial_mode'],
-                                                                            trial['result']) )
+            is_astf = 'astf' in trial.get('stats', {})
+            if is_astf:
+                astf = trial['stats']['astf']
+                print("%3d | %26s - %26s | %7.2f seconds | %10.6f%s | %10s | %12.0f | %10.4f | %s" % (
+                    trial['trial'],
+                    format_datetime(start_time),
+                    format_datetime(stop_time),
+                    run_time.total_seconds(),
+                    trial['rate'],
+                    trial.get('rate_unit', 'cps-mult'),
+                    trial['trial_params']['trial_mode'],
+                    astf.get('cps', 0.0),
+                    astf.get('connection_error_pct', 0.0),
+                    trial['result']))
+            else:
+                print("%3d | %26s - %26s | %7.2f seconds | %10.6f%s | %10s | %s" % (trial['trial'],
+                                                                                format_datetime(start_time),
+                                                                                format_datetime(stop_time),
+                                                                                run_time.total_seconds(),
+                                                                                trial['rate'],
+                                                                                trial['rate_unit'],
+                                                                                trial['trial_params']['trial_mode'],
+                                                                                trial['result']) )
     elif t_global.args.report_type == "dump-trial":
         for trial in input_json['trials']:
             if trial['trial'] == t_global.args.trial:
@@ -87,13 +110,36 @@ def generate_report(input_json):
         for trial in reversed(input_json['trials']):
             if trial['trial_params']['trial_mode'] == "validation" and trial['result'] == "pass":
                 print("Found result in trial %d:" % (trial['trial']))
-                result = []
-                # filter for only device stats
-                for entry in trial['stats']:
-                     m = re.search(r"^[0-9]+$", entry)
-                     if m:
-                         result.append(trial['stats'][entry])
-                print(dump_json_readable(result))
+                is_astf = 'astf' in trial.get('stats', {})
+                if is_astf:
+                    astf = trial['stats']['astf']
+                    global_s = trial['stats'].get('global', {})
+                    result = {
+                        'type':               'astf',
+                        'cps':                astf.get('cps', 0.0),
+                        'active_flows':       astf.get('active_flows', 0),
+                        'established_flows':  astf.get('established_flows', 0),
+                        'connections_attempted':   astf.get('connections_attempted', 0),
+                        'connections_established': astf.get('connections_established', 0),
+                        'connections_dropped':     astf.get('connections_dropped', 0),
+                        'connection_error_pct':    astf.get('connection_error_pct', 0.0),
+                        'retransmit_pct':          astf.get('retransmit_pct', 0.0),
+                        'out_of_order_pct':        astf.get('out_of_order_pct', 0.0),
+                        'tx_l7_bps':          astf.get('tx_l7_bps', 0.0),
+                        'rx_l7_bps':          astf.get('rx_l7_bps', 0.0),
+                        'tx_packets':         astf.get('tx_packets', 0),
+                        'rx_packets':         astf.get('rx_packets', 0),
+                        'runtime':            global_s.get('runtime', 0.0),
+                    }
+                    print(dump_json_readable(result))
+                else:
+                    result = []
+                    # filter for only device stats (STL path)
+                    for entry in trial['stats']:
+                         m = re.search(r"^[0-9]+$", entry)
+                         if m:
+                             result.append(trial['stats'][entry])
+                    print(dump_json_readable(result))
                 return(0)
         print(error("Could not find a final validation that passed"))
         return(1)

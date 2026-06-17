@@ -51,6 +51,18 @@
                 "dest": "/usr/bin/"
             },
             {
+                "src": "%bench-dir%/trafficgen/trex-astf-query.py",
+                "dest": "/usr/bin/"
+            },
+            {
+                "src": "%bench-dir%/trafficgen/trex-astf.py",
+                "dest": "/usr/bin/"
+            },
+            {
+                "src": "%bench-dir%/trafficgen/trex_astf_lib.py",
+                "dest": "/usr/bin/"
+            },
+            {
                 "src": "%bench-dir%/trafficgen/binary-search.py",
                 "dest": "/usr/bin/"
             },
