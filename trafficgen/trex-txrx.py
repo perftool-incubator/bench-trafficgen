@@ -318,7 +318,7 @@ def create_traffic_profile (direction, device_pair, rate_multiplier, port_speed)
 
                          if stream_loop_remainder == 0:
                               stream_loops -= 1
-                              stream_loops_remainder = max_uinit32
+                              stream_loops_remainder = max_uint32
                     else:
                          stream_mode_obj = STLTXSingleBurst(pps = stream_pps, total_pkts = stream_total_pkts)
                elif stream_mode == "continuous":
@@ -773,7 +773,7 @@ def segment_monitor(connection, device_pairs, run_ports, normal_exit_event, earl
     except TRexError as e:
          myprint("Segment Monitor: TREXERROR: %s" % e)
 
-    except StandardError as e:
+    except Exception as e:
          myprint("Segment Monitor: STANDARDERROR: %s" % e)
 
     finally:
