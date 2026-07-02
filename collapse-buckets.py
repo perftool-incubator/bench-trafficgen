@@ -128,7 +128,7 @@ def main():
 
     csv_args=sys.argv
 
-    if len(csv_args) == 0:
+    if len(csv_args) <= 1:
         exit(1)
 
     collapsed_files=[]
