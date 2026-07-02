@@ -283,7 +283,7 @@ if [ "$switch_type" == "testpmd" ]; then
     if [ "$testpmd_forward_mode" == "mac" ]; then
         mac_file="msgs/rx/infra-start-end:1"
         if [ -z "$testpmd_dst_macs" ]; then
-            exit_error  "[ERROR] Using forware-mode = mac, but did not get MAC addresses from TREX or --testpmd-dst-macs" 1 "$sample_dir"
+            exit_error  "[ERROR] Using forward-mode = mac, but did not get MAC addresses from TREX or --testpmd-dst-macs" 1 "$sample_dir"
         fi
         idx=0
         for this_mac in `echo $testpmd_dst_macs | sed -e 's/,/ /g'`; do

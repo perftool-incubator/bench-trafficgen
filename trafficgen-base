@@ -41,7 +41,7 @@ function resolve_device() {
     pciloc_re='^[0-9,a-f]{4}:[0-9,a-f]{2}:[0-9,a-f]{2}\.[0-9,a-f]{1}$' # 0001:0a.b
     #envvar_re='^VAR:(\w+)[:(\d+)]{0,1}' # VAR:SOME_ENV_VAR or VAR:SOME_ENV_VAR:<number>
     envvar_re='^VAR:(\w+)(:(.+)){0,1}' # VAR:SOME_ENV_VAR or VAR:SOME_ENV_VAR:<number>
-    devtype_re='^([virtio|vf]-\d+)$' # virtio-2
+    devtype_re='^(virtio|vf)-[0-9]+$' # virtio-2
     echo "Resolving device [$dev]"
     if [[ "$dev" =~ $envvar_re ]]; then
         envvar="${BASH_REMATCH[1]}"
@@ -50,12 +50,12 @@ function resolve_device() {
             position=1
         fi
         echo "Device [$dev] matched for environment variable pattern"
-        echo "Looking for environment varible [$envvar]"
+        echo "Looking for environment variable [$envvar]"
         # On some endpoints (k8s/openshift) the device is described as a
         # environment variable.  Users can specify which variable this is
         # in the benchmark params with
         #    "client-devices": "VAR:<varname>,VAR:<varname>"
-        # Addtionally, when specifying the k8s enpoint for a trafficgen
+        # Additionally, when specifying the k8s endpoint for a trafficgen
         # client, the user must include a annotation for the pod which
         # ensures the pass-through device(s) are provisioned to the pod.
         # This of course requires that MULTUS networking is configured
@@ -71,7 +71,7 @@ function resolve_device() {
             #export $envvar="$remaining"
         else
             echo "The variable string [$envvar] does not match any environment variable"
-            echo "Here are all of the envronment variables:"
+            echo "Here are all of the environment variables:"
             env
             echo -e "\n\nExiting"
             exit 1
@@ -80,7 +80,7 @@ function resolve_device() {
         echo "Searching for the Nth virtio or VF device is not yet supported, exiting"
         exit 1
     else
-        echo "Device [$dev] did not match regex for environemnt variable [$envvar_re] or devtype [$devtype_re]"
+        echo "Device [$dev] did not match regex for environment variable [$envvar_re] or devtype [$devtype_re]"
     fi
     # At this point $dev should only be a PCI location ID
     if [[ "$dev" =~ $pciloc_re ]]; then

@@ -510,9 +510,9 @@ def create_profile_stream (flows = 0,
 def process_profile_stream(stream, rate_modifier):
     for key in stream:
         if not key in [ 'flow_mods', 'the_packet' ]:
-            next
+            continue
 
-        if isinstance(stream[key], basestring):
+        if isinstance(stream[key], str):
             # convert from unicode to string
             stream[key] = str(stream[key])
 
@@ -716,7 +716,7 @@ def trex_profiler (connection, claimed_device_pairs, interval, profiler_pgids, p
      except STLError as e:
           print("TRex Profiler: STLERROR: %s" % e)
 
-     except StandardError as e:
+     except Exception as e:
           print("TRex Profiler: STANDARDERROR: %s" % e)
 
      finally:

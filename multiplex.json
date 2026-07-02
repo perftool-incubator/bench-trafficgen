@@ -52,7 +52,7 @@
 	},
 	"testpmd_on_off_toggles": {
 	    "description": "testpmd options which are toggled with on/off values",
-	    "args": [ "testpmd-smt", "testpmd-enable-scatter", "estpmd-enable-rx-cksum",
+	    "args": [ "testpmd-smt", "testpmd-enable-scatter", "testpmd-enable-rx-cksum",
 		      "testpmd-enable-rss-udp" ],
 	    "vals": [ "^(on|off)$" ]
 	},
@@ -63,7 +63,7 @@
 	    "vals": [ "^.+$" ]
 	},
 	"nonzero_positive_integer": {
-	    "description": "any non-zero postive integer value",
+	    "description": "any non-zero positive integer value",
 	    "args": [ "num-flows", "teaching-warmup-packet-rate",
 		      "teaching-measurement-packet-rate", "warmup-trial-runtime",
 		      "trex-mem-limit", "testpmd-mtu", "testpmd-burst", "trex-mbuf-factor" ],
@@ -85,7 +85,7 @@
 	    "args": [ "src-ports", "dst-ports", "vxlan-ids", "vlan-ids" ],
 	    "vals": [ "^[1-9][0-9]*(,[1-9][0-9]*)*$" ]
 	},
-	"nonezero_positive_float": {
+	"nonzero_positive_float": {
 	    "description": "any non-zero positive floating point value",
 	    "args": [ "search-granularity", "rate", "teaching-measurement-interval", "trex-profiler-interval" ],
 	    "vals": [ "^([1-9][0-9]*\\.?[0-9]*)|(0?\\.[0-9]+)$" ]
