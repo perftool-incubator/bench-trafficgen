@@ -464,20 +464,41 @@ elif [ "$switch_type" == "grout" ]; then
             readarray -t trex_ips < <(jq -r 'if .ips then .ips[] else empty end' "$infra_file" 2>/dev/null)
 
             for ((i=0; i<total_devs && i<${#trex_macs[@]}; i++)); do
+                iface_addr="${grout_ip_array[$i]}"
+                iface_ip=$(echo "$iface_addr" | cut -d/ -f1)
+                subnet_mask=$(echo "$iface_addr" | cut -d/ -f2)
+
                 if [ -n "${trex_ips[$i]}" ]; then
                     peer_ip="${trex_ips[$i]}"
+                elif [[ "$iface_ip" == *:* ]]; then
+                    # IPv6: compute network_address + 0x100 as the peer
+                    peer_ip=$(python3 -c "
+import ipaddress
+iface = ipaddress.ip_interface('${iface_addr}')
+print(str(iface.network.network_address + 0x100))
+")
+                    echo "WARNING: No IP for TRex port $i in infra message, derived IPv6 peer $peer_ip"
                 else
-                    subnet_ip=$(echo "${grout_ip_array[$i]}" | cut -d/ -f1)
-                    peer_ip=$(echo "$subnet_ip" | sed 's/\.[0-9]*$/.100/')
+                    # IPv4: replace last octet with .100
+                    peer_ip=$(echo "$iface_ip" | sed 's/\.[0-9]*$/.100/')
                     echo "WARNING: No IP for TRex port $i in infra message, derived $peer_ip"
                 fi
+
                 echo "nexthop add l3 iface p${i} address ${peer_ip} mac ${trex_macs[$i]}" >> ${grout_init}
+
                 # Add a gateway route so the entire subnet forwards via this
                 # nexthop. Without this, only the exact peer_ip is covered by
                 # the static entry; other IPs in the range (e.g. ASTF
-                # client/server IP ranges) would fall back to dynamic ARP.
-                subnet_base=$(echo "${grout_ip_array[$i]}" | cut -d/ -f1 | sed 's/\.[0-9]*$/.0/')
-                subnet_mask=$(echo "${grout_ip_array[$i]}" | cut -d/ -f2)
+                # client/server IP ranges) would fall back to dynamic ARP/NDP.
+                if [[ "$iface_ip" == *:* ]]; then
+                    subnet_base=$(python3 -c "
+import ipaddress
+iface = ipaddress.ip_interface('${iface_addr}')
+print(str(iface.network.network_address))
+")
+                else
+                    subnet_base=$(echo "$iface_ip" | sed 's/\.[0-9]*$/.0/')
+                fi
                 echo "route add ${subnet_base}/${subnet_mask} via ${peer_ip}" >> ${grout_init}
             done
             echo "Auto-generated ${#trex_macs[@]} nexthop and gateway route entries"
