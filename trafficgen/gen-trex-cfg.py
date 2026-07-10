@@ -31,6 +31,7 @@ class t_global(object):
             'c': 14,
             'interfaces': [],
             'limit_memory': None,
+            'port_mtu': None,
             'port_info': [],
             'port_bandwidth_gb': None,
             'platform': {
@@ -74,6 +75,12 @@ def process_options():
                         dest = 'memory_limit',
                         help = 'Limit TRex to X MB of memory so it does not consume all available hugepages',
                         default = 2048,
+                        type = int)
+
+    parser.add_argument('--port-mtu',
+                        dest = 'port_mtu',
+                        help = 'Set the port MTU for TRex interfaces (default: 9000)',
+                        default = 9000,
                         type = int)
 
     parser.add_argument('--use-l2',
@@ -130,6 +137,7 @@ def main():
 
     # import 'simple' user defined options
     t_global.cfg[0]['limit_memory'] = t_global.args.memory_limit
+    t_global.cfg[0]['port_mtu'] = t_global.args.port_mtu
 
     # build device pairs
     pair_started = False

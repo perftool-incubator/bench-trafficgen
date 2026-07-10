@@ -22,9 +22,10 @@ one_shot="0"
 mem_limit=2048
 trex_software_mode="off"
 trex_mellanox_support="off"
+port_mtu=9000
 mbuf_factor=""
 
-longopts="trex-active-devices:,trex-devices:,trex-cpus:,trex-mem-limit:,trex-software-mode:,trex-mellanox-support:,trex-mbuf-factor:"
+longopts="trex-active-devices:,trex-devices:,trex-cpus:,trex-mem-limit:,trex-port-mtu:,trex-software-mode:,trex-mellanox-support:,trex-mbuf-factor:"
 opts=$(getopt -q -o "" --longoptions "$longopts" -- "$@");
 eval set -- "$opts";
 while true; do
@@ -47,6 +48,11 @@ while true; do
         --trex-mem-limit)
             shift
             mem_limit=$1
+            shift
+            ;;
+        --trex-port-mtu)
+            shift
+            port_mtu=$1
             shift
             ;;
         --trex-devices)
@@ -148,7 +154,7 @@ else
 	if [ -z "$(command -v gen-trex-cfg.py)" ]; then
             exit_error "gen-trex-cfg.py is missing" 1 "$sample_dir"
 	fi
-	trex_config_cmd="gen-trex-cfg.py --log-level debug --output-file ${trex_cfg} --memory-limit ${mem_limit}"
+	trex_config_cmd="gen-trex-cfg.py --log-level debug --output-file ${trex_cfg} --memory-limit ${mem_limit} --port-mtu ${port_mtu}"
 	for trex_dev in ${trex_dev_opt}; do
             trex_config_cmd+=" --device ${trex_dev}"
 	done

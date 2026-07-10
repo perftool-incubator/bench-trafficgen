@@ -66,7 +66,7 @@
 	    "description": "any non-zero positive integer value",
 	    "args": [ "num-flows", "teaching-warmup-packet-rate",
 		      "teaching-measurement-packet-rate", "warmup-trial-runtime",
-		      "trex-mem-limit", "testpmd-mtu", "testpmd-burst", "trex-mbuf-factor" ],
+		      "trex-mem-limit", "trex-port-mtu", "testpmd-mtu", "testpmd-burst", "trex-mbuf-factor" ],
 	    "vals": [ "^[1-9][0-9]*$" ]
 	},
 	"frame_size": {
