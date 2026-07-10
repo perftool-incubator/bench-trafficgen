@@ -11,6 +11,7 @@
         "dev-tools",
         "trafficgen-client-os-dependencies",
         "set-python3.9",
+        "reinstall-engine-pip-deps",
         "pip",
         "trex1",
         "trex2"
@@ -79,6 +80,16 @@
         "commands": [
           "/usr/bin/install-trex.sh --insecure",
           "/usr/bin/install-moongen.sh"
+        ]
+      }
+    },
+    {
+      "name": "reinstall-engine-pip-deps",
+      "type": "python3",
+      "python3_info": {
+        "packages": [
+          "invoke",
+          "fabric"
         ]
       }
     },
