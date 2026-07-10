@@ -842,27 +842,7 @@ def run_trial (trial_params, port_info, stream_info, detailed_stats):
     trial_params['trial_latency_debug_file'] = "N/A"
 
     if 'latency_device_pair' in trial_params and trial_params['latency_device_pair'] != '--':
-         latency_device_pair = trial_params['latency_device_pair'].split(':')
-
-         trial_params['trial_fwd_latency_histogram_file'] = "binary-search.trial-%03d.latency.histogram.fwd.csv" % (trial_params['trial'])
-         trial_params['trial_rev_latency_histogram_file'] = "binary-search.trial-%03d.latency.histogram.rev.csv" % (trial_params['trial'])
-
-         latency_cmd = t_global.trafficgen_dir + '/MoonGen/build/MoonGen'
-         latency_cmd = latency_cmd + ' ' + t_global.trafficgen_dir + '/moongen-latency.lua'
-         latency_cmd = latency_cmd + ' --binarysearch 1'
-         latency_cmd = latency_cmd + ' --time ' + str(trial_params['runtime'])
-         latency_cmd = latency_cmd + ' --output ' + trial_params['output_dir']
-         latency_cmd = latency_cmd + ' --fwdfile ' + trial_params['trial_fwd_latency_histogram_file']
-         latency_cmd = latency_cmd + ' --revfile ' + trial_params['trial_rev_latency_histogram_file']
-         latency_cmd = latency_cmd + ' --fwddev ' + latency_device_pair[0]
-         latency_cmd = latency_cmd + ' --revdev ' + latency_device_pair[1]
-
-         if trial_params['latency_traffic_direction'] == 'bidirectional':
-              latency_cmd = latency_cmd + ' --traffic-direction bi'
-         elif trial_params['latency_traffic_direction'] == 'unidirectional':
-              latency_cmd = latency_cmd + ' --traffic-direction uni'
-         elif trial_params['latency_traffic_direction'] == 'revunidirectional':
-              latency_cmd = latency_cmd + ' --traffic-direction revuni'
+         raise ValueError("--latency-device-pair is not currently supported (MoonGen hardware latency measurement has been removed)")
 
     if trial_params['traffic_generator'] == 'null-txrx':
          cmd = 'python3 -u ' + t_global.trafficgen_dir + '/null-txrx.py'
