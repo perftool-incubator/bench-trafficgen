@@ -25,7 +25,7 @@ trex_mellanox_support="off"
 port_mtu=9000
 mbuf_factor=""
 
-longopts="trex-active-devices:,trex-devices:,trex-cpus:,trex-mem-limit:,trex-port-mtu:,trex-software-mode:,trex-mellanox-support:,trex-mbuf-factor:"
+longopts="trex-active-devices:,trex-devices:,trex-cpus:,trex-num-cpus:,trex-mem-limit:,trex-port-mtu:,trex-software-mode:,trex-mellanox-support:,trex-mbuf-factor:"
 opts=$(getopt -q -o "" --longoptions "$longopts" -- "$@");
 eval set -- "$opts";
 while true; do
@@ -63,6 +63,11 @@ while true; do
         --trex-cpus)
             shift
             cpus=$1
+            shift
+            ;;
+        --trex-num-cpus)
+            shift
+            num_cpus=$1
             shift
             ;;
         --trex-mbuf-factor)
@@ -117,6 +122,23 @@ else
 	cpus_separated="`separate_comma_list $cpus_expanded`"
 	echo
 	echo "TRex cpus: $cpus_separated"
+        if [ -n "${num_cpus}" ]; then
+            echo "Limiting TRex cpus to ${num_cpus} total"
+            allocated_cpus=0
+            tmp_cpus_separated=${cpus_separated}
+            cpus_separated=""
+            for cpu in ${tmp_cpus_separated}; do
+                cpus_separated+="${cpu} "
+                (( allocated_cpus += 1 ))
+                if [ ${allocated_cpus} -eq ${num_cpus} ]; then
+                    break
+                fi
+            done
+            if [ ${allocated_cpus} -lt ${num_cpus} ]; then
+                exit_error "Could not allocate requested number of CPUs.  ${num_cpus} were requested but only found ${allocated_cpus}. Available CPUs are '${tmp_cpus_separated}'." 1 "${sample_dir}"
+            fi
+            echo "TRex limited cpus: ${cpus_separated}"
+        fi
 
 	interface_state_cmd="./dpdk_setup_ports.py -t"
 	echo "interface status: $interface_state_cmd"
