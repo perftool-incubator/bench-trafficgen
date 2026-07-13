@@ -7,6 +7,7 @@ import sys
 from pathlib import Path
 import subprocess
 import re
+import glob
 
 import os
 TOOLBOX_HOME = os.environ.get('TOOLBOX_HOME')
@@ -83,6 +84,12 @@ def process_options():
                         default = 9000,
                         type = int)
 
+    parser.add_argument('--port-bandwidth-gb',
+                        dest = 'port_bandwidth_gb',
+                        help = 'Override the detected port bandwidth in Gb (default: auto-detect)',
+                        default = None,
+                        type = int)
+
     parser.add_argument('--use-l2',
                         dest = 'use_l2',
                         help = 'Should TRex run in L2 mode (as opposed to L3)',
@@ -155,26 +162,42 @@ def main():
 
             speed = None
 
-            # figure out the speed of interface, if possible -- logic derived from TRex dpdk_setup_ports.py
-            #
-            #85:00.1 "Ethernet controller" "Intel Corporation" "Ethernet Controller XXV710 for 25GbE SFP28" -r02 "Intel Corporation" "Ethernet Network Adapter XXV710"
-            m = re.search(r"([0-9]+)Gb", result.stdout.decode('utf-8'))
-            if m:
-                speed = int(m.group(1))
+            if t_global.args.port_bandwidth_gb is not None:
+                speed = t_global.args.port_bandwidth_gb
+                t_global.log.debug("Device %s using user-specified speed %dGb" % (dev, speed))
             else:
-                #82:00.0 "Ethernet controller" "Intel Corporation" "82599ES 10-Gigabit SFI/SFP+ Network Connection" -r01 "Intel Corporation" "Ethernet Server Adapter X520-2"
-                m = re.search(r"([0-9]+)-Gigabit", result.stdout.decode('utf-8'))
-                if m:
-                    speed = int(m.group(1))
-                else:
-                    #03:00.0 "Ethernet controller" "Intel Corporation" "Ethernet Connection X552/X557-AT 10GBASE-T" "Super Micro Computer Inc" "Device 15ad"
-                    #04:00.0 "Ethernet controller" "Intel Corporation" "Ethernet Controller X710/X557-AT 10GBASE-T" -r02 "Intel Corporation" "Ethernet Converged Network Adapter X710-T4"
-                    m = re.search(r"([0-9]+)GBASE", result.stdout.decode('utf-8'))
+                # try sysfs first — works for NICs with a kernel interface (e.g., Mellanox bifurcated driver)
+                pci_addr = "0000:%s" % dev if not dev.startswith("0000:") else dev
+                sysfs_pattern = "/sys/bus/pci/devices/%s/net/*/speed" % pci_addr
+                speed_files = glob.glob(sysfs_pattern)
+                if speed_files:
+                    try:
+                        with open(speed_files[0]) as f:
+                            speed_mbps = int(f.read().strip())
+                            if speed_mbps > 0:
+                                speed = speed_mbps // 1000
+                                t_global.log.debug("Device %s has speed %dGb (from sysfs)" % (dev, speed))
+                    except (ValueError, IOError) as e:
+                        t_global.log.debug("Could not read speed from sysfs for %s: %s" % (dev, e))
+
+                if speed is None:
+                    # fall back to parsing lspci description
+                    lspci_output = result.stdout.decode('utf-8')
+                    m = re.search(r"([0-9]+)Gb", lspci_output)
                     if m:
                         speed = int(m.group(1))
+                    else:
+                        m = re.search(r"([0-9]+)-Gigabit", lspci_output)
+                        if m:
+                            speed = int(m.group(1))
+                        else:
+                            m = re.search(r"([0-9]+)GBASE", lspci_output)
+                            if m:
+                                speed = int(m.group(1))
+                    if speed is not None:
+                        t_global.log.debug("Device %s has speed %dGb (from lspci)" % (dev, speed))
 
             if speed is not None:
-                t_global.log.debug("Device %s has speed %dGb" % (dev, speed))
                 if t_global.cfg[0]['port_bandwidth_gb'] is None or speed < t_global.cfg[0]['port_bandwidth_gb']:
                     t_global.cfg[0]['port_bandwidth_gb'] = speed
                     t_global.log.debug("Setting global config port_bandwidth_gb to %dGb" % (speed))
