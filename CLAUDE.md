@@ -18,10 +18,12 @@ Scripts and configuration to run traffic generation benchmarks within the crucib
 | `trafficgen-post-process` | Parses test JSON into CDM-compliant metrics |
 | `trafficgen/binary-search.py` | Core binary search algorithm for throughput testing |
 | `trafficgen/tg_lib.py` | Traffic generator library |
-| `workshop.json` | Engine image build: TRex, DPDK, and dependencies |
+| `client-workshop.json` | Client engine image build: TRex, DPDK, and dependencies (alma9 userenv) |
+| `server-workshop.json` | Server engine image build: testpmd and dependencies |
 
 ## Conventions
 - Primary branch is `main`
 - Modular design: wrapper scripts at root, core implementation in `trafficgen/`
-- Supports TRex and MoonGen traffic generators
+- TRex v3.08 (DPDK 25.07) on alma9 userenv
 - Traffic profiles defined as JSON in `trafficgen/` subdirectory
+- Mellanox NICs require `trex-software-mode=on` and `trex-mellanox-support=on` for performance (enables multi-queue RX via RSS instead of single-queue hardware filter mode)
