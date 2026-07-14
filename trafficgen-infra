@@ -22,9 +22,11 @@ one_shot="0"
 mem_limit=2048
 trex_software_mode="off"
 trex_mellanox_support="off"
+port_mtu=9000
+port_bandwidth_gb=""
 mbuf_factor=""
 
-longopts="trex-active-devices:,trex-devices:,trex-cpus:,trex-mem-limit:,trex-software-mode:,trex-mellanox-support:,trex-mbuf-factor:"
+longopts="trex-active-devices:,trex-devices:,trex-cpus:,trex-num-cpus:,trex-mem-limit:,trex-port-mtu:,trex-port-bandwidth-gb:,trex-software-mode:,trex-mellanox-support:,trex-mbuf-factor:"
 opts=$(getopt -q -o "" --longoptions "$longopts" -- "$@");
 eval set -- "$opts";
 while true; do
@@ -49,6 +51,16 @@ while true; do
             mem_limit=$1
             shift
             ;;
+        --trex-port-mtu)
+            shift
+            port_mtu=$1
+            shift
+            ;;
+        --trex-port-bandwidth-gb)
+            shift
+            port_bandwidth_gb=$1
+            shift
+            ;;
         --trex-devices)
             shift
             devices=$1
@@ -57,6 +69,11 @@ while true; do
         --trex-cpus)
             shift
             cpus=$1
+            shift
+            ;;
+        --trex-num-cpus)
+            shift
+            num_cpus=$1
             shift
             ;;
         --trex-mbuf-factor)
@@ -111,6 +128,23 @@ else
 	cpus_separated="`separate_comma_list $cpus_expanded`"
 	echo
 	echo "TRex cpus: $cpus_separated"
+        if [ -n "${num_cpus}" ]; then
+            echo "Limiting TRex cpus to ${num_cpus} total"
+            allocated_cpus=0
+            tmp_cpus_separated=${cpus_separated}
+            cpus_separated=""
+            for cpu in ${tmp_cpus_separated}; do
+                cpus_separated+="${cpu} "
+                (( allocated_cpus += 1 ))
+                if [ ${allocated_cpus} -eq ${num_cpus} ]; then
+                    break
+                fi
+            done
+            if [ ${allocated_cpus} -lt ${num_cpus} ]; then
+                exit_error "Could not allocate requested number of CPUs.  ${num_cpus} were requested but only found ${allocated_cpus}. Available CPUs are '${tmp_cpus_separated}'." 1 "${sample_dir}"
+            fi
+            echo "TRex limited cpus: ${cpus_separated}"
+        fi
 
 	interface_state_cmd="./dpdk_setup_ports.py -t"
 	echo "interface status: $interface_state_cmd"
@@ -148,7 +182,10 @@ else
 	if [ -z "$(command -v gen-trex-cfg.py)" ]; then
             exit_error "gen-trex-cfg.py is missing" 1 "$sample_dir"
 	fi
-	trex_config_cmd="gen-trex-cfg.py --log-level debug --output-file ${trex_cfg} --memory-limit ${mem_limit}"
+	trex_config_cmd="gen-trex-cfg.py --log-level debug --output-file ${trex_cfg} --memory-limit ${mem_limit} --port-mtu ${port_mtu}"
+	if [ -n "${port_bandwidth_gb}" ]; then
+	    trex_config_cmd+=" --port-bandwidth-gb ${port_bandwidth_gb}"
+	fi
 	for trex_dev in ${trex_dev_opt}; do
             trex_config_cmd+=" --device ${trex_dev}"
 	done

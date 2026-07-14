@@ -6,12 +6,10 @@
   },
   "userenvs": [
     {
-      "name": "alma8",
+      "name": "alma9",
       "requirements": [
         "dev-tools",
         "trafficgen-client-os-dependencies",
-        "set-python3.9",
-        "reinstall-engine-pip-deps",
         "pip",
         "trex1",
         "trex2"
@@ -38,7 +36,6 @@
           "net-tools",
           "which",
           "bc",
-          "python39-devel",
           "numactl-devel",
           "cmake",
           "libarchive"
@@ -65,10 +62,6 @@
           {
             "src": "%bench-dir%/trafficgen/install-trex.sh",
             "dst": "/usr/bin"
-          },
-          {
-            "src": "%bench-dir%/trafficgen/install-moongen.sh",
-            "dst": "/usr/bin"
           }
         ]
       }
@@ -78,27 +71,7 @@
       "type": "manual",
       "manual_info": {
         "commands": [
-          "/usr/bin/install-trex.sh --insecure",
-          "/usr/bin/install-moongen.sh"
-        ]
-      }
-    },
-    {
-      "name": "reinstall-engine-pip-deps",
-      "type": "python3",
-      "python3_info": {
-        "packages": [
-          "invoke",
-          "fabric"
-        ]
-      }
-    },
-    {
-      "name": "set-python3.9",
-      "type": "manual",
-      "manual_info": {
-        "commands": [
-          "alternatives --set python3 /usr/bin/python3.9"
+          "/usr/bin/install-trex.sh --insecure"
         ]
       }
     }

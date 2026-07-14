@@ -53,7 +53,7 @@
 	"testpmd_on_off_toggles": {
 	    "description": "testpmd options which are toggled with on/off values",
 	    "args": [ "testpmd-smt", "testpmd-enable-scatter", "testpmd-enable-rx-cksum",
-		      "testpmd-enable-rss-udp" ],
+		      "testpmd-enable-rss-udp", "testpmd-flow-control" ],
 	    "vals": [ "^(on|off)$" ]
 	},
 	"string": {
@@ -66,7 +66,8 @@
 	    "description": "any non-zero positive integer value",
 	    "args": [ "num-flows", "teaching-warmup-packet-rate",
 		      "teaching-measurement-packet-rate", "warmup-trial-runtime",
-		      "trex-mem-limit", "testpmd-mtu", "testpmd-burst", "trex-mbuf-factor" ],
+		      "trex-mem-limit", "trex-port-mtu", "trex-port-bandwidth-gb", "testpmd-mtu", "testpmd-burst", "trex-mbuf-factor",
+		      "trex-num-cpus" ],
 	    "vals": [ "^[1-9][0-9]*$" ]
 	},
 	"frame_size": {
