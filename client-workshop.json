@@ -12,7 +12,9 @@
         "trafficgen-client-os-dependencies",
         "pip",
         "trex1",
-        "trex2"
+        "trex2",
+        "ptp-latency-src",
+        "ptp-latency-build"
       ]
     },
     {
@@ -61,7 +63,8 @@
            "pyyaml",
            "jsonschema",
            "redis",
-           "hiredis"
+           "hiredis",
+           "posix_ipc"
          ]
        }
     },
@@ -83,6 +86,31 @@
       "manual_info": {
         "commands": [
           "/usr/bin/install-trex.sh --insecure"
+        ]
+      }
+    },
+    {
+      "name": "ptp-latency-src",
+      "type": "files",
+      "files_info": {
+        "files": [
+          {
+            "src": "%bench-dir%/trafficgen/ptp-latency.c",
+            "dst": "/tmp/build/"
+          },
+          {
+            "src": "%bench-dir%/trafficgen/build-ptp-latency.sh",
+            "dst": "/usr/bin"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ptp-latency-build",
+      "type": "manual",
+      "manual_info": {
+        "commands": [
+          "/usr/bin/build-ptp-latency.sh /tmp/build/ptp-latency.c /usr/bin/ptp-latency && rm -rf /tmp/build"
         ]
       }
     }

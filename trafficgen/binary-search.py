@@ -588,8 +588,42 @@ def process_options ():
                         )
     parser.add_argument('--latency-device-pair',
                         dest='latency_device_pair',
-                        help='Latency device pair in the form A:B',
+                        help='Latency interface pair in the form IFACE_A:IFACE_B',
                         default='--',
+                        )
+    parser.add_argument('--latency-probe-rate',
+                        dest='latency_probe_rate',
+                        help='Latency probe packets per second (0=max rate)',
+                        default=1000,
+                        type=int
+                        )
+    parser.add_argument('--latency-warmup-packets',
+                        dest='latency_warmup_packets',
+                        help='Number of warmup probes before latency measurement',
+                        default=10,
+                        type=int
+                        )
+    parser.add_argument('--latency-fwd-dst-mac',
+                        dest='latency_fwd_dst_mac',
+                        help='Destination MAC for forward latency probes',
+                        default='--',
+                        )
+    parser.add_argument('--latency-rev-dst-mac',
+                        dest='latency_rev_dst_mac',
+                        help='Destination MAC for reverse latency probes',
+                        default='--',
+                        )
+    parser.add_argument('--latency-packet-size',
+                        dest='latency_packet_size',
+                        help='Latency probe frame size in bytes (raw format only)',
+                        default=0,
+                        type=int
+                        )
+    parser.add_argument('--latency-max-latency',
+                        dest='latency_max_latency',
+                        help='Latency probe RX timeout in milliseconds',
+                        default=5,
+                        type=int
                         )
     parser.add_argument('--disable-flow-cache',
                         dest='enable_flow_cache',
@@ -1036,7 +1070,40 @@ def run_trial (trial_params, port_info, stream_info, detailed_stats):
     trial_params['trial_latency_debug_file'] = "N/A"
 
     if 'latency_device_pair' in trial_params and trial_params['latency_device_pair'] != '--':
-         raise ValueError("--latency-device-pair is not currently supported (MoonGen hardware latency measurement has been removed)")
+         latency_ifaces = trial_params['latency_device_pair'].split(':')
+         if len(latency_ifaces) != 2:
+              raise ValueError("--latency-device-pair must be in the form IFACE_A:IFACE_B")
+         latency_if_a = latency_ifaces[0]
+         latency_if_b = latency_ifaces[1]
+
+         trial_params['trial_fwd_latency_histogram_file'] = "binary-search.trial-%03d.latency-fwd.csv" % (trial_params['trial'])
+         trial_params['trial_rev_latency_histogram_file'] = "binary-search.trial-%03d.latency-rev.csv" % (trial_params['trial'])
+
+         latency_cmd = 'ptp-latency'
+         latency_cmd += ' --if-a ' + latency_if_a
+         latency_cmd += ' --if-b ' + latency_if_b
+         latency_cmd += ' --binarysearch'
+         latency_cmd += ' --time ' + str(trial_params['runtime'])
+         latency_cmd += ' --output ' + trial_params['output_dir']
+         latency_cmd += ' --fwdfile ' + trial_params['trial_fwd_latency_histogram_file']
+         latency_cmd += ' --revfile ' + trial_params['trial_rev_latency_histogram_file']
+         latency_cmd += ' --probe-rate ' + str(trial_params.get('latency_probe_rate', 1000))
+         latency_cmd += ' --warmup-packets ' + str(trial_params.get('latency_warmup_packets', 10))
+
+         if 'latency_fwd_dst_mac' in trial_params and trial_params['latency_fwd_dst_mac'] != '--':
+              latency_cmd += ' --fwd-dst-mac ' + trial_params['latency_fwd_dst_mac']
+         if 'latency_rev_dst_mac' in trial_params and trial_params['latency_rev_dst_mac'] != '--':
+              latency_cmd += ' --rev-dst-mac ' + trial_params['latency_rev_dst_mac']
+
+         latency_cmd += ' --max-latency ' + str(trial_params.get('latency_max_latency', 5))
+
+         latency_packet_size = trial_params.get('latency_packet_size', 0)
+         if latency_packet_size > 0:
+              latency_cmd += ' --packet-size ' + str(latency_packet_size)
+
+         if 'traffic_direction' in trial_params:
+              direction_map = {'bidirectional': 'bi', 'unidirectional': 'uni', 'revunidirectional': 'revuni'}
+              latency_cmd += ' --traffic-direction ' + direction_map.get(trial_params['traffic_direction'], 'bi')
 
     if trial_params['traffic_generator'] == 'null-txrx':
          cmd = 'python3 -u ' + t_global.trafficgen_dir + '/null-txrx.py'
@@ -1298,6 +1365,22 @@ def run_trial (trial_params, port_info, stream_info, detailed_stats):
 
          child_launch_sem.close()
          child_go_sem.close()
+
+         if t_global.args.compress_files:
+              for csv_key in ['trial_fwd_latency_histogram_file', 'trial_rev_latency_histogram_file']:
+                   csv_path = "%s/%s" % (trial_params['output_dir'], trial_params[csv_key])
+                   if os.path.isfile(csv_path):
+                        xz_path = csv_path + ".xz"
+                        bs_logger("Compressing %s" % (csv_path))
+                        with open(csv_path, 'rb') as f_in:
+                             with lzma.open(xz_path, 'wb') as f_out:
+                                  while True:
+                                       chunk = f_in.read(1024 * 1024)
+                                       if not chunk:
+                                            break
+                                       f_out.write(chunk)
+                        os.remove(csv_path)
+                        trial_params[csv_key] += ".xz"
     else:
          stats['retval'] = tg_retval
 
@@ -1676,12 +1759,12 @@ def handle_trial_process_latency_stderr(process, trial_params, stats, exit_event
               if m:
                    bs_logger(m.group(1), bso = False, prefix = prefix)
 
-                   r = re.search(r"\[([a-zA-Z]+) Latency: ([0-9]+)->([0-9]+)\]\s+(.*):\s+(.*)", m.group(1))
+                   r = re.search(r"\[([a-zA-Z]+) Latency: ([^\]]+)->([^\]]+)\]\s+(.*):\s+(.*)", m.group(1))
                    if r:
                         if not r.group(1) in stats['latency']:
                              stats['latency'][r.group(1)] = dict()
-                             stats['latency'][r.group(1)]['tx_device'] = int(r.group(2))
-                             stats['latency'][r.group(1)]['rx_device'] = int(r.group(3))
+                             stats['latency'][r.group(1)]['tx_device'] = r.group(2)
+                             stats['latency'][r.group(1)]['rx_device'] = r.group(3)
                              stats['latency'][r.group(1)]['percentiles'] = dict()
 
                         f = re.search(r"(.*)th Percentile", r.group(4))
@@ -2677,20 +2760,18 @@ def evaluate_trial(trial_params, trial_stats):
 
      if 'latency_device_pair' in trial_params and trial_params['latency_device_pair'] != '--':
           latency_device_pair = trial_params['latency_device_pair'].split(':')
-          latency_device_pair[0] = int(latency_device_pair[0])
-          latency_device_pair[1] = int(latency_device_pair[1])
 
           if trial_params['latency_traffic_direction'] == 'bidirectional' or trial_params['latency_traffic_direction'] == 'unidirectional':
                if trial_stats['latency']['Forward']['TX Samples'] == 0:
                     trial_result = 'abort'
-                    bs_logger("\t(critical requirement failure, no forward packets were transmitted between latency device pair: %d -> %d, trial result: %s)" %
+                    bs_logger("\t(critical requirement failure, no forward packets were transmitted between latency device pair: %s -> %s, trial result: %s)" %
                               (latency_device_pair[0],
                                latency_device_pair[1],
                                trial_result))
 
                if trial_stats['latency']['Forward']['RX Samples'] == 0:
                     trial_result = 'abort'
-                    bs_logger("\t(critical requirement failure, no forward packets were received between latency device pair: %d -> %d, trial result: %s)" %
+                    bs_logger("\t(critical requirement failure, no forward packets were received between latency device pair: %s -> %s, trial result: %s)" %
                               (latency_device_pair[0],
                                latency_device_pair[1],
                                trial_result))
@@ -2698,14 +2779,14 @@ def evaluate_trial(trial_params, trial_stats):
           if trial_params['latency_traffic_direction'] == 'bidirectional' or trial_params['latency_traffic_direction'] == 'revunidirectional':
                if trial_stats['latency']['Reverse']['TX Samples'] == 0:
                     trial_result = 'abort'
-                    bs_logger("\t(critical requirement failure, no reverse packets were transmitted between latency device pair: %d -> %d, trial result: %s)" %
+                    bs_logger("\t(critical requirement failure, no reverse packets were transmitted between latency device pair: %s -> %s, trial result: %s)" %
                               (latency_device_pair[1],
                                latency_device_pair[0],
                                trial_result))
 
                if trial_stats['latency']['Reverse']['RX Samples'] == 0:
                     trial_result = 'abort'
-                    bs_logger("\t(critical requirement failure, no reverse packets were received between latency device pair: %d -> %d, trial result: %s)" %
+                    bs_logger("\t(critical requirement failure, no reverse packets were received between latency device pair: %s -> %s, trial result: %s)" %
                               (latency_device_pair[1],
                                latency_device_pair[0],
                                trial_result))
@@ -2714,7 +2795,7 @@ def evaluate_trial(trial_params, trial_stats):
                if trial_params['latency_traffic_direction'] == 'bidirectional' or trial_params['latency_traffic_direction'] == 'unidirectional':
                     if trial_stats['latency']['Forward']['Loss Ratio'] < 0:
                          trial_result = 'abort'
-                         bs_logger("\t(critical requirement failure, negative device packet loss, forward latency device pair: %d -> %d, trial result: %s)" %
+                         bs_logger("\t(critical requirement failure, negative device packet loss, forward latency device pair: %s -> %s, trial result: %s)" %
                                    (latency_device_pair[0],
                                     latency_device_pair[1],
                                     trial_result))
@@ -2722,7 +2803,7 @@ def evaluate_trial(trial_params, trial_stats):
                if trial_params['latency_traffic_direction'] == 'bidirectional' or trial_params['latency_traffic_direction'] == 'revunidirectional':
                     if trial_stats['latency']['Reverse']['Loss Ratio'] < 0:
                          trial_result = 'abort'
-                         bs_logger("\t(critical requirement failure, negative device packet loss, reverse latency device pair: %d -> %d, trial result: %s)" %
+                         bs_logger("\t(critical requirement failure, negative device packet loss, reverse latency device pair: %s -> %s, trial result: %s)" %
                                    (latency_device_pair[1],
                                     latency_device_pair[0],
                                     trial_result))
@@ -3115,6 +3196,10 @@ def main():
          setup_config_var('teaching_measurement_packet_rate', t_global.args.teaching_measurement_packet_rate, trial_params)
          setup_config_var('no_promisc', t_global.args.no_promisc, trial_params)
          setup_config_var('latency_device_pair', t_global.args.latency_device_pair, trial_params)
+         setup_config_var('latency_probe_rate', t_global.args.latency_probe_rate, trial_params)
+         setup_config_var('latency_warmup_packets', t_global.args.latency_warmup_packets, trial_params)
+         setup_config_var('latency_fwd_dst_mac', t_global.args.latency_fwd_dst_mac, trial_params)
+         setup_config_var('latency_rev_dst_mac', t_global.args.latency_rev_dst_mac, trial_params)
 
     if t_global.args.traffic_generator == "null-txrx":
          # empty for now
