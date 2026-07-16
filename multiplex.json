@@ -246,10 +246,20 @@
 	    "args": [ "device-pairs", "active-device-pairs" ],
 	    "vals": [ "^[0-9]+:[0-9]+(,[0-9]+:[0-9]+)*$" ]
 	},
-	"device_pair": {
-	    "description": "a single DPDK device index pair",
+	"latency_device_pair": {
+	    "description": "a pair of kernel interface names separated by a colon",
 	    "args": [ "latency-device-pair" ],
-	    "vals": [ "^[0-9]+:[0-9]+$" ]
+	    "vals": [ "^[a-zA-Z0-9_.-]+:[a-zA-Z0-9_.-]+$" ]
+	},
+	"latency_positive_integer": {
+	    "description": "latency measurement positive integer parameters",
+	    "args": [ "latency-probe-rate", "latency-warmup-packets", "latency-packet-size", "latency-max-latency" ],
+	    "vals": [ "^[0-9]+$" ]
+	},
+	"latency_mac_address": {
+	    "description": "a single MAC address for latency probe destination",
+	    "args": [ "latency-fwd-dst-mac", "latency-rev-dst-mac" ],
+	    "vals": [ "^([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}$" ]
 	},
 	"teaching_packet_types": {
 	    "description": "types of teaching packets allowed",

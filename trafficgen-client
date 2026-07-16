@@ -46,7 +46,7 @@ while [ $# -gt 0 ]; do
             devices="$val"
             ;;
         # Skip options not intended for binary-search (infra-only params)
-        --trex-cpus|--trex-num-cpus|--trex-mem-limit|--trex-port-mtu|--trex-port-bandwidth-gb|--trex-mbuf-factor|--trex-software-mode|--trex-mellanox-support)
+        --trex-cpus|--trex-num-cpus|--trex-mem-limit|--trex-port-mtu|--trex-port-bandwidth-gb|--trex-mbuf-factor|--trex-software-mode|--trex-mellanox-support|--latency-probe-rate|--latency-warmup-packets|--latency-fwd-dst-mac|--latency-rev-dst-mac)
             ;;
         # pre-trial-cmd value may contain spaces; collect all tokens until the next --flag
         # and pass as --pre-trial-cmd=value to preserve the full command as a single token
