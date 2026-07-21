@@ -27,8 +27,9 @@ port_bandwidth_gb=""
 mbuf_factor=""
 traffic_generator=""
 src_ips=""
+measure_latency=0
 
-longopts="src-ips:,trex-active-devices:,trex-devices:,trex-cpus:,trex-num-cpus:,trex-mem-limit:,trex-port-mtu:,trex-port-bandwidth-gb:,trex-software-mode:,trex-mellanox-support:,trex-mbuf-factor:,traffic-generator:"
+longopts="src-ips:,trex-active-devices:,trex-devices:,trex-cpus:,trex-num-cpus:,trex-mem-limit:,trex-port-mtu:,trex-port-bandwidth-gb:,trex-software-mode:,trex-mellanox-support:,trex-mbuf-factor:,traffic-generator:,measure-latency:"
 opts=$(getopt -q -o "" --longoptions "$longopts" -- "$@");
 eval set -- "$opts";
 while true; do
@@ -91,6 +92,11 @@ while true; do
         --src-ips)
             shift
             src_ips=$1
+            shift
+            ;;
+        --measure-latency)
+            shift
+            measure_latency=$1
             shift
             ;;
         --)
@@ -160,6 +166,20 @@ else
                 exit_error "Could not allocate requested number of CPUs.  ${num_cpus} were requested but only found ${allocated_cpus}. Available CPUs are '${tmp_cpus_separated}'." 1 "${sample_dir}"
             fi
             echo "TRex limited cpus: ${cpus_separated}"
+        fi
+
+        if [ "${measure_latency}" == "1" -a -n "${WORKLOAD_CPUS}" ]; then
+            cpu_array=(${cpus_separated})
+            if [ ${#cpu_array[@]} -gt 1 ]; then
+                latency_cpu=${cpu_array[-1]}
+                unset 'cpu_array[-1]'
+                cpus_separated="${cpu_array[*]}"
+                echo "${latency_cpu}" > ${sample_dir}/latency-cpu.txt
+                echo "Reserved CPU ${latency_cpu} for ptp-latency"
+                echo "TRex cpus after latency reservation: ${cpus_separated}"
+            else
+                echo "WARNING: only 1 CPU available, cannot reserve for ptp-latency"
+            fi
         fi
 
 	interface_state_cmd="./dpdk_setup_ports.py -t"

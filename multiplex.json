@@ -238,7 +238,8 @@
 		      "send-teaching-warmup", "send-teaching-measurement", "disable-trex-profiler",
 		      "process-all-profiler-data", "repeat-final-validation", "warmup-trial",
 		      "disable-upward-search", "no-promisc", "compress-files",
-		      "enable-segment-monitor-noop", "astf-flush-on-pass" ],
+		      "enable-segment-monitor-noop", "astf-flush-on-pass",
+		      "latency-realtime", "latency-pin-irqs" ],
 	    "vals": [ "^(ON|OFF)$" ]
 	},
 	"device_pair_list": {
@@ -253,7 +254,7 @@
 	},
 	"latency_positive_integer": {
 	    "description": "latency measurement positive integer parameters",
-	    "args": [ "latency-probe-rate", "latency-warmup-packets", "latency-packet-size", "latency-max-latency" ],
+	    "args": [ "latency-probe-rate", "latency-warmup-packets", "latency-packet-size", "latency-max-latency", "latency-cpu", "latency-busy-poll" ],
 	    "vals": [ "^[0-9]+$" ]
 	},
 	"latency_mac_address": {

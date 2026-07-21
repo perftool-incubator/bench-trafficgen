@@ -625,6 +625,28 @@ def process_options ():
                         default=5,
                         type=int
                         )
+    parser.add_argument('--latency-cpu',
+                        dest='latency_cpu',
+                        help='Pin ptp-latency process to this CPU',
+                        default=None,
+                        type=int
+                        )
+    parser.add_argument('--latency-busy-poll',
+                        dest='latency_busy_poll',
+                        help='SO_BUSY_POLL timeout in microseconds (0 to disable)',
+                        default=0,
+                        type=int
+                        )
+    parser.add_argument('--latency-realtime',
+                        dest='latency_realtime',
+                        help='Use SCHED_FIFO realtime priority for ptp-latency',
+                        action='store_true',
+                        )
+    parser.add_argument('--latency-pin-irqs',
+                        dest='latency_pin_irqs',
+                        help='Pin NIC IRQs to the latency CPU',
+                        action='store_true',
+                        )
     parser.add_argument('--disable-flow-cache',
                         dest='enable_flow_cache',
                         help='Force disablement of the TRex flow cache',
@@ -1104,6 +1126,18 @@ def run_trial (trial_params, port_info, stream_info, detailed_stats):
          if 'traffic_direction' in trial_params:
               direction_map = {'bidirectional': 'bi', 'unidirectional': 'uni', 'revunidirectional': 'revuni'}
               latency_cmd += ' --traffic-direction ' + direction_map.get(trial_params['traffic_direction'], 'bi')
+
+         latency_cpu = trial_params.get('latency_cpu', None)
+         if latency_cpu is not None:
+              latency_cmd += ' --cpu ' + str(latency_cpu)
+              if trial_params.get('latency_pin_irqs', False):
+                   latency_cmd += ' --pin-irqs'
+
+         if trial_params.get('latency_busy_poll', 0) > 0:
+              latency_cmd += ' --busy-poll ' + str(trial_params['latency_busy_poll'])
+
+         if trial_params.get('latency_realtime', False):
+              latency_cmd += ' --realtime'
 
     if trial_params['traffic_generator'] == 'null-txrx':
          cmd = 'python3 -u ' + t_global.trafficgen_dir + '/null-txrx.py'
@@ -3200,6 +3234,10 @@ def main():
          setup_config_var('latency_warmup_packets', t_global.args.latency_warmup_packets, trial_params)
          setup_config_var('latency_fwd_dst_mac', t_global.args.latency_fwd_dst_mac, trial_params)
          setup_config_var('latency_rev_dst_mac', t_global.args.latency_rev_dst_mac, trial_params)
+         setup_config_var('latency_cpu', t_global.args.latency_cpu, trial_params)
+         setup_config_var('latency_busy_poll', t_global.args.latency_busy_poll, trial_params)
+         setup_config_var('latency_realtime', t_global.args.latency_realtime, trial_params)
+         setup_config_var('latency_pin_irqs', t_global.args.latency_pin_irqs, trial_params)
 
     if t_global.args.traffic_generator == "null-txrx":
          # empty for now
