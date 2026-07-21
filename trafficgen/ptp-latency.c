@@ -39,6 +39,8 @@
 #include <linux/sockios.h>
 #include <arpa/inet.h>
 #include <dirent.h>
+#include <fcntl.h>
+#include <linux/ptp_clock.h>
 
 #define ETHERTYPE_PROBE      0x88B5
 #define ETHERTYPE_PTP        0x88F7
@@ -60,8 +62,7 @@
 #define TX_TS_TIMEOUT_MS     5
 #define RX_TIMEOUT_MS_DEFAULT 5
 
-#define CALIBRATION_PROBES   20
-#define CALIBRATION_DELAY_US 1000
+#define PHC_OFFSET_SAMPLES   5
 
 #define SEM_CHILD_LAUNCH     "trafficgen_child_launch"
 #define SEM_CHILD_GO         "trafficgen_child_go"
@@ -109,6 +110,7 @@ struct iface_info {
     int ifindex;
     uint8_t mac[ETH_ALEN];
     int sock;
+    int ptp_fd;
 };
 
 struct config {
@@ -137,6 +139,17 @@ struct config {
     int max_latency_ms;
 };
 
+struct saved_irq {
+    int irq_num;
+    char orig_affinity[64];
+};
+
+struct saved_irq_set {
+    struct saved_irq *irqs;
+    int count;
+    char ifname[IFNAMSIZ];
+};
+
 static volatile sig_atomic_t keep_running = 1;
 static struct config g_cfg;
 static struct iface_info g_if_a, g_if_b;
@@ -144,6 +157,10 @@ static struct direction_stats g_fwd, g_rev;
 static double g_clock_delta_us = 0.0;
 static bool g_ptp_probe_format = false;
 static uint16_t g_probe_ethertype = ETHERTYPE_PROBE;
+static struct saved_irq_set g_saved_irqs[2];
+static int g_saved_irq_count = 0;
+
+static void restore_irq_affinity(void);
 
 static void
 signal_handler(int sig)
@@ -380,6 +397,42 @@ enable_hw_timestamps(const char *ifname)
 }
 
 static int
+open_ptp_device(const char *ifname)
+{
+    char ptp_dir[256];
+    snprintf(ptp_dir, sizeof(ptp_dir), "/sys/class/net/%s/device/ptp", ifname);
+
+    DIR *dir = opendir(ptp_dir);
+    if (!dir) {
+        fprintf(stderr, "WARNING: No PTP device found for %s: %s\n",
+                ifname, strerror(errno));
+        return -1;
+    }
+
+    struct dirent *entry;
+    int fd = -1;
+    while ((entry = readdir(dir)) != NULL) {
+        if (strncmp(entry->d_name, "ptp", 3) == 0) {
+            char dev_path[270];
+            snprintf(dev_path, sizeof(dev_path), "/dev/%s", entry->d_name);
+            fd = open(dev_path, O_RDONLY);
+            if (fd < 0)
+                fprintf(stderr, "WARNING: Cannot open %s: %s\n",
+                        dev_path, strerror(errno));
+            else
+                fprintf(stderr, "  PTP device: %s\n", dev_path);
+            break;
+        }
+    }
+    closedir(dir);
+
+    if (fd < 0)
+        fprintf(stderr, "WARNING: No PTP device entry in %s\n", ptp_dir);
+
+    return fd;
+}
+
+static int
 setup_interface(struct iface_info *info, const char *ifname)
 {
     strncpy(info->name, ifname, IFNAMSIZ - 1);
@@ -436,6 +489,8 @@ setup_interface(struct iface_info *info, const char *ifname)
 
     if (enable_hw_timestamps(ifname) < 0)
         return -1;
+
+    info->ptp_fd = open_ptp_device(ifname);
 
     info->sock = socket(AF_PACKET, SOCK_RAW, htons(g_probe_ethertype));
     if (info->sock < 0) {
@@ -708,8 +763,6 @@ static void
 pin_irqs_to_cpu(const char *ifname, int cpu)
 {
     char path[256];
-    char cpu_mask[32];
-    snprintf(cpu_mask, sizeof(cpu_mask), "%x", 1 << (cpu % 32));
 
     snprintf(path, sizeof(path), "/sys/class/net/%s/device/msi_irqs", ifname);
     DIR *dir = opendir(path);
@@ -719,26 +772,94 @@ pin_irqs_to_cpu(const char *ifname, int cpu)
         return;
     }
 
-    int count = 0;
+    /* Count IRQs first */
+    int total = 0;
     struct dirent *entry;
     while ((entry = readdir(dir)) != NULL) {
         if (entry->d_name[0] == '.')
             continue;
+        total++;
+    }
+    rewinddir(dir);
 
+    struct saved_irq_set *set = &g_saved_irqs[g_saved_irq_count];
+    snprintf(set->ifname, sizeof(set->ifname), "%s", ifname);
+    set->irqs = calloc(total, sizeof(struct saved_irq));
+    set->count = 0;
+
+    if (!set->irqs) {
+        fprintf(stderr, "WARNING: Cannot allocate IRQ save state for %s\n", ifname);
+        closedir(dir);
+        return;
+    }
+
+    int pinned = 0;
+    while ((entry = readdir(dir)) != NULL) {
+        if (entry->d_name[0] == '.')
+            continue;
+
+        int irq_num = atoi(entry->d_name);
         char affinity_path[512];
         snprintf(affinity_path, sizeof(affinity_path),
-                 "/proc/irq/%s/smp_affinity", entry->d_name);
+                 "/proc/irq/%s/smp_affinity_list", entry->d_name);
 
-        FILE *f = fopen(affinity_path, "w");
+        /* Save original affinity */
+        FILE *f = fopen(affinity_path, "r");
         if (f) {
-            fprintf(f, "%s\n", cpu_mask);
+            char orig[64] = "";
+            if (fgets(orig, sizeof(orig), f)) {
+                orig[strcspn(orig, "\n")] = '\0';
+                set->irqs[set->count].irq_num = irq_num;
+                snprintf(set->irqs[set->count].orig_affinity,
+                         sizeof(set->irqs[set->count].orig_affinity),
+                         "%s", orig);
+                set->count++;
+            }
             fclose(f);
-            count++;
+        }
+
+        /* Pin to target CPU */
+        f = fopen(affinity_path, "w");
+        if (f) {
+            fprintf(f, "%d\n", cpu);
+            fclose(f);
+            pinned++;
         }
     }
 
     closedir(dir);
-    fprintf(stderr, "Pinned %d IRQs for %s to CPU %d\n", count, ifname, cpu);
+    g_saved_irq_count++;
+    fprintf(stderr, "Pinned %d IRQs for %s to CPU %d (saved %d original affinities)\n",
+            pinned, ifname, cpu, set->count);
+}
+
+static void
+restore_irq_affinity(void)
+{
+    for (int i = 0; i < g_saved_irq_count; i++) {
+        struct saved_irq_set *set = &g_saved_irqs[i];
+        int restored = 0;
+
+        for (int j = 0; j < set->count; j++) {
+            char affinity_path[512];
+            snprintf(affinity_path, sizeof(affinity_path),
+                     "/proc/irq/%d/smp_affinity_list", set->irqs[j].irq_num);
+
+            FILE *f = fopen(affinity_path, "w");
+            if (f) {
+                fprintf(f, "%s\n", set->irqs[j].orig_affinity);
+                fclose(f);
+                restored++;
+            }
+        }
+
+        fprintf(stderr, "Restored %d/%d IRQ affinities for %s\n",
+                restored, set->count, set->ifname);
+        free(set->irqs);
+        set->irqs = NULL;
+        set->count = 0;
+    }
+    g_saved_irq_count = 0;
 }
 
 static int
@@ -776,50 +897,66 @@ run_one_probe(struct iface_info *tx_iface, struct iface_info *rx_iface,
 }
 
 static double
-calibrate_clock_offset(void)
+get_phc_offset_us(int ptp_fd, const char *ifname)
 {
-    fprintf(stderr, "Calibrating clock offset (%d probes each direction)...\n",
-            CALIBRATION_PROBES);
+    struct ptp_sys_offset_precise precise;
+    memset(&precise, 0, sizeof(precise));
 
-    double fwd_sum = 0, rev_sum = 0;
-    int fwd_count = 0, rev_count = 0;
-
-    uint8_t *fwd_dst = g_cfg.fwd_dst_mac_set ? g_cfg.fwd_dst_mac : g_if_b.mac;
-    uint8_t *rev_dst = g_cfg.rev_dst_mac_set ? g_cfg.rev_dst_mac : g_if_a.mac;
-
-    for (int i = 0; i < CALIBRATION_PROBES && keep_running; i++) {
-        uint8_t frame[MAX_FRAME_LEN];
-        struct timespec tx_ts, rx_ts;
-
-        int len = build_probe(frame, MIN_FRAME_LEN, fwd_dst, g_if_a.mac, 0);
-        if (send_probe_and_get_tx_ts(&g_if_a, frame, len, &tx_ts) == 0 &&
-            recv_probe_with_rx_ts(&g_if_b, &rx_ts, 0, g_if_a.mac) == 0) {
-            fwd_sum += ts_to_us(&rx_ts) - ts_to_us(&tx_ts);
-            fwd_count++;
-        }
-        usleep(CALIBRATION_DELAY_US);
-
-        len = build_probe(frame, MIN_FRAME_LEN, rev_dst, g_if_b.mac, 0);
-        if (send_probe_and_get_tx_ts(&g_if_b, frame, len, &tx_ts) == 0 &&
-            recv_probe_with_rx_ts(&g_if_a, &rx_ts, 0, g_if_b.mac) == 0) {
-            rev_sum += ts_to_us(&rx_ts) - ts_to_us(&tx_ts);
-            rev_count++;
-        }
-        usleep(CALIBRATION_DELAY_US);
+    if (ioctl(ptp_fd, PTP_SYS_OFFSET_PRECISE, &precise) == 0) {
+        double phc_us = precise.device.sec * 1e6 + precise.device.nsec / 1e3;
+        double sys_us = precise.sys_realtime.sec * 1e6 +
+                        precise.sys_realtime.nsec / 1e3;
+        return phc_us - sys_us;
     }
 
-    if (fwd_count == 0 || rev_count == 0) {
-        fprintf(stderr, "WARNING: Calibration failed (fwd=%d, rev=%d), assuming zero offset\n",
-                fwd_count, rev_count);
+    /* Fall back to PTP_SYS_OFFSET with bracketing */
+    struct ptp_sys_offset offset;
+    memset(&offset, 0, sizeof(offset));
+    offset.n_samples = PHC_OFFSET_SAMPLES;
+
+    if (ioctl(ptp_fd, PTP_SYS_OFFSET, &offset) < 0) {
+        fprintf(stderr, "WARNING: PTP_SYS_OFFSET failed on %s: %s\n",
+                ifname, strerror(errno));
         return 0.0;
     }
 
-    double fwd_avg = fwd_sum / fwd_count;
-    double rev_avg = rev_sum / rev_count;
-    double delta = (fwd_avg - rev_avg) / 2.0;
+    double best_delta = 0.0;
+    double best_interval = 1e18;
+    for (unsigned int i = 0; i < offset.n_samples; i++) {
+        struct ptp_clock_time *sys1 = &offset.ts[2 * i];
+        struct ptp_clock_time *phc  = &offset.ts[2 * i + 1];
+        struct ptp_clock_time *sys2 = &offset.ts[2 * i + 2];
 
-    fprintf(stderr, "Clock calibration: fwd_avg=%.3f us, rev_avg=%.3f us, delta=%.3f us\n",
-            fwd_avg, rev_avg, delta);
+        double s1 = sys1->sec * 1e6 + sys1->nsec / 1e3;
+        double p  = phc->sec  * 1e6 + phc->nsec  / 1e3;
+        double s2 = sys2->sec * 1e6 + sys2->nsec / 1e3;
+
+        double interval = s2 - s1;
+        if (interval < best_interval) {
+            best_interval = interval;
+            best_delta = p - (s1 + s2) / 2.0;
+        }
+    }
+
+    return best_delta;
+}
+
+static double
+calibrate_clock_offset(void)
+{
+    if (g_if_a.ptp_fd < 0 || g_if_b.ptp_fd < 0) {
+        fprintf(stderr, "WARNING: PTP devices not available, assuming zero clock offset\n");
+        return 0.0;
+    }
+
+    fprintf(stderr, "Calibrating clock offset via PTP hardware clocks...\n");
+
+    double offset_a = get_phc_offset_us(g_if_a.ptp_fd, g_if_a.name);
+    double offset_b = get_phc_offset_us(g_if_b.ptp_fd, g_if_b.name);
+    double delta = offset_a - offset_b;
+
+    fprintf(stderr, "Clock calibration: PHC_A-sys=%.3f us, PHC_B-sys=%.3f us, delta=%.3f us\n",
+            offset_a, offset_b, delta);
 
     return delta;
 }
@@ -1214,8 +1351,13 @@ main(int argc, char **argv)
 
     int ret = run_measurement();
 
+    if (g_saved_irq_count > 0)
+        restore_irq_affinity();
+
     close(g_if_a.sock);
     close(g_if_b.sock);
+    if (g_if_a.ptp_fd >= 0) close(g_if_a.ptp_fd);
+    if (g_if_b.ptp_fd >= 0) close(g_if_b.ptp_fd);
 
     return ret;
 }
