@@ -14,6 +14,7 @@ devices=""
 active_devices=""
 device_pairs_opt="" # The device IDs to pass to binary-search.  If empty, binary-search assumes 0 and 1
 passthru_args=()
+latency_cpu_explicit=0
 re='^(--[^=]+)=([^=]+)'
 while [ $# -gt 0 ]; do
     if [[ "$1" =~ $re ]]; then
@@ -46,7 +47,12 @@ while [ $# -gt 0 ]; do
             devices="$val"
             ;;
         # Skip options not intended for binary-search (infra-only params)
-        --trex-cpus|--trex-num-cpus|--trex-mem-limit|--trex-port-mtu|--trex-port-bandwidth-gb|--trex-mbuf-factor|--trex-software-mode|--trex-mellanox-support|--latency-probe-rate|--latency-warmup-packets|--latency-fwd-dst-mac|--latency-rev-dst-mac)
+        --trex-cpus|--trex-num-cpus|--trex-mem-limit|--trex-port-mtu|--trex-port-bandwidth-gb|--trex-mbuf-factor|--trex-software-mode|--trex-mellanox-support|--latency-probe-rate|--latency-warmup-packets|--latency-fwd-dst-mac|--latency-rev-dst-mac|--measure-latency)
+            ;;
+        --latency-cpu)
+            latency_cpu_explicit=1
+            passthru_args+=("$arg")
+            passthru_args+=("$val")
             ;;
         # pre-trial-cmd value may contain spaces; collect all tokens until the next --flag
         # and pass as --pre-trial-cmd=value to preserve the full command as a single token
@@ -180,6 +186,15 @@ if [ -z "$(command -v binary-search.py)" ]; then
 fi
 if [ ! -e /usr/bin/python3 ]; then
     exit_error "can't find /usr/bin/python3, exiting" 1 "$sample_dir"
+fi
+
+if [ ${latency_cpu_explicit} -eq 0 -a -e ${sample_dir}/latency-cpu.txt ]; then
+    latency_cpu=$(cat ${sample_dir}/latency-cpu.txt)
+    echo "Auto-detected latency CPU ${latency_cpu} from cpu-partitioning reservation"
+    passthru_args+=("--latency-cpu" "${latency_cpu}")
+    passthru_args+=("--latency-busy-poll" "50")
+    passthru_args+=("--latency-realtime")
+    passthru_args+=("--latency-pin-irqs")
 fi
 
 bs_cmd=(binary-search.py "${passthru_args[@]}" --output-dir "$sample_dir" $device_pairs_opt)
