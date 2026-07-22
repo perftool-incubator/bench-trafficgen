@@ -469,8 +469,9 @@ def process_options ():
                         )
     parser.add_argument('--astf-ipv6',
                         dest='astf_ipv6',
-                        help='Enable IPv6 mode (ON/OFF)',
-                        default='OFF'
+                        help='Enable IPv6 mode',
+                        action='store_true',
+                        default=False
                         )
     parser.add_argument('--astf-ipv6-client-msb',
                         dest='astf_ipv6_client_msb',
@@ -1199,7 +1200,7 @@ def run_trial (trial_params, port_info, stream_info, detailed_stats):
              cmd = cmd + ' --astf-t-duration=' + str(trial_params['astf_t_duration'])
         if trial_params['astf_vlan_id'] > 0:
              cmd = cmd + ' --astf-vlan-id=' + str(trial_params['astf_vlan_id'])
-        if trial_params['astf_ipv6'].upper() == 'ON':
+        if trial_params['astf_ipv6']:
              cmd = cmd + ' --astf-ipv6'
              cmd = cmd + ' --astf-ipv6-client-msb=' + str(trial_params['astf_ipv6_client_msb'])
              cmd = cmd + ' --astf-ipv6-server-msb=' + str(trial_params['astf_ipv6_server_msb'])
@@ -1393,7 +1394,7 @@ def setup_astf_client(trial_params, log_fn=None):
             ip_offset_server  = trial_params.get('astf_ip_offset_server') or None,
             per_core_distribution = trial_params.get('astf_per_core_distribution', 'seq'),
             rampup_sec        = trial_params['astf_ramp_time'],
-            enable_ipv6       = trial_params.get('astf_ipv6', 'OFF').upper() == 'ON',
+            enable_ipv6       = trial_params.get('astf_ipv6', False),
             ipv6_client_msb   = trial_params.get('astf_ipv6_client_msb', 'ff02::'),
             ipv6_server_msb   = trial_params.get('astf_ipv6_server_msb', 'ff03::'),
         )
