@@ -14,15 +14,23 @@ while [ $# -gt 0 ]; do
         arg="${BASH_REMATCH[1]}"
         val="${BASH_REMATCH[2]}"
         shift
+    elif [[ "$1" == --* ]]; then
+        arg="$1"
+        shift
+        if [ $# -eq 0 ] || [[ "$1" == --* ]]; then
+            val=""
+        else
+            val="$1"
+            shift
+        fi
     else
         arg="$1"
         shift
-        val="$1"
-        shift
+        val=""
     fi
     case "$arg" in
         --switch-type)
-            switch_type="$val" # Can be "testpmd" or "null"
+            switch_type="$val" # Can be "testpmd", "null", or "grout"
             ;;
     esac
 done
@@ -49,6 +57,75 @@ case "${switch_type}" in
 	;;
     "null")
 	echo "Null switch type, nothing to do"
+	;;
+    "grout")
+	echo "Stopping grout"
+
+	# Stop the periodic stats collector before capturing final snapshot
+	if [ -e trafficgen-grout-collector.pid ]; then
+	    collector_pid=$(cat trafficgen-grout-collector.pid)
+	    echo "Stopping Grout stats collector (pid ${collector_pid})"
+	    kill -15 ${collector_pid} 2>/dev/null
+	    sleep 1
+	    if [ -e /proc/${collector_pid} ]; then
+		kill -9 ${collector_pid} 2>/dev/null
+	    fi
+	    rm -f trafficgen-grout-collector.pid
+	fi
+
+	# Capture post-test Grout stats while the daemon is still running
+	grout_sock="/tmp/grout-bench-${cs_label}.sock"
+	if [ -n "${grout_sock}" ] && [ -S "${grout_sock}" ]; then
+	    stats_file="trafficgen-grout-post-test-stats.txt"
+	    echo "Capturing post-test Grout stats to ${stats_file}"
+	    {
+		echo "=== Grout Post-Test Stats ==="
+		echo "Timestamp: $(date -u '+%Y-%m-%dT%H:%M:%S.%3NZ')"
+		echo ""
+		echo "--- Software Stats (graph node counters) ---"
+		grcli -s "${grout_sock}" stats show software 2>&1
+		echo ""
+		echo "--- Hardware Stats (port counters) ---"
+		grcli -s "${grout_sock}" stats show hardware 2>&1
+		echo ""
+		echo "--- Interface Status ---"
+		grcli -s "${grout_sock}" interface show 2>&1
+		echo ""
+		echo "--- Nexthop Status ---"
+		grcli -s "${grout_sock}" nexthop show 2>&1
+		echo ""
+		echo "--- Route Status ---"
+		grcli -s "${grout_sock}" route show 2>&1
+		echo ""
+		echo "--- Graph Config ---"
+		grcli -s "${grout_sock}" graph config show 2>&1
+		echo ""
+		echo "--- Affinity ---"
+		grcli -s "${grout_sock}" affinity show 2>&1
+	    } > "${stats_file}"
+	    echo "Post-test Grout stats captured"
+	else
+	    echo "WARNING: Grout socket not found, skipping post-test stats capture"
+	fi
+
+	if [ -e trafficgen-server.pid ]; then
+	    pid=$(cat trafficgen-server.pid)
+	    echo "Going to kill grout pid $pid"
+	    kill -15 $pid
+	    sleep 3
+	    if [ -e /proc/$pid ]; then
+		echo "PID $pid still exists, trying kill -9"
+		kill -9 $pid
+	    fi
+	    rm -f trafficgen-server.pid
+	else
+	    echo "trafficgen-server.pid not found"
+	    echo "PWD: $(/bin/pwd)"
+	    echo "LS: $(/bin/ls)"
+	    exit 1
+	fi
+	[ -S "/tmp/grout-bench-${cs_label}.sock" ] && rm -f "/tmp/grout-bench-${cs_label}.sock"
+	true
 	;;
     *)
 	echo "ERROR: Unknown switch type '${switch_type}'"

@@ -130,9 +130,9 @@
 	    "vals": [ "^([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}(,([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2})*$" ]
 	},
 	"ip_address_list": {
-	    "description": "1 or more (comma separated) list of ip addresses",
+	    "description": "1 or more (comma separated) list of IPv4 or IPv6 addresses",
 	    "args": [ "dst-ips", "src-ips", "encap-dst-ips", "encap-src-ips" ],
-	    "vals": [ "^([0-9]{1,3}\\.){3}[0-9]{1,3}(,([0-9]{1,3}\\.){3}[0-9]{1,3})*$" ]
+	    "vals": [ "^[0-9a-fA-F.:]+(/[0-9]+)?(,[0-9a-fA-F.:]+(/[0-9]+)?)*$" ]
 	},
 	"integer_boolean": {
 	    "description": "a boolean value represented by either 0 or 1",
@@ -264,7 +264,37 @@
 	"switch_types": {
 	    "description": "types of switches",
 	    "args": [ "switch-type" ],
-	    "vals": [ "^(null|testpmd)$" ]
+	    "vals": [ "^(null|testpmd|grout)$" ]
+	},
+	"grout_forward_mode": {
+	    "description": "Grout forwarding mode",
+	    "args": [ "grout-forward-mode" ],
+	    "vals": [ "^(ipv4|ipv6|bridge)$" ]
+	},
+	"grout_ip_config": {
+	    "description": "Grout IP/route configuration (comma-separated CIDR)",
+	    "args": [ "grout-ip-addrs", "grout-routes" ],
+	    "vals": [ "^.+$" ]
+	},
+	"grout_positive_integer": {
+	    "description": "Grout positive integer parameters",
+	    "args": [ "grout-rxqs", "grout-qsize" ],
+	    "vals": [ "^[1-9][0-9]*$" ]
+	},
+	"grout_cpu_list": {
+	    "description": "Grout CPU list parameters",
+	    "args": [ "grout-datapath-cpus", "grout-control-cpus" ],
+	    "vals": [ "^(([0-9]+-[0-9]+)|[0-9]+)(,([0-9]+-[0-9]+|[0-9]+))*$" ]
+	},
+	"grout_static_arp": {
+	    "description": "Grout static ARP entries (iface:ip:mac,...) for TRex ports that do not respond to ARP",
+	    "args": [ "grout-static-arp" ],
+	    "vals": [ "^.+$" ]
+	},
+	"grout_version": {
+	    "description": "Grout DPDK L3 router version",
+	    "args": [ "grout-version" ],
+	    "vals": [ "^v[0-9]+\\.[0-9]+\\.[0-9]+$" ]
 	}
     }
 }

@@ -26,8 +26,9 @@ port_mtu=9000
 port_bandwidth_gb=""
 mbuf_factor=""
 traffic_generator=""
+src_ips=""
 
-longopts="trex-active-devices:,trex-devices:,trex-cpus:,trex-num-cpus:,trex-mem-limit:,trex-port-mtu:,trex-port-bandwidth-gb:,trex-software-mode:,trex-mellanox-support:,trex-mbuf-factor:,traffic-generator:"
+longopts="src-ips:,trex-active-devices:,trex-devices:,trex-cpus:,trex-num-cpus:,trex-mem-limit:,trex-port-mtu:,trex-port-bandwidth-gb:,trex-software-mode:,trex-mellanox-support:,trex-mbuf-factor:,traffic-generator:"
 opts=$(getopt -q -o "" --longoptions "$longopts" -- "$@");
 eval set -- "$opts";
 while true; do
@@ -85,6 +86,11 @@ while true; do
         --traffic-generator)
             shift
             traffic_generator=$1
+            shift
+            ;;
+        --src-ips)
+            shift
+            src_ips=$1
             shift
             ;;
         --)
@@ -314,5 +320,15 @@ done
 mac_list=$(echo "${mac_list}" | sed -e 's/,$//')
 echo "TRex source MACs: ${mac_list}"
 
-# MAC info, to be sent to endpoint and then forwarded to the server
-echo '{"recipient":{"type":"all","id":"all"},"user-object":{"macs":['${mac_list}']}}' >msgs/tx/macs
+# MAC (and optionally IP) info, to be sent to endpoint and then forwarded to the server
+if [ -n "$src_ips" ]; then
+    ip_json=""
+    for ip in $(echo "$src_ips" | sed -e 's/,/ /g'); do
+        if [ -n "$ip_json" ]; then ip_json+=","; fi
+        ip_json+="\"${ip}\""
+    done
+    echo '{"recipient":{"type":"all","id":"all"},"user-object":{"macs":['${mac_list}'],"ips":['${ip_json}']}}' >msgs/tx/macs
+    echo "Infra message includes TRex IPs: ${src_ips}"
+else
+    echo '{"recipient":{"type":"all","id":"all"},"user-object":{"macs":['${mac_list}']}}' >msgs/tx/macs
+fi

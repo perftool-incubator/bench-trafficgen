@@ -20,11 +20,22 @@ while [ $# -gt 0 ]; do
         arg="${BASH_REMATCH[1]}"
         val="${BASH_REMATCH[2]}"
         shift
+    elif [[ "$1" == --* ]]; then
+        arg="$1"
+        shift
+        # Bare flags (e.g. --astf-ipv6 after rickshaw strips =ON) have no
+        # value token. Peek at the next arg: if it is missing or starts
+        # with --, treat the current arg as a bare flag.
+        if [ $# -eq 0 ] || [[ "$1" == --* ]]; then
+            val=""
+        else
+            val="$1"
+            shift
+        fi
     else
         arg="$1"
         shift
-        val="$1"
-        shift
+        val=""
     fi
     case "$arg" in
         # The following two are needed to determine DPDK device IDs (0,1,2...)
@@ -59,16 +70,32 @@ if [ -z "$active_devices" ]; then
     active_devices="$devices"
 fi
 
-# Trafficgen-client might need MAC info from the server (testpmd)
+# Trafficgen-client might need MAC info from the server (testpmd/grout)
 echo "Checking for resolved service info"
 echo "These files exist in ./msgs/rx:"
 /bin/ls -l msgs/rx
 file="msgs/rx/svc"
 if [ -e "$file" ]; then
     echo "Found resolved service info: ${file}"
-    cat $file
-    dstmacs=`jq -r '.macs[]' $file | tr "\n" "," | sed -e s/,$//`
-    passthru_args+=(" --dst-macs=$dstmacs")
+    cat "$file"
+    echo
+    dstmacs=$(jq -r '.macs[]' "$file" | tr "\n" "," | sed -e 's/,$//')
+    if [ -n "$dstmacs" ]; then
+        filtered_args=()
+        skip_next=0
+        for a in "${passthru_args[@]}"; do
+            if [ $skip_next -eq 1 ]; then skip_next=0; continue; fi
+            if [[ "$a" == "--dst-macs" ]]; then skip_next=1; continue; fi
+            if [[ "$a" == --dst-macs=* ]]; then continue; fi
+            if [[ "$a" == " --dst-macs="* ]]; then continue; fi
+            filtered_args+=("$a")
+        done
+        passthru_args=("${filtered_args[@]}")
+        passthru_args+=("--dst-macs=$dstmacs")
+        echo "Auto-collected dst-macs from server: $dstmacs"
+    fi
+else
+    echo "No server MAC message found in msgs/rx/"
 fi
 
 # Map the PCI device locations to logical DPDK IDs

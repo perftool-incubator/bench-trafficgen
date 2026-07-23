@@ -17,6 +17,22 @@
         "trafficgen-server-os-dependencies",
         "set-python3.12"
       ]
+    },
+    {
+      "name": "alma9",
+      "requirements": [
+        "trafficgen-server-os-dependencies",
+        "grout-files",
+        "grout-install"
+      ]
+    },
+    {
+      "name": "alma10",
+      "requirements": [
+        "trafficgen-server-os-dependencies",
+        "grout-files",
+        "grout-install"
+      ]
     }
   ],
   "requirements": [
@@ -39,6 +55,35 @@
       "manual_info": {
         "commands": [
           "alternatives --set python3 /usr/bin/python3.12"
+        ]
+      }
+    },
+    {
+      "name": "grout-files",
+      "type": "files",
+      "files_info": {
+        "files": [
+          {
+            "src": "%bench-dir%/trafficgen/install-grout.sh",
+            "dst": "/usr/bin"
+          },
+          {
+            "src": "%bench-dir%/trafficgen/grout/grout.x86_64.rpm",
+            "dst": "/opt/grout"
+          },
+          {
+            "src": "%bench-dir%/trafficgen/grout-stats-collector.sh",
+            "dst": "/usr/bin"
+          }
+        ]
+      }
+    },
+    {
+      "name": "grout-install",
+      "type": "manual",
+      "manual_info": {
+        "commands": [
+          "/usr/bin/install-grout.sh --insecure"
         ]
       }
     }
