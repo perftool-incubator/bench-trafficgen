@@ -1355,10 +1355,31 @@ def run_trial (trial_params, port_info, stream_info, detailed_stats):
          latency_stderr_thread.start()
 
     if latency_cmd != '':
-         # sychronization stuff happens here
          bs_logger("Waiting for children to launch")
-         child_launch_sem.acquire()
-         child_launch_sem.acquire()
+         launches_remaining = 2
+         while launches_remaining > 0:
+              try:
+                   child_launch_sem.acquire(timeout = 2)
+                   launches_remaining -= 1
+              except posix_ipc.BusyError:
+                   if latency_process.poll() is not None:
+                        bs_logger(error("ptp-latency exited prematurely (rc=%d) before signaling ready" % (latency_process.returncode)))
+                        stats['retval'] = 1
+                        tg_process.terminate()
+                        child_launch_sem.unlink()
+                        child_go_sem.unlink()
+                        child_launch_sem.close()
+                        child_go_sem.close()
+                        return stats
+                   if tg_process.poll() is not None:
+                        bs_logger(error("traffic generator exited prematurely (rc=%d) before signaling ready" % (tg_process.returncode)))
+                        stats['retval'] = 1
+                        latency_process.terminate()
+                        child_launch_sem.unlink()
+                        child_go_sem.unlink()
+                        child_launch_sem.close()
+                        child_go_sem.close()
+                        return stats
          bs_logger("Children have launched")
 
          bs_logger("Telling children to go")
