@@ -1338,7 +1338,8 @@ main(int argc, char **argv)
             pin_irqs_to_cpu(g_cfg.if_b_name, g_cfg.cpu);
         }
     } else if (g_cfg.pin_irqs) {
-        fprintf(stderr, "WARNING: --pin-irqs requires --cpu, ignoring\n");
+        fprintf(stderr, "ERROR: --pin-irqs requires --cpu\n");
+        return 1;
     }
 
     if (g_cfg.realtime)
