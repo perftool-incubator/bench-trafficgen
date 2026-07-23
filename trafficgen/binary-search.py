@@ -3239,6 +3239,11 @@ def main():
          setup_config_var('latency_realtime', t_global.args.latency_realtime, trial_params)
          setup_config_var('latency_pin_irqs', t_global.args.latency_pin_irqs, trial_params)
 
+         if t_global.args.latency_pin_irqs and t_global.args.latency_cpu is None:
+              bs_logger(error("--latency-pin-irqs requires --latency-cpu"))
+              bs_logger_cleanup(bs_logger_exit, bs_logger_thread)
+              return(1)
+
     if t_global.args.traffic_generator == "null-txrx":
          # empty for now
          foo = None
