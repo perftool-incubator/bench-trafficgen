@@ -78,6 +78,26 @@ TRIAL_STATS_ASTF_METRICS = [
     {"field": "tcp_conn_drops", "class": "count", "type": "tcp-conn-drops"},
 ]
 
+TRIAL_LATENCY_METRICS = [
+    {"field": "TX Samples", "class": "count", "type": "latency-tx-samples"},
+    {"field": "RX Samples", "class": "count", "type": "latency-rx-samples"},
+    {"field": "Loss Ratio", "class": "count", "type": "latency-loss-ratio"},
+    {"field": "Average", "class": "count", "type": "latency-avg-usec"},
+    {"field": "Minimum", "class": "count", "type": "latency-min-usec"},
+    {"field": "Maximum", "class": "count", "type": "latency-max-usec"},
+    {"field": "Std. Dev", "class": "count", "type": "latency-stddev-usec"},
+]
+
+TRIAL_LATENCY_PERCENTILE_METRICS = [
+    {"pct": "50", "class": "count", "type": "latency-p50-usec"},
+    {"pct": "95", "class": "count", "type": "latency-p95-usec"},
+    {"pct": "99", "class": "count", "type": "latency-p99-usec"},
+    {"pct": "99.9", "class": "count", "type": "latency-p99.9-usec"},
+    {"pct": "99.99", "class": "count", "type": "latency-p99.99-usec"},
+    {"pct": "99.999", "class": "count", "type": "latency-p99.999-usec"},
+    {"pct": "99.9999", "class": "count", "type": "latency-p99.9999-usec"},
+]
+
 TRIAL_PROFILER_METRICS = [
     {"key": "tsdelta", "subkey": "", "field": "", "class": "count", "type": "tsdelta", "extra_field": "", "cumulative": False},
     {"key": "global", "subkey": "rx", "field": "pps", "class": "throughput", "type": "rx-pps", "extra_field": "", "cumulative": False},
@@ -350,6 +370,33 @@ def main():
                     metrics.log_sample(period_name, desc, names, sample)
 
         process_profiler_data(trial, period_name, metrics)
+
+        latency_stats = trial.get("stats", {}).get("latency", {})
+        if latency_stats:
+            print("Found ptp-latency data")
+            fwd_stats = latency_stats.get("Forward", {})
+            rev_stats = latency_stats.get("Reverse", {})
+            fwd_iface = fwd_stats.get("tx_device", rev_stats.get("rx_device", ""))
+            rev_iface = fwd_stats.get("rx_device", rev_stats.get("tx_device", ""))
+            for direction, dir_stats in latency_stats.items():
+                names = {
+                    "direction": direction.lower(),
+                    "fwd_interface": fwd_iface,
+                    "rev_interface": rev_iface,
+                }
+
+                for lm in TRIAL_LATENCY_METRICS:
+                    if lm["field"] in dir_stats:
+                        desc = {"class": lm["class"], "source": "trafficgen-ptp-latency", "type": lm["type"]}
+                        sample = {"end": trial_end, "begin": trial_begin, "value": dir_stats[lm["field"]]}
+                        metrics.log_sample(period_name, desc, names, sample)
+
+                for pm in TRIAL_LATENCY_PERCENTILE_METRICS:
+                    pct_val = dir_stats.get("percentiles", {}).get(pm["pct"])
+                    if pct_val is not None:
+                        desc = {"class": pm["class"], "source": "trafficgen-ptp-latency", "type": pm["type"]}
+                        sample = {"end": trial_end, "begin": trial_begin, "value": pct_val}
+                        metrics.log_sample(period_name, desc, names, sample)
 
         metric_data_name = metrics.finish_samples()
         periods.append({
