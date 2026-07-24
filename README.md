@@ -33,6 +33,10 @@ rickshaw.json | Defines the configuration settings for the trafficgen benchmarki
 client-workshop.json | Client engine image workshop: TRex, build tools, and Python dependencies |
 server-workshop.json | Server engine image workshop: dpdk-tools and OS dependencies,
 
+## Hardware Latency Measurement
+
+ptp-latency provides hardware-timestamped one-way latency measurement on a dedicated NIC pair, running alongside TRex during binary search trials. See the [ptp-latency section of README-binary-search.md](trafficgen/README-binary-search.md#hardware-latency-measurement-ptp-latency) for configuration and parameter documentation.
+
 ## Trafficgen
 
 Please refer to the [trafficgen README](https://github.com/perftool-incubator/bench-trafficgen/blob/main/trafficgen/README.md).

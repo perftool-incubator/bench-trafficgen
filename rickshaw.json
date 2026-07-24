@@ -89,6 +89,14 @@
             {
                 "src": "%bench-dir%/trafficgen/traffic-profile-schema.json",
                 "dest": "/usr/bin/"
+            },
+            {
+                "src": "%bench-dir%/trafficgen/ptp-latency.c",
+                "dest": "/usr/bin/"
+            },
+            {
+                "src": "%bench-dir%/trafficgen/build-ptp-latency.sh",
+                "dest": "/usr/bin/"
             }
         ],
         "runtime": "trafficgen-get-runtime",
