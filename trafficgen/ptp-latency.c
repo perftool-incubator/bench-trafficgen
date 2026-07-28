@@ -898,10 +898,8 @@ run_one_probe(struct iface_info *tx_iface, struct iface_info *rx_iface,
 
     struct timespec tx_ts, rx_ts;
 
-    if (send_probe_and_get_tx_ts(tx_iface, frame, frame_len, &tx_ts) < 0) {
-        if (stats) stats->tx_count++;
+    if (send_probe_and_get_tx_ts(tx_iface, frame, frame_len, &tx_ts) < 0)
         return -1;
-    }
 
     if (stats) stats->tx_count++;
 
@@ -1135,10 +1133,8 @@ parse_args(int argc, char **argv)
                    "  --pin-irqs             Pin NIC IRQs to --cpu (requires --cpu)\n"
                    "\n"
                    "  --help                 Show this help\n",
-                   RX_TIMEOUT_MS_DEFAULT,
-                   MIN_FRAME_LEN,
                    TIME_DEFAULT, PROBE_RATE_DEFAULT, WARMUP_DEFAULT,
-                   50);
+                   RX_TIMEOUT_MS_DEFAULT, MIN_FRAME_LEN, 50);
             exit(0);
         default:
             exit(1);
@@ -1187,8 +1183,11 @@ run_measurement(void)
         usleep(1000);
     }
 
-    if (do_fwd && do_rev)
+    if (do_fwd && do_rev) {
         g_clock_delta_us = calibrate_clock_offset();
+        fprintf(stderr, "[BS] Clock Calibration Delta (us): %.3f\n",
+                g_clock_delta_us);
+    }
 
     if (g_cfg.binarysearch) {
         sem_t *launch_sem = sem_open(SEM_CHILD_LAUNCH, 0);
