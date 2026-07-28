@@ -188,7 +188,7 @@ if [ ! -e /usr/bin/python3 ]; then
     exit_error "can't find /usr/bin/python3, exiting" 1 "$sample_dir"
 fi
 
-if [ ${latency_cpu_explicit} -eq 0 -a -e ${sample_dir}/latency-cpu.txt ]; then
+if [[ ${latency_cpu_explicit} -eq 0 && -e ${sample_dir}/latency-cpu.txt ]]; then
     latency_cpu=$(cat ${sample_dir}/latency-cpu.txt)
     echo "Auto-detected latency CPU ${latency_cpu} from cpu-partitioning reservation"
     passthru_args+=("--latency-cpu" "${latency_cpu}")
