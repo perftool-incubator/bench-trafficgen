@@ -32,7 +32,8 @@ Uses TRex and testpmd with binary search optimization for:
 | `trafficgen/grout-stats-collector.sh` | Periodic Grout stats poller: hardware (per-port) + software (per-node) CSV output |
 | `trafficgen/ptp-latency.c` | HW timestamped latency measurement using kernel SO_TIMESTAMPING |
 | `trafficgen/build-ptp-latency.sh` | Compiles ptp-latency.c inside the engine container image |
-| `client-workshop.json` | Client engine image build: TRex, DPDK, and dependencies (alma9 userenv) |
+| `client-workshop-01-trex.json` | Client engine image build stage 1: TRex, DPDK, and dependencies (alma9 userenv) |
+| `client-workshop-02-ptp-latency.json` | Client engine image build stage 2: ptp-latency compilation and posix_ipc |
 | `server-workshop.json` | Server engine image build: testpmd and dependencies, Grout (alma9/alma10 userenvs) |
 
 ## Conventions

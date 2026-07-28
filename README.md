@@ -30,7 +30,8 @@ Name | Description
 -----|------------
 multiplex.json | Defines a set of presets and validations for the traffic generator tool, specifying various options and their valid values, such as device lists, traffic directions, packet protocols, and result output types.
 rickshaw.json | Defines the configuration settings for the trafficgen benchmarking tool, including the paths for required scripts and binaries, and options for the client and server components.
-client-workshop.json | Client engine image workshop: TRex, build tools, and Python dependencies |
+client-workshop-01-trex.json | Client engine image workshop stage 1: TRex, build tools, and Python dependencies |
+client-workshop-02-ptp-latency.json | Client engine image workshop stage 2: ptp-latency build and posix_ipc |
 server-workshop.json | Server engine image workshop: dpdk-tools and OS dependencies,
 
 ## Hardware Latency Measurement
