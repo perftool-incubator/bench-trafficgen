@@ -1357,6 +1357,7 @@ def run_trial (trial_params, port_info, stream_info, detailed_stats):
     if latency_cmd != '':
          bs_logger("Waiting for children to launch")
          launches_remaining = 2
+         launch_deadline = time.time() + 120
          while launches_remaining > 0:
               try:
                    child_launch_sem.acquire(timeout = 2)
@@ -1374,6 +1375,16 @@ def run_trial (trial_params, port_info, stream_info, detailed_stats):
                    if tg_process.poll() is not None:
                         bs_logger(error("traffic generator exited prematurely (rc=%d) before signaling ready" % (tg_process.returncode)))
                         stats['retval'] = 1
+                        latency_process.terminate()
+                        child_launch_sem.unlink()
+                        child_go_sem.unlink()
+                        child_launch_sem.close()
+                        child_go_sem.close()
+                        return stats
+                   if time.time() > launch_deadline:
+                        bs_logger(error("timed out waiting for children to signal ready after 120 seconds"))
+                        stats['retval'] = 1
+                        tg_process.terminate()
                         latency_process.terminate()
                         child_launch_sem.unlink()
                         child_go_sem.unlink()
