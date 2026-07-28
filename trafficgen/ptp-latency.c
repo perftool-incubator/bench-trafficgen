@@ -1157,8 +1157,16 @@ run_measurement(void)
     bool growable;
     uint32_t max_probes;
     if (g_cfg.probe_rate > 0 && g_cfg.time_secs > 0) {
-        max_probes = (uint32_t)g_cfg.time_secs * g_cfg.probe_rate;
-        growable = false;
+        uint64_t needed = (uint64_t)g_cfg.time_secs * g_cfg.probe_rate;
+        if (needed > UINT32_MAX) {
+            fprintf(stderr, "WARNING: probe count (%lu) exceeds max array size, "
+                    "will grow dynamically\n", (unsigned long)needed);
+            max_probes = INITIAL_PROBES;
+            growable = true;
+        } else {
+            max_probes = (uint32_t)needed;
+            growable = false;
+        }
     } else {
         max_probes = INITIAL_PROBES;
         growable = true;
