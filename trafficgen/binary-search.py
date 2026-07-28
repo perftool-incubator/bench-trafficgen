@@ -3270,6 +3270,8 @@ def main():
          setup_config_var('latency_busy_poll', t_global.args.latency_busy_poll, trial_params)
          setup_config_var('latency_realtime', t_global.args.latency_realtime, trial_params)
          setup_config_var('latency_pin_irqs', t_global.args.latency_pin_irqs, trial_params)
+         setup_config_var('latency_packet_size', t_global.args.latency_packet_size, trial_params)
+         setup_config_var('latency_max_latency', t_global.args.latency_max_latency, trial_params)
 
          if t_global.args.latency_pin_irqs and t_global.args.latency_cpu is None:
               bs_logger(error("--latency-pin-irqs requires --latency-cpu"))
