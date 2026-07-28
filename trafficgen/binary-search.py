@@ -2986,21 +2986,21 @@ def evaluate_trial(trial_params, trial_stats):
           if 'latency_device_pair' in trial_params and trial_params['latency_device_pair'] != '--':
                # for the latency device pair, trial_params['loss_granularity'] == 'segment' == 'device'
                latency_device_pair = trial_params['latency_device_pair'].split(':')
-               latency_device_pair[0] = int(latency_device_pair[0])
-               latency_device_pair[1] = int(latency_device_pair[1])
 
                if trial_params['latency_traffic_direction'] == 'bidirectional' or trial_params['latency_traffic_direction'] == 'unidirectional':
-                    if trial_stats['latency']['Forward']['Loss Ratio'] > trial_params["max_loss_pct"]:
+                    fwd_loss = trial_stats['latency'].get('Forward', {}).get('Loss Ratio', 0)
+                    if fwd_loss > trial_params["max_loss_pct"]:
                          trial_result = 'fail'
-                         bs_logger("\t(trial failed requirement, latency RX packet loss, forward latency device pair: %d -> %d, trial result status: modified, trial result: %s)" %
+                         bs_logger("\t(trial failed requirement, latency RX packet loss, forward latency device pair: %s -> %s, trial result status: modified, trial result: %s)" %
                                    (latency_device_pair[0],
                                     latency_device_pair[1],
                                     trial_result))
 
                if trial_params['latency_traffic_direction'] == 'bidirectional' or trial_params['latency_traffic_direction'] == 'revunidirectional':
-                    if trial_stats['latency']['Reverse']['Loss Ratio'] > trial_params["max_loss_pct"]:
+                    rev_loss = trial_stats['latency'].get('Reverse', {}).get('Loss Ratio', 0)
+                    if rev_loss > trial_params["max_loss_pct"]:
                          trial_result = 'fail'
-                         bs_logger("\t(trial failed requirement, latency RX packet loss, reverse latency device pair: %d -> %d, trial result status: modified, trial result: %s)" %
+                         bs_logger("\t(trial failed requirement, latency RX packet loss, reverse latency device pair: %s -> %s, trial result status: modified, trial result: %s)" %
                                    (latency_device_pair[1],
                                     latency_device_pair[0],
                                     trial_result))
