@@ -633,64 +633,81 @@ static int
 recv_probe_with_rx_ts(struct iface_info *iface, struct timespec *rx_ts,
                       uint32_t expected_seq, const uint8_t *expected_src_mac)
 {
-    struct pollfd pfd = { .fd = iface->sock, .events = POLLIN };
-    int ret = poll(&pfd, 1, g_cfg.max_latency_ms);
-    if (ret <= 0)
-        return -1;
+    struct timespec deadline_ts;
+    clock_gettime(CLOCK_MONOTONIC, &deadline_ts);
+    deadline_ts.tv_nsec += (long)g_cfg.max_latency_ms * 1000000L;
+    if (deadline_ts.tv_nsec >= 1000000000L) {
+        deadline_ts.tv_sec += deadline_ts.tv_nsec / 1000000000L;
+        deadline_ts.tv_nsec %= 1000000000L;
+    }
 
-    uint8_t frame[MAX_FRAME_LEN];
-    uint8_t ctrl_buf[256];
-    struct iovec iov = { .iov_base = frame, .iov_len = sizeof(frame) };
+    while (1) {
+        struct timespec now_ts;
+        clock_gettime(CLOCK_MONOTONIC, &now_ts);
+        int remaining_ms = (int)((deadline_ts.tv_sec - now_ts.tv_sec) * 1000 +
+                                 (deadline_ts.tv_nsec - now_ts.tv_nsec) / 1000000);
+        if (remaining_ms <= 0)
+            return -1;
 
-    struct msghdr msg;
-    memset(&msg, 0, sizeof(msg));
-    msg.msg_iov = &iov;
-    msg.msg_iovlen = 1;
-    msg.msg_control = ctrl_buf;
-    msg.msg_controllen = sizeof(ctrl_buf);
+        struct pollfd pfd = { .fd = iface->sock, .events = POLLIN };
+        int ret = poll(&pfd, 1, remaining_ms);
+        if (ret <= 0)
+            return -1;
 
-    ssize_t n = recvmsg(iface->sock, &msg, 0);
-    if (n < (ssize_t)(ETH_HDR_LEN + 8))
-        return -1;
+        uint8_t frame[MAX_FRAME_LEN];
+        uint8_t ctrl_buf[256];
+        struct iovec iov = { .iov_base = frame, .iov_len = sizeof(frame) };
 
-    uint16_t ethertype = (frame[12] << 8) | frame[13];
-    if (ethertype != g_probe_ethertype)
-        return -1;
+        struct msghdr msg;
+        memset(&msg, 0, sizeof(msg));
+        msg.msg_iov = &iov;
+        msg.msg_iovlen = 1;
+        msg.msg_control = ctrl_buf;
+        msg.msg_controllen = sizeof(ctrl_buf);
 
-    if (expected_src_mac && memcmp(frame + ETH_ALEN, expected_src_mac, ETH_ALEN) != 0) {
-        if (g_src_mac_mismatch_count == 0) {
-            fprintf(stderr, "WARNING: RX source MAC mismatch on %s: "
-                    "expected %02x:%02x:%02x:%02x:%02x:%02x, "
-                    "got %02x:%02x:%02x:%02x:%02x:%02x\n",
-                    iface->name,
-                    expected_src_mac[0], expected_src_mac[1],
-                    expected_src_mac[2], expected_src_mac[3],
-                    expected_src_mac[4], expected_src_mac[5],
-                    frame[6], frame[7], frame[8],
-                    frame[9], frame[10], frame[11]);
+        ssize_t n = recvmsg(iface->sock, &msg, 0);
+        if (n < (ssize_t)(ETH_HDR_LEN + 8))
+            continue;
+
+        uint16_t ethertype = (frame[12] << 8) | frame[13];
+        if (ethertype != g_probe_ethertype)
+            continue;
+
+        if (expected_src_mac && memcmp(frame + ETH_ALEN, expected_src_mac, ETH_ALEN) != 0) {
+            if (g_src_mac_mismatch_count == 0) {
+                fprintf(stderr, "WARNING: RX source MAC mismatch on %s: "
+                        "expected %02x:%02x:%02x:%02x:%02x:%02x, "
+                        "got %02x:%02x:%02x:%02x:%02x:%02x\n",
+                        iface->name,
+                        expected_src_mac[0], expected_src_mac[1],
+                        expected_src_mac[2], expected_src_mac[3],
+                        expected_src_mac[4], expected_src_mac[5],
+                        frame[6], frame[7], frame[8],
+                        frame[9], frame[10], frame[11]);
+            }
+            g_src_mac_mismatch_count++;
+            continue;
         }
-        g_src_mac_mismatch_count++;
-        return -1;
+
+        if (g_ptp_probe_format) {
+            struct ptp_header *ptp = (struct ptp_header *)(frame + ETH_HDR_LEN);
+            if (ptp->msg_type != PTP_MSG_SYNC || ptp->version != PTP_VERSION)
+                continue;
+            if (expected_seq > 0 && ntohs(ptp->seq_id) != (uint16_t)(expected_seq & 0xFFFF))
+                continue;
+        } else {
+            struct probe_payload *payload = (struct probe_payload *)(frame + ETH_HDR_LEN);
+            if (ntohl(payload->magic) != PROBE_MAGIC)
+                continue;
+            if (expected_seq > 0 && ntohl(payload->seq) != expected_seq)
+                continue;
+        }
+
+        if (get_hw_timestamp(&msg, rx_ts) < 0)
+            return -1;
+
+        return 0;
     }
-
-    if (g_ptp_probe_format) {
-        struct ptp_header *ptp = (struct ptp_header *)(frame + ETH_HDR_LEN);
-        if (ptp->msg_type != PTP_MSG_SYNC || ptp->version != PTP_VERSION)
-            return -1;
-        if (expected_seq > 0 && ntohs(ptp->seq_id) != (uint16_t)(expected_seq & 0xFFFF))
-            return -1;
-    } else {
-        struct probe_payload *payload = (struct probe_payload *)(frame + ETH_HDR_LEN);
-        if (ntohl(payload->magic) != PROBE_MAGIC)
-            return -1;
-        if (expected_seq > 0 && ntohl(payload->seq) != expected_seq)
-            return -1;
-    }
-
-    if (get_hw_timestamp(&msg, rx_ts) < 0)
-        return -1;
-
-    return 0;
 }
 
 static void
@@ -776,7 +793,6 @@ pin_irqs_to_cpu(const char *ifname, int cpu)
         return;
     }
 
-    /* Count IRQs first */
     int total = 0;
     struct dirent *entry;
     while ((entry = readdir(dir)) != NULL) {
@@ -784,6 +800,12 @@ pin_irqs_to_cpu(const char *ifname, int cpu)
             continue;
         total++;
     }
+
+    if (total == 0) {
+        closedir(dir);
+        return;
+    }
+
     rewinddir(dir);
 
     struct saved_irq_set *set = &g_saved_irqs[g_saved_irq_count];
@@ -945,6 +967,8 @@ get_phc_offset_us(int ptp_fd, const char *ifname)
     return best_delta;
 }
 
+/* One-shot calibration — clock frequency drift between NIC oscillators is
+   not corrected and may accumulate ~1-2 us/min on long trials. */
 static double
 calibrate_clock_offset(void)
 {
@@ -1229,7 +1253,7 @@ run_measurement(void)
 
         if (do_fwd) {
             int rc = run_one_probe(&g_if_a, &g_if_b, fwd_dst, seq,
-                                   g_cfg.packet_size, &g_fwd, -g_clock_delta_us);
+                                   g_cfg.packet_size, &g_fwd, g_clock_delta_us);
             seq++;
             if (rc == -2) {
                 fprintf(stderr, "ERROR: Memory exhaustion, stopping measurement\n");
@@ -1239,7 +1263,7 @@ run_measurement(void)
 
         if (do_rev) {
             int rc = run_one_probe(&g_if_b, &g_if_a, rev_dst, seq,
-                                   g_cfg.packet_size, &g_rev, g_clock_delta_us);
+                                   g_cfg.packet_size, &g_rev, -g_clock_delta_us);
             seq++;
             if (rc == -2) {
                 fprintf(stderr, "ERROR: Memory exhaustion, stopping measurement\n");
