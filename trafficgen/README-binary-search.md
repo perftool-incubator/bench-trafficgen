@@ -126,7 +126,7 @@ Parameter | Default | Description
 
 ### Automatic CPU Allocation
 
-When an endpoint has `cpu-partitioning` enabled, the system automatically:
+When an endpoint has `cpu-partitioning` enabled and `--latency-device-pair` is set, the system automatically:
 
 1. Reserves the last workload CPU for ptp-latency (written to `latency-cpu.txt`)
 2. Passes all remaining workload CPUs to TRex

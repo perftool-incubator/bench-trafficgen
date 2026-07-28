@@ -28,8 +28,9 @@ mbuf_factor=""
 traffic_generator=""
 src_ips=""
 measure_latency=0
+latency_device_pair="--"
 
-longopts="src-ips:,trex-active-devices:,trex-devices:,trex-cpus:,trex-num-cpus:,trex-mem-limit:,trex-port-mtu:,trex-port-bandwidth-gb:,trex-software-mode:,trex-mellanox-support:,trex-mbuf-factor:,traffic-generator:,measure-latency:"
+longopts="src-ips:,trex-active-devices:,trex-devices:,trex-cpus:,trex-num-cpus:,trex-mem-limit:,trex-port-mtu:,trex-port-bandwidth-gb:,trex-software-mode:,trex-mellanox-support:,trex-mbuf-factor:,traffic-generator:,measure-latency:,latency-device-pair:"
 opts=$(getopt -q -o "" --longoptions "$longopts" -- "$@");
 eval set -- "$opts";
 while true; do
@@ -97,6 +98,11 @@ while true; do
         --measure-latency)
             shift
             measure_latency=$1
+            shift
+            ;;
+        --latency-device-pair)
+            shift
+            latency_device_pair=$1
             shift
             ;;
         --)
@@ -240,7 +246,7 @@ if ! pgrep $trex_bin > /dev/null; then
             echo "TRex limited cpus: ${cpus_separated}"
         fi
 
-        if [[ "${measure_latency}" == "1" && -n "${WORKLOAD_CPUS}" ]]; then
+        if [[ ( "${measure_latency}" == "1" || "${latency_device_pair}" != "--" ) && -n "${WORKLOAD_CPUS}" ]]; then
             cpu_array=(${cpus_separated})
             if [ ${#cpu_array[@]} -gt 1 ]; then
                 latency_cpu=${cpu_array[-1]}
