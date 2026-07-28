@@ -1004,7 +1004,7 @@ parse_args(int argc, char **argv)
         {"revfile",           required_argument, NULL, 'v'},
         {"traffic-direction", required_argument, NULL, 'd'},
         {"cpu",               required_argument, NULL, 'c'},
-        {"busy-poll",         optional_argument, NULL, 'p'},
+        {"busy-poll",         required_argument, NULL, 'p'},
         {"realtime",          no_argument,       NULL, 'T'},
         {"max-latency",       required_argument, NULL, 'm'},
         {"packet-size",       required_argument, NULL, 's'},
@@ -1022,7 +1022,7 @@ parse_args(int argc, char **argv)
     g_cfg.busy_poll_us = 50;
 
     int opt;
-    while ((opt = getopt_long(argc, argv, "a:b:F:R:t:r:w:Bm:o:f:v:d:s:c:p::TIh",
+    while ((opt = getopt_long(argc, argv, "a:b:F:R:t:r:w:Bm:o:f:v:d:s:c:p:TIh",
                               long_opts, NULL)) != -1) {
         switch (opt) {
         case 'a':
@@ -1096,8 +1096,7 @@ parse_args(int argc, char **argv)
             break;
         case 'p':
             g_cfg.busy_poll = true;
-            if (optarg)
-                g_cfg.busy_poll_us = atoi(optarg);
+            g_cfg.busy_poll_us = atoi(optarg);
             break;
         case 'T':
             g_cfg.realtime = true;
@@ -1128,13 +1127,13 @@ parse_args(int argc, char **argv)
                    "\n"
                    "Tuning:\n"
                    "  --cpu N                Pin process to CPU N\n"
-                   "  --busy-poll[=US]       Enable SO_BUSY_POLL (default: %d us)\n"
+                   "  --busy-poll US         Enable SO_BUSY_POLL (microseconds)\n"
                    "  --realtime             Use SCHED_FIFO realtime priority\n"
                    "  --pin-irqs             Pin NIC IRQs to --cpu (requires --cpu)\n"
                    "\n"
                    "  --help                 Show this help\n",
                    TIME_DEFAULT, PROBE_RATE_DEFAULT, WARMUP_DEFAULT,
-                   RX_TIMEOUT_MS_DEFAULT, MIN_FRAME_LEN, 50);
+                   RX_TIMEOUT_MS_DEFAULT, MIN_FRAME_LEN);
             exit(0);
         default:
             exit(1);
@@ -1183,11 +1182,9 @@ run_measurement(void)
         usleep(1000);
     }
 
-    if (do_fwd && do_rev) {
-        g_clock_delta_us = calibrate_clock_offset();
-        fprintf(stderr, "[BS] Clock Calibration Delta (us): %.3f\n",
-                g_clock_delta_us);
-    }
+    g_clock_delta_us = calibrate_clock_offset();
+    fprintf(stderr, "[BS] Clock Calibration Delta (us): %.3f\n",
+            g_clock_delta_us);
 
     if (g_cfg.binarysearch) {
         sem_t *launch_sem = sem_open(SEM_CHILD_LAUNCH, 0);
