@@ -240,7 +240,7 @@ if ! pgrep $trex_bin > /dev/null; then
             echo "TRex limited cpus: ${cpus_separated}"
         fi
 
-        if [ "${measure_latency}" == "1" -a -n "${WORKLOAD_CPUS}" ]; then
+        if [[ "${measure_latency}" == "1" && -n "${WORKLOAD_CPUS}" ]]; then
             cpu_array=(${cpus_separated})
             if [ ${#cpu_array[@]} -gt 1 ]; then
                 latency_cpu=${cpu_array[-1]}
