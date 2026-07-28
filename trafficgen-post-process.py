@@ -78,6 +78,8 @@ TRIAL_STATS_ASTF_METRICS = [
     {"field": "tcp_conn_drops", "class": "count", "type": "tcp-conn-drops"},
 ]
 
+# class:count is a placeholder — will migrate to proper classes (latency, ratio)
+# when PERFNFV-409 default-aggregation support lands in CDM v10dev
 TRIAL_LATENCY_METRICS = [
     {"field": "TX Samples", "class": "count", "type": "latency-tx-samples"},
     {"field": "RX Samples", "class": "count", "type": "latency-rx-samples"},

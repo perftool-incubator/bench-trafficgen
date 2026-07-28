@@ -106,7 +106,7 @@ In a crucible run file:
 Parameter | Default | Description
 ----------|---------|------------
 `--latency-device-pair` | `--` (disabled) | Kernel interface pair in the form `IFACE_A:IFACE_B`. Setting this enables ptp-latency.
-`--latency-probe-rate` | `1000` | Probes per second per direction. Set to `0` for maximum rate (no sleep between probes).
+`--latency-probe-rate` | `1000` | Target loop iterations per second. Each iteration sends one probe per active direction, so in bidirectional mode each direction receives approximately this rate. Set to `0` for maximum rate (no sleep between probes).
 `--latency-warmup-packets` | `10` | Number of warmup probes sent before measurement begins.
 `--latency-packet-size` | `64` | Probe frame size in bytes. Only applies when using raw probe format (NICs supporting `HWTSTAMP_FILTER_ALL`). Errors if set on NICs that require PTP Sync fallback (fixed-size format).
 `--latency-max-latency` | `5` | Probe RX timeout in milliseconds. Probes not received within this window are counted as lost.
