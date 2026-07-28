@@ -8,6 +8,7 @@
     {
       "name": "alma9",
       "requirements": [
+        "kernel-headers",
         "pip",
         "ptp-latency-src",
         "ptp-latency-build"
@@ -23,6 +24,15 @@
            "posix_ipc"
          ]
        }
+    },
+    {
+      "name": "kernel-headers",
+      "type": "distro",
+      "distro_info": {
+        "packages": [
+          "kernel-headers"
+        ]
+      }
     },
     {
       "name": "ptp-latency-src",
