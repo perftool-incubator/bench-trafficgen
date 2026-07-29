@@ -121,9 +121,42 @@ echo "Checking for TRex service"
 active_ver=$(readlink /opt/trex/current 2>/dev/null | xargs basename 2>/dev/null || echo "unknown")
 echo "Using TRex version: ${active_ver}"
 
-if pgrep $trex_bin; then
-    echo "TRex launched from previous test" | tee $sample_dir/trex-server-running.txt
-else
+if trex_pid=$(pgrep $trex_bin | head -1) && [ -n "${trex_pid}" ]; then
+    # Verify the running TRex instance is in the correct mode (STL vs ASTF).
+    # A mode mismatch causes RPC connection failures for all query/control tools.
+    running_has_astf=0
+    if grep -q "\-\-astf" /proc/${trex_pid}/cmdline 2>/dev/null || \
+       tr '\0' ' ' < /proc/${trex_pid}/cmdline 2>/dev/null | grep -q -- "--astf"; then
+        running_has_astf=1
+    fi
+
+    need_astf=0
+    if [ "${traffic_generator}" == "trex-astf" ]; then
+        need_astf=1
+    fi
+
+    if [ ${running_has_astf} -ne ${need_astf} ]; then
+        if [ ${need_astf} -eq 1 ]; then
+            echo "Running TRex is in STL mode but ASTF mode is required — restarting"
+        else
+            echo "Running TRex is in ASTF mode but STL mode is required — restarting"
+        fi
+        kill ${trex_pid} 2>/dev/null
+        for i in $(seq 1 10); do
+            pgrep $trex_bin > /dev/null || break
+            sleep 1
+        done
+        if pgrep $trex_bin > /dev/null; then
+            echo "TRex did not exit after SIGTERM — sending SIGKILL"
+            kill -9 ${trex_pid} 2>/dev/null
+            sleep 1
+        fi
+    else
+        echo "TRex launched from previous test (mode OK)" | tee $sample_dir/trex-server-running.txt
+    fi
+fi
+
+if ! pgrep $trex_bin > /dev/null; then
     echo "Starting TRex service"
 
     trex_dir=/opt/trex/current
