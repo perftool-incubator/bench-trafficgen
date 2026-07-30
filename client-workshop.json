@@ -82,6 +82,7 @@
       "type": "manual",
       "manual_info": {
         "commands": [
+          "/usr/bin/install-trex.sh --version v3.04 --insecure",
           "/usr/bin/install-trex.sh --insecure"
         ]
       }

@@ -217,9 +217,9 @@ cross-core contention.
 
 ### System Requirements
 
-1. **TRex with ASTF support** -- the image-installed TRex version must support ASTF mode.
-   TRex v3.08 (the current default) includes SACK, cubic/newreno TCP congestion control,
-   XXV710 i40e/iavf SR-IOV fixes, Python 3.12 client support, and DPDK 25.07.
+1. **TRex with ASTF support** -- ASTF mode uses **TRex v3.04**, automatically selected
+   and downloaded on first use by `trafficgen-infra`. See
+   [TRex Version Compatibility](#trex-version-compatibility) below for details.
 
 2. **TRex started in `--astf` mode** -- handled automatically by `trafficgen-infra` when
    `--traffic-generator=trex-astf` is specified. STL and ASTF modes are mutually exclusive.
@@ -242,6 +242,59 @@ cross-core contention.
    ```
 
 6. **For SR-IOV VFs** (OpenShift Telco): add `--no-promisc=ON`
+
+### TRex Version Compatibility
+
+ASTF mode is pinned to **TRex v3.04** due to a critical upstream regression in
+v3.08. Both versions are pre-installed in the engine image via `client-workshop.json`.
+At runtime, `trafficgen-infra` switches the `/opt/trex/current` symlink to the
+appropriate version based on `--traffic-generator`. No user action is required.
+
+**The regression (TRex v3.08, i40e NICs, ASTF `MULTI_QUE` mode):**
+
+TRex v3.08 introduces a bug where ASTF data-plane (DP) cores do not poll
+server-port RX queues when operating in `MULTI_QUE` mode (`--software` flag)
+on Intel i40e NICs. Despite the DP core table showing correct server-port queue
+assignments, the RX ring buffers overflow because no thread drains them at
+runtime. This causes 100% connection failure in any external-DUT topology where
+traffic transits a separate device and returns on the server port.
+
+**Evidence from comparative testing (4 port-pairs, Intel XXV710 i40e, Grout L3 DUT):**
+
+| Metric | TRex v3.04 | TRex v3.08 |
+|--------|-----------|-----------|
+| Server port ipackets | 299,680 | **0** |
+| Server port rx_missed_errors | **0** | 431,228 |
+| Server port delivery rate | **100%** | 3.7% |
+| tcps_connects (successful) | 299,780 | **0** |
+| Final CPS achieved | **18,552** | 0 (fail at min rate) |
+| Test result | **PASS** | FAIL |
+
+**Affected configurations:**
+
+| Component | Affected | Unaffected |
+|-----------|----------|------------|
+| NIC | Intel XXV710, X710 (i40e driver) | Mellanox ConnectX (mlx5_core) |
+| TRex mode | ASTF with `--software` (`MULTI_QUE`) | STL (stateless) |
+| TRex version | v3.08 | v3.04 and earlier |
+| Topology | External DUT (traffic returns on server port) | Loopback / single-port |
+
+**Version selection summary:**
+
+| Backend | TRex Version | Reason |
+|---------|-------------|--------|
+| `trex-txrx` (STL) | v3.08 | No regression; benefits from DPDK 25.07 improvements |
+| `trex-txrx-profile` (STL) | v3.08 | No regression; benefits from DPDK 25.07 improvements |
+| `trex-astf` (ASTF) | v3.04 | Avoids i40e MULTI_QUE RX polling regression |
+
+**When this pinning will be removed:**
+
+The v3.04 pinning is a workaround until Cisco/TRex upstream resolves the ASTF
+`MULTI_QUE` polling regression. Once a fixed TRex release is available (v3.09 or
+a patched v3.08), the `TREX_VER_ASTF` constant in `trafficgen-infra` will be
+updated to the fixed version.
+
+Tracking: [bench-trafficgen#130](https://github.com/perftool-incubator/bench-trafficgen/issues/130)
 
 ### DUT Requirements (OVS + conntrack)
 
