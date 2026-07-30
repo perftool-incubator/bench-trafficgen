@@ -465,6 +465,7 @@ elif [ "$switch_type" == "grout" ]; then
             readarray -t trex_macs < <(jq -r '.macs[]' "$infra_file")
             readarray -t trex_ips < <(jq -r 'if .ips then .ips[] else empty end' "$infra_file" 2>/dev/null)
 
+            generated_entries=0
             for ((i=0; i<total_devs && i<${#trex_macs[@]}; i++)); do
                 iface_addr="${grout_ip_array[$i]}"
                 if [ -z "${iface_addr}" ]; then
@@ -493,20 +494,26 @@ print(str(iface.network.network_address + 100))
                     echo "WARNING: No IP for TRex port $i in infra message, derived $peer_ip"
                 fi
 
-                echo "nexthop add l3 iface p${i} address ${peer_ip} mac ${trex_macs[$i]}" >> "${grout_init}"
+                if [ -n "${trex_macs[$i]}" ]; then
+                    echo "nexthop add l3 iface p${i} address ${peer_ip} mac ${trex_macs[$i]}" >> "${grout_init}"
 
-                # Add a gateway route so the entire subnet forwards via this
-                # nexthop. Without this, only the exact peer_ip is covered by
-                # the static entry; other IPs in the range (e.g. ASTF
-                # client/server IP ranges) would fall back to dynamic ARP/NDP.
-                subnet_base=$(python3 -c "
+                    # Add a gateway route so the entire subnet forwards via
+                    # this nexthop. Without this, only the exact peer_ip is
+                    # covered by the static entry; other IPs in the range
+                    # (e.g. ASTF client/server IP ranges) would need dynamic
+                    # ARP/NDP resolution.
+                    subnet_base=$(python3 -c "
 import ipaddress
 iface = ipaddress.ip_interface('${iface_addr}')
 print(str(iface.network.network_address))
 ")
-                echo "route add ${subnet_base}/${subnet_mask} via ${peer_ip}" >> "${grout_init}"
+                    echo "route add ${subnet_base}/${subnet_mask} via ${peer_ip}" >> "${grout_init}"
+                    (( generated_entries++ ))
+                else
+                    echo "WARNING: No MAC for TRex port $i — skipping static nexthop and route (relying on dynamic NDP/ARP)"
+                fi
             done
-            echo "Auto-generated ${#trex_macs[@]} nexthop and gateway route entries"
+            echo "Auto-generated ${generated_entries} of ${#trex_macs[@]} nexthop and gateway route entries"
         else
             echo "WARNING: No infra message found. Grout will rely on dynamic ARP (may not work on i40e/ice)."
         fi

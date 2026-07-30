@@ -19,14 +19,6 @@
       ]
     },
     {
-      "name": "alma9",
-      "requirements": [
-        "trafficgen-server-os-dependencies",
-        "grout-files",
-        "grout-install"
-      ]
-    },
-    {
       "name": "alma10",
       "requirements": [
         "trafficgen-server-os-dependencies",
