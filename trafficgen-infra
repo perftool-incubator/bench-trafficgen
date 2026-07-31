@@ -116,6 +116,28 @@ if [ ! -e /usr/bin/python3 ]; then
     exit_error "cannot find /usr/bin/python3, exiting" 1 "$sample_dir"
 fi
 
+# TRex version selection: v3.08 for STL, v3.04 for ASTF.
+# ASTF on v3.08 has a regression where DP cores do not poll server-port RX
+# queues in MULTI_QUE mode on i40e NICs, causing 100% connection failure in
+# external-DUT topologies. Pin ASTF to v3.04 until upstream provides a fix.
+# Both versions are pre-installed in the engine image (client-workshop.json).
+# Ref: https://github.com/perftool-incubator/bench-trafficgen/issues/130
+TREX_VER_STL="v3.08"
+TREX_VER_ASTF="v3.04"
+
+if [ "${traffic_generator}" == "trex-astf" ]; then
+    required_trex_ver="${TREX_VER_ASTF}"
+else
+    required_trex_ver="${TREX_VER_STL}"
+fi
+
+if [ ! -d "/opt/trex/${required_trex_ver}" ]; then
+    exit_error "TRex ${required_trex_ver} not found in /opt/trex/. Rebuild the engine image to include both TRex versions." 1 "$sample_dir"
+fi
+
+echo "Activating TRex ${required_trex_ver} for ${traffic_generator:-stl} mode"
+ln -sfn "${required_trex_ver}" /opt/trex/current
+
 echo "Checking for TRex service"
 
 active_ver=$(readlink /opt/trex/current 2>/dev/null | xargs basename 2>/dev/null || echo "unknown")
@@ -135,12 +157,29 @@ if trex_pid=$(pgrep $trex_bin | head -1) && [ -n "${trex_pid}" ]; then
         need_astf=1
     fi
 
+    needs_restart=0
+
     if [ ${running_has_astf} -ne ${need_astf} ]; then
         if [ ${need_astf} -eq 1 ]; then
             echo "Running TRex is in STL mode but ASTF mode is required — restarting"
         else
             echo "Running TRex is in ASTF mode but STL mode is required — restarting"
         fi
+        needs_restart=1
+    fi
+
+    # Check whether the running binary matches the required version.
+    # A mode match alone is insufficient — the process may have been started
+    # with a different TRex version before this version-selection logic ran.
+    if [ ${needs_restart} -eq 0 ]; then
+        running_bin=$(readlink /proc/${trex_pid}/exe 2>/dev/null)
+        if [ -n "${running_bin}" ] && ! echo "${running_bin}" | grep -q "/opt/trex/${required_trex_ver}/"; then
+            echo "Running TRex binary is not from ${required_trex_ver} — restarting"
+            needs_restart=1
+        fi
+    fi
+
+    if [ ${needs_restart} -eq 1 ]; then
         kill ${trex_pid} 2>/dev/null
         for i in $(seq 1 10); do
             pgrep $trex_bin > /dev/null || break
@@ -152,7 +191,7 @@ if trex_pid=$(pgrep $trex_bin | head -1) && [ -n "${trex_pid}" ]; then
             sleep 1
         fi
     else
-        echo "TRex launched from previous test (mode OK)" | tee $sample_dir/trex-server-running.txt
+        echo "TRex launched from previous test (mode and version OK)" | tee $sample_dir/trex-server-running.txt
     fi
 fi
 

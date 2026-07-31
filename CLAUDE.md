@@ -36,11 +36,11 @@ Uses TRex and testpmd with binary search optimization for:
 ## Conventions
 - Primary branch is `main`
 - Modular design: wrapper scripts at root, core implementation in `trafficgen/`
-- TRex v3.08 (DPDK 25.07) on alma9 userenv
+- TRex v3.08 (STL) / v3.04 (ASTF) on alma9 userenv; version auto-selected by `trafficgen-infra` based on `--traffic-generator`
 - Supports TRex STL, TRex ASTF, and testpmd traffic generators
 - STL traffic profiles: JSON files in `trafficgen/trex-profiles/` (validated against `traffic-profile-schema.json`)
 - ASTF traffic profiles: Python `.py` files in `trafficgen/astf-profiles/` (NOT validated by JSON schema)
-- Default TRex version is configured in `trafficgen/install-trex.sh`
+- TRex version is mode-based: STL backends use v3.08, ASTF uses v3.04. Both are pre-installed in the engine image (`client-workshop.json`). Version constants (`TREX_VER_STL`, `TREX_VER_ASTF`) live in `trafficgen-infra`; runtime switches the `/opt/trex/current` symlink only
 - Mellanox NICs require `trex-software-mode=on` and `trex-mellanox-support=on` for performance (enables multi-queue RX via RSS instead of single-queue hardware filter mode)
 - Default Grout version is configured in `trafficgen/install-grout.sh` (v0.16.0); the bundled RPM at `trafficgen/grout/grout.x86_64.rpm` is installed offline at image build time; a different version can be requested at runtime via the `--grout-version` runfile parameter (triggers a GitHub download only when the requested version differs from bundled)
 - Server `switch-type` controls the DUT: `testpmd` (L2 forwarding), `grout` (L3 IPv4/IPv6 forwarding via Grout DPDK router), or `null` (no DUT)
@@ -57,6 +57,19 @@ Uses TRex and testpmd with binary search optimization for:
 | `affinity cpus set` triggers full graph restart | All datapath workers destroyed/recreated; can disrupt nexthop state | Don't set explicit CPU affinity unless needed; let Grout auto-detect |
 | Connected routes require ARP for next-hop MAC | Even with static nexthops, fast-path activation may be delayed | Nexthops are auto-generated; ensure `--src-ips` is set for accurate IP-to-MAC pairing |
 | Too many datapath CPUs for few RX queues | Excessive workers (e.g., 26 for 2 queues) waste resources | Match `--grout-datapath-cpus` count to `rxqs * num_ports` |
+
+## TRex Version Strategy
+
+TRex uses mode-based version selection to work around an upstream ASTF regression on i40e NICs:
+
+- **Image contents**: both v3.08 and v3.04 are installed at image build time via `client-workshop.json` (two `install-trex.sh` invocations)
+- **STL backends** (`trex-txrx`, `trex-txrx-profile`): use v3.08
+- **ASTF backend** (`trex-astf`): use v3.04
+- **Version constants**: `TREX_VER_STL` and `TREX_VER_ASTF` in `trafficgen-infra`
+- **No user-facing parameter**: version is implicit from `--traffic-generator`; no `--trex-version` override exists
+- **Mechanism**: `trafficgen-infra` switches `/opt/trex/current` symlink to the required version before the mode/version-mismatch check; no runtime download
+- **Reason for pinning**: TRex v3.08 has a regression where ASTF DP cores do not poll server-port RX queues in `MULTI_QUE` mode on i40e NICs ([#130](https://github.com/perftool-incubator/bench-trafficgen/issues/130))
+- **Removal condition**: update `TREX_VER_ASTF` in `trafficgen-infra` and remove the second `install-trex.sh` call from `client-workshop.json` when upstream ships a fix
 
 ## Grout Version Management
 
