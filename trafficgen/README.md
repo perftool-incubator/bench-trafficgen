@@ -18,3 +18,5 @@ reporter.py | Used to extract information about a binary-search.py run from the 
 tg_lib.py | Library of generic Python routines that are shared across many of the scripts in this project.  Should not/cannot be directly invoked. |
 trex_tg_lib.py | Library of TRex STL related Python routines that are shared between the STL traffic generators.  Should not/cannot be directly invoked. |
 trex_astf_lib.py | Library of TRex ASTF related Python routines shared between the ASTF traffic generator scripts.  Should not/cannot be directly invoked. |
+ptp-latency.c | Hardware timestamped one-way latency measurement using kernel SO_TIMESTAMPING on a dedicated NIC pair.  Runs alongside TRex during trials, coordinated via POSIX semaphores.  Invoked by binary-search.py when --latency-device-pair is set. |
+build-ptp-latency.sh | Compiles ptp-latency.c inside the engine container image at build time. |
