@@ -24,111 +24,109 @@ TRIAL_METRICS = [
 ]
 
 TRIAL_STATS_DEVICE_METRICS = [
-    {"key": "rx", "field": "rx_latency_maximum", "class": "count", "type": "max-roundtrip-usec"},
-    {"key": "rx", "field": "rx_latency_average", "class": "count", "type": "mean-roundtrip-usec"},
-    {"key": "tx", "field": "tx_l2_bps", "class": "throughput", "type": "l2-tx-bps"},
-    {"key": "tx", "field": "tx_l1_bps", "class": "throughput", "type": "l1-tx-bps"},
-    {"key": "rx", "field": "rx_l2_bps", "class": "throughput", "type": "l2-rx-bps"},
-    {"key": "rx", "field": "rx_l1_bps", "class": "throughput", "type": "l1-rx-bps"},
-    {"key": "rx", "field": "rx_pps", "class": "throughput", "type": "rx-pps"},
-    {"key": "tx", "field": "tx_pps", "class": "throughput", "type": "tx-pps"},
-    {"key": "rx", "field": "rx_lost_pps", "class": "throughput", "type": "lost-rx-pps"},
+    {"key": "rx", "field": "rx_latency_maximum", "class": "latency", "type": "max-roundtrip-usec", "default-aggregation": "max"},
+    {"key": "rx", "field": "rx_latency_average", "class": "latency", "type": "mean-roundtrip-usec", "default-aggregation": "avg"},
+    {"key": "tx", "field": "tx_l2_bps", "class": "throughput", "type": "l2-tx-bps", "default-aggregation": "sum"},
+    {"key": "tx", "field": "tx_l1_bps", "class": "throughput", "type": "l1-tx-bps", "default-aggregation": "sum"},
+    {"key": "rx", "field": "rx_l2_bps", "class": "throughput", "type": "l2-rx-bps", "default-aggregation": "sum"},
+    {"key": "rx", "field": "rx_l1_bps", "class": "throughput", "type": "l1-rx-bps", "default-aggregation": "sum"},
+    {"key": "rx", "field": "rx_pps", "class": "throughput", "type": "rx-pps", "default-aggregation": "sum"},
+    {"key": "tx", "field": "tx_pps", "class": "throughput", "type": "tx-pps", "default-aggregation": "sum"},
+    {"key": "rx", "field": "rx_lost_pps", "class": "throughput", "type": "lost-rx-pps", "default-aggregation": "sum"},
 ]
 
 TRIAL_STATS_ASTF_METRICS = [
-    {"field": "cps", "class": "throughput", "type": "connections-per-second"},
-    {"field": "active_flows", "class": "count", "type": "active-flows"},
-    {"field": "established_flows", "class": "count", "type": "established-flows"},
-    {"field": "connections_attempted", "class": "throughput", "type": "connections-attempted-per-second"},
-    {"field": "connections_dropped", "class": "throughput", "type": "connections-dropped-per-second"},
-    {"field": "connection_error_pct", "class": "count", "type": "connection-error-pct"},
-    {"field": "retransmit_pct", "class": "count", "type": "retransmit-pct"},
-    {"field": "out_of_order_pct", "class": "count", "type": "out-of-order-pct"},
-    {"field": "tcp_retransmit_packets", "class": "count", "type": "tcp-retransmit-packets"},
-    {"field": "tx_l7_bps", "class": "throughput", "type": "l7-tx-bps"},
-    {"field": "rx_l7_bps", "class": "throughput", "type": "l7-rx-bps"},
-    {"field": "tx_bps", "class": "throughput", "type": "tx-bps"},
-    {"field": "rx_bps", "class": "throughput", "type": "rx-bps"},
-    {"field": "tx_pps", "class": "throughput", "type": "tx-pps"},
-    {"field": "rx_pps", "class": "throughput", "type": "rx-pps"},
-    {"field": "tx_packets", "class": "count", "type": "tx-packets"},
-    {"field": "rx_packets", "class": "count", "type": "rx-packets"},
-    {"field": "udp_tx_packets", "class": "count", "type": "udp-tx-packets"},
-    {"field": "udp_rx_packets", "class": "count", "type": "udp-rx-packets"},
-    {"field": "latency_avg_usec", "class": "count", "type": "latency-avg-usec"},
-    {"field": "latency_max_usec", "class": "count", "type": "latency-max-usec"},
-    {"field": "latency_min_usec", "class": "count", "type": "latency-min-usec"},
-    {"field": "latency_jitter_usec", "class": "count", "type": "latency-jitter-usec"},
-    {"field": "tcp_syn_ack_latency_usec", "class": "count", "type": "tcp-syn-ack-latency-usec"},
-    {"field": "tcp_req_resp_latency_usec", "class": "count", "type": "tcp-request-response-latency-usec"},
-    {"field": "server_accepts", "class": "count", "type": "server-accepts"},
-    {"field": "server_connects", "class": "count", "type": "server-connects"},
-    {"field": "server_drops", "class": "count", "type": "server-drops"},
-    {"field": "tcp_overhead_pct", "class": "count", "type": "tcp-overhead-pct"},
-    {"field": "tcp_snd_bytes", "class": "count", "type": "tcp-snd-bytes"},
-    {"field": "tcp_rcv_bytes", "class": "count", "type": "tcp-rcv-bytes"},
-    {"field": "tcp_rtt_avg_usec", "class": "count", "type": "tcp-rtt-avg-usec"},
-    {"field": "tcp_rtt_min_usec", "class": "count", "type": "tcp-rtt-min-usec"},
-    {"field": "tcp_rtt_max_usec", "class": "count", "type": "tcp-rtt-max-usec"},
-    {"field": "tcp_rto_avg_usec", "class": "count", "type": "tcp-rto-avg-usec"},
-    {"field": "tcp_keepalive_drops", "class": "count", "type": "tcp-keepalive-drops"},
-    {"field": "tcp_persist_drops", "class": "count", "type": "tcp-persist-drops"},
-    {"field": "tcp_retransmit_timeouts", "class": "count", "type": "tcp-retransmit-timeouts"},
-    {"field": "tcp_syn_retransmit_timeouts", "class": "count", "type": "tcp-syn-retransmit-timeouts"},
-    {"field": "tcp_conn_drops", "class": "count", "type": "tcp-conn-drops"},
+    {"field": "cps", "class": "throughput", "type": "connections-per-second", "default-aggregation": "sum"},
+    {"field": "active_flows", "class": "count", "type": "active-flows", "default-aggregation": "sum"},
+    {"field": "established_flows", "class": "count", "type": "established-flows", "default-aggregation": "sum"},
+    {"field": "connections_attempted", "class": "throughput", "type": "connections-attempted-per-second", "default-aggregation": "sum"},
+    {"field": "connections_dropped", "class": "throughput", "type": "connections-dropped-per-second", "default-aggregation": "sum"},
+    {"field": "connection_error_pct", "class": "count", "type": "connection-error-pct", "default-aggregation": "avg"},
+    {"field": "retransmit_pct", "class": "count", "type": "retransmit-pct", "default-aggregation": "avg"},
+    {"field": "out_of_order_pct", "class": "count", "type": "out-of-order-pct", "default-aggregation": "avg"},
+    {"field": "tcp_retransmit_packets", "class": "count", "type": "tcp-retransmit-packets", "default-aggregation": "sum"},
+    {"field": "tx_l7_bps", "class": "throughput", "type": "l7-tx-bps", "default-aggregation": "sum"},
+    {"field": "rx_l7_bps", "class": "throughput", "type": "l7-rx-bps", "default-aggregation": "sum"},
+    {"field": "tx_bps", "class": "throughput", "type": "tx-bps", "default-aggregation": "sum"},
+    {"field": "rx_bps", "class": "throughput", "type": "rx-bps", "default-aggregation": "sum"},
+    {"field": "tx_pps", "class": "throughput", "type": "tx-pps", "default-aggregation": "sum"},
+    {"field": "rx_pps", "class": "throughput", "type": "rx-pps", "default-aggregation": "sum"},
+    {"field": "tx_packets", "class": "count", "type": "tx-packets", "default-aggregation": "sum"},
+    {"field": "rx_packets", "class": "count", "type": "rx-packets", "default-aggregation": "sum"},
+    {"field": "udp_tx_packets", "class": "count", "type": "udp-tx-packets", "default-aggregation": "sum"},
+    {"field": "udp_rx_packets", "class": "count", "type": "udp-rx-packets", "default-aggregation": "sum"},
+    {"field": "latency_avg_usec", "class": "latency", "type": "latency-avg-usec", "default-aggregation": "avg"},
+    {"field": "latency_max_usec", "class": "latency", "type": "latency-max-usec", "default-aggregation": "max"},
+    {"field": "latency_min_usec", "class": "latency", "type": "latency-min-usec", "default-aggregation": "min"},
+    {"field": "latency_jitter_usec", "class": "latency", "type": "latency-jitter-usec", "default-aggregation": "max"},
+    {"field": "tcp_syn_ack_latency_usec", "class": "latency", "type": "tcp-syn-ack-latency-usec", "default-aggregation": "avg"},
+    {"field": "tcp_req_resp_latency_usec", "class": "latency", "type": "tcp-request-response-latency-usec", "default-aggregation": "avg"},
+    {"field": "server_accepts", "class": "count", "type": "server-accepts", "default-aggregation": "sum"},
+    {"field": "server_connects", "class": "count", "type": "server-connects", "default-aggregation": "sum"},
+    {"field": "server_drops", "class": "count", "type": "server-drops", "default-aggregation": "sum"},
+    {"field": "tcp_overhead_pct", "class": "count", "type": "tcp-overhead-pct", "default-aggregation": "avg"},
+    {"field": "tcp_snd_bytes", "class": "count", "type": "tcp-snd-bytes", "default-aggregation": "sum"},
+    {"field": "tcp_rcv_bytes", "class": "count", "type": "tcp-rcv-bytes", "default-aggregation": "sum"},
+    {"field": "tcp_rtt_avg_usec", "class": "latency", "type": "tcp-rtt-avg-usec", "default-aggregation": "avg"},
+    {"field": "tcp_rtt_min_usec", "class": "latency", "type": "tcp-rtt-min-usec", "default-aggregation": "min"},
+    {"field": "tcp_rtt_max_usec", "class": "latency", "type": "tcp-rtt-max-usec", "default-aggregation": "max"},
+    {"field": "tcp_rto_avg_usec", "class": "latency", "type": "tcp-rto-avg-usec", "default-aggregation": "avg"},
+    {"field": "tcp_keepalive_drops", "class": "count", "type": "tcp-keepalive-drops", "default-aggregation": "sum"},
+    {"field": "tcp_persist_drops", "class": "count", "type": "tcp-persist-drops", "default-aggregation": "sum"},
+    {"field": "tcp_retransmit_timeouts", "class": "count", "type": "tcp-retransmit-timeouts", "default-aggregation": "sum"},
+    {"field": "tcp_syn_retransmit_timeouts", "class": "count", "type": "tcp-syn-retransmit-timeouts", "default-aggregation": "sum"},
+    {"field": "tcp_conn_drops", "class": "count", "type": "tcp-conn-drops", "default-aggregation": "sum"},
 ]
 
-# class:count is a placeholder — will migrate to proper classes (latency, ratio)
-# when PERFNFV-409 default-aggregation support lands in CDM v10dev
 TRIAL_LATENCY_METRICS = [
-    {"field": "TX Samples", "class": "count", "type": "latency-tx-samples"},
-    {"field": "RX Samples", "class": "count", "type": "latency-rx-samples"},
-    {"field": "Loss Ratio", "class": "count", "type": "latency-loss-ratio"},
-    {"field": "Average", "class": "count", "type": "latency-avg-usec"},
-    {"field": "Minimum", "class": "count", "type": "latency-min-usec"},
-    {"field": "Maximum", "class": "count", "type": "latency-max-usec"},
-    {"field": "Std. Dev", "class": "count", "type": "latency-stddev-usec"},
+    {"field": "TX Samples", "class": "count", "type": "latency-tx-samples", "default-aggregation": "sum"},
+    {"field": "RX Samples", "class": "count", "type": "latency-rx-samples", "default-aggregation": "sum"},
+    {"field": "Loss Ratio", "class": "count", "type": "latency-loss-ratio", "default-aggregation": "avg"},
+    {"field": "Average", "class": "latency", "type": "latency-avg-usec", "default-aggregation": "avg"},
+    {"field": "Minimum", "class": "latency", "type": "latency-min-usec", "default-aggregation": "min"},
+    {"field": "Maximum", "class": "latency", "type": "latency-max-usec", "default-aggregation": "max"},
+    {"field": "Std. Dev", "class": "count", "type": "latency-stddev-usec", "default-aggregation": "max"},
 ]
 
 TRIAL_LATENCY_PERCENTILE_METRICS = [
-    {"pct": "50", "class": "count", "type": "latency-p50-usec"},
-    {"pct": "95", "class": "count", "type": "latency-p95-usec"},
-    {"pct": "99", "class": "count", "type": "latency-p99-usec"},
-    {"pct": "99.9", "class": "count", "type": "latency-p99.9-usec"},
-    {"pct": "99.99", "class": "count", "type": "latency-p99.99-usec"},
-    {"pct": "99.999", "class": "count", "type": "latency-p99.999-usec"},
-    {"pct": "99.9999", "class": "count", "type": "latency-p99.9999-usec"},
+    {"pct": "50", "class": "latency", "type": "latency-p50-usec", "default-aggregation": "max"},
+    {"pct": "95", "class": "latency", "type": "latency-p95-usec", "default-aggregation": "max"},
+    {"pct": "99", "class": "latency", "type": "latency-p99-usec", "default-aggregation": "max"},
+    {"pct": "99.9", "class": "latency", "type": "latency-p99.9-usec", "default-aggregation": "max"},
+    {"pct": "99.99", "class": "latency", "type": "latency-p99.99-usec", "default-aggregation": "max"},
+    {"pct": "99.999", "class": "latency", "type": "latency-p99.999-usec", "default-aggregation": "max"},
+    {"pct": "99.9999", "class": "latency", "type": "latency-p99.9999-usec", "default-aggregation": "max"},
 ]
 
 TRIAL_PROFILER_METRICS = [
-    {"key": "tsdelta", "subkey": "", "field": "", "class": "count", "type": "tsdelta", "extra_field": "", "cumulative": False},
-    {"key": "global", "subkey": "rx", "field": "pps", "class": "throughput", "type": "rx-pps", "extra_field": "", "cumulative": False},
-    {"key": "global", "subkey": "tx", "field": "pps", "class": "throughput", "type": "tx-pps", "extra_field": "", "cumulative": False},
-    {"key": "global", "subkey": "rx", "field": "bps", "class": "throughput", "type": "rx-bps", "extra_field": "", "cumulative": False},
-    {"key": "global", "subkey": "tx", "field": "bps", "class": "throughput", "type": "tx-bps", "extra_field": "", "cumulative": False},
-    {"key": "global", "subkey": "rx", "field": "drop_bps", "class": "throughput", "type": "rx-drop-bps", "extra_field": "", "cumulative": False},
-    {"key": "global", "subkey": "misc", "field": "cpu_util", "class": "count", "type": "tx-cpu-util", "extra_field": "", "cumulative": False},
-    {"key": "global", "subkey": "rx", "field": "cpu_util", "class": "count", "type": "rx-cpu-util", "extra_field": "", "cumulative": False},
-    {"key": "global", "subkey": "misc", "field": "bw_per_core", "class": "throughput", "type": "per-core-Gbps", "extra_field": "", "cumulative": False},
-    {"key": "global", "subkey": "misc", "field": "queue_full", "class": "throughput", "type": "queue-full-per-second", "extra_field": "", "cumulative": True},
-    {"key": "ports", "subkey": "rx", "field": "pps", "class": "throughput", "type": "port-rx-pps", "extra_field": "rx_port", "cumulative": False},
-    {"key": "ports", "subkey": "tx", "field": "pps", "class": "throughput", "type": "port-tx-pps", "extra_field": "tx_port", "cumulative": False},
-    {"key": "ports", "subkey": "rx", "field": "bps_l1", "class": "throughput", "type": "rx-l1-bps", "extra_field": "rx_port", "cumulative": False},
-    {"key": "ports", "subkey": "tx", "field": "bps_l1", "class": "throughput", "type": "tx-l1-bps", "extra_field": "tx_port", "cumulative": False},
-    {"key": "ports", "subkey": "rx", "field": "bps", "class": "throughput", "type": "rx-l2-bps", "extra_field": "rx_port", "cumulative": False},
-    {"key": "ports", "subkey": "tx", "field": "bps", "class": "throughput", "type": "tx-l2-bps", "extra_field": "tx_port", "cumulative": False},
-    {"key": "ports", "subkey": "rx", "field": "util", "class": "count", "type": "rx-port-util", "extra_field": "rx_port", "cumulative": False},
-    {"key": "ports", "subkey": "tx", "field": "util", "class": "count", "type": "tx-port-util", "extra_field": "tx_port", "cumulative": False},
-    {"key": "pgids", "subkey": "latency", "field": "average", "class": "count", "type": "mean-round-trip-usec", "extra_field": "stream", "cumulative": False},
-    {"key": "pgids", "subkey": "latency", "field": "total_max", "class": "count", "type": "max-round-trip-usec", "extra_field": "stream", "cumulative": False},
-    {"key": "pgids", "subkey": "latency", "field": "total_min", "class": "count", "type": "min-round-trip-usec", "extra_field": "stream", "cumulative": False},
-    {"key": "pgids", "subkey": "latency", "field": "duplicate", "class": "throughput", "type": "duplicate-latency-pps", "extra_field": "stream", "cumulative": True},
-    {"key": "pgids", "subkey": "latency", "field": "dropped", "class": "throughput", "type": "dropped-latency-pps", "extra_field": "stream", "cumulative": True},
-    {"key": "pgids", "subkey": "latency", "field": "out_of_order", "class": "throughput", "type": "out-of-order-latency-pps", "extra_field": "stream", "cumulative": True},
-    {"key": "pgids", "subkey": "latency", "field": "seq_too_high", "class": "throughput", "type": "before-expected-latency-pps", "extra_field": "stream", "cumulative": True},
-    {"key": "pgids", "subkey": "latency", "field": "seq_too_low", "class": "throughput", "type": "after-expected-latency-pps", "extra_field": "stream", "cumulative": True},
-    {"key": "pgids", "subkey": "tx_pps", "field": "stream", "class": "throughput", "type": "stream-tx-pps", "extra_field": "tx_port", "cumulative": False},
-    {"key": "pgids", "subkey": "rx_pps", "field": "stream", "class": "throughput", "type": "stream-rx-pps", "extra_field": "rx_port", "cumulative": False},
+    {"key": "tsdelta", "subkey": "", "field": "", "class": "count", "type": "tsdelta", "extra_field": "", "cumulative": False, "default-aggregation": "avg"},
+    {"key": "global", "subkey": "rx", "field": "pps", "class": "throughput", "type": "rx-pps", "extra_field": "", "cumulative": False, "default-aggregation": "sum"},
+    {"key": "global", "subkey": "tx", "field": "pps", "class": "throughput", "type": "tx-pps", "extra_field": "", "cumulative": False, "default-aggregation": "sum"},
+    {"key": "global", "subkey": "rx", "field": "bps", "class": "throughput", "type": "rx-bps", "extra_field": "", "cumulative": False, "default-aggregation": "sum"},
+    {"key": "global", "subkey": "tx", "field": "bps", "class": "throughput", "type": "tx-bps", "extra_field": "", "cumulative": False, "default-aggregation": "sum"},
+    {"key": "global", "subkey": "rx", "field": "drop_bps", "class": "throughput", "type": "rx-drop-bps", "extra_field": "", "cumulative": False, "default-aggregation": "sum"},
+    {"key": "global", "subkey": "misc", "field": "cpu_util", "class": "count", "type": "tx-cpu-util", "extra_field": "", "cumulative": False, "default-aggregation": "avg"},
+    {"key": "global", "subkey": "rx", "field": "cpu_util", "class": "count", "type": "rx-cpu-util", "extra_field": "", "cumulative": False, "default-aggregation": "avg"},
+    {"key": "global", "subkey": "misc", "field": "bw_per_core", "class": "throughput", "type": "per-core-Gbps", "extra_field": "", "cumulative": False, "default-aggregation": "sum"},
+    {"key": "global", "subkey": "misc", "field": "queue_full", "class": "throughput", "type": "queue-full-per-second", "extra_field": "", "cumulative": True, "default-aggregation": "sum"},
+    {"key": "ports", "subkey": "rx", "field": "pps", "class": "throughput", "type": "port-rx-pps", "extra_field": "rx_port", "cumulative": False, "default-aggregation": "sum"},
+    {"key": "ports", "subkey": "tx", "field": "pps", "class": "throughput", "type": "port-tx-pps", "extra_field": "tx_port", "cumulative": False, "default-aggregation": "sum"},
+    {"key": "ports", "subkey": "rx", "field": "bps_l1", "class": "throughput", "type": "rx-l1-bps", "extra_field": "rx_port", "cumulative": False, "default-aggregation": "sum"},
+    {"key": "ports", "subkey": "tx", "field": "bps_l1", "class": "throughput", "type": "tx-l1-bps", "extra_field": "tx_port", "cumulative": False, "default-aggregation": "sum"},
+    {"key": "ports", "subkey": "rx", "field": "bps", "class": "throughput", "type": "rx-l2-bps", "extra_field": "rx_port", "cumulative": False, "default-aggregation": "sum"},
+    {"key": "ports", "subkey": "tx", "field": "bps", "class": "throughput", "type": "tx-l2-bps", "extra_field": "tx_port", "cumulative": False, "default-aggregation": "sum"},
+    {"key": "ports", "subkey": "rx", "field": "util", "class": "count", "type": "rx-port-util", "extra_field": "rx_port", "cumulative": False, "default-aggregation": "avg"},
+    {"key": "ports", "subkey": "tx", "field": "util", "class": "count", "type": "tx-port-util", "extra_field": "tx_port", "cumulative": False, "default-aggregation": "avg"},
+    {"key": "pgids", "subkey": "latency", "field": "average", "class": "latency", "type": "mean-round-trip-usec", "extra_field": "stream", "cumulative": False, "default-aggregation": "avg"},
+    {"key": "pgids", "subkey": "latency", "field": "total_max", "class": "latency", "type": "max-round-trip-usec", "extra_field": "stream", "cumulative": False, "default-aggregation": "max"},
+    {"key": "pgids", "subkey": "latency", "field": "total_min", "class": "latency", "type": "min-round-trip-usec", "extra_field": "stream", "cumulative": False, "default-aggregation": "min"},
+    {"key": "pgids", "subkey": "latency", "field": "duplicate", "class": "throughput", "type": "duplicate-latency-pps", "extra_field": "stream", "cumulative": True, "default-aggregation": "sum"},
+    {"key": "pgids", "subkey": "latency", "field": "dropped", "class": "throughput", "type": "dropped-latency-pps", "extra_field": "stream", "cumulative": True, "default-aggregation": "sum"},
+    {"key": "pgids", "subkey": "latency", "field": "out_of_order", "class": "throughput", "type": "out-of-order-latency-pps", "extra_field": "stream", "cumulative": True, "default-aggregation": "sum"},
+    {"key": "pgids", "subkey": "latency", "field": "seq_too_high", "class": "throughput", "type": "before-expected-latency-pps", "extra_field": "stream", "cumulative": True, "default-aggregation": "sum"},
+    {"key": "pgids", "subkey": "latency", "field": "seq_too_low", "class": "throughput", "type": "after-expected-latency-pps", "extra_field": "stream", "cumulative": True, "default-aggregation": "sum"},
+    {"key": "pgids", "subkey": "tx_pps", "field": "stream", "class": "throughput", "type": "stream-tx-pps", "extra_field": "tx_port", "cumulative": False, "default-aggregation": "sum"},
+    {"key": "pgids", "subkey": "rx_pps", "field": "stream", "class": "throughput", "type": "stream-rx-pps", "extra_field": "rx_port", "cumulative": False, "default-aggregation": "sum"},
 ]
 
 
@@ -209,7 +207,7 @@ def process_profiler_data(trial, period_name, metrics):
                                 value -= prev_val
                                 value /= (ts_float - prev_float)
 
-                    desc = {"class": pm["class"], "source": source, "type": pm["type"]}
+                    desc = {"class": pm["class"], "source": source, "type": pm["type"], "default-aggregation": pm["default-aggregation"]}
                     sample = {"end": int(ts_float), "begin": int(prev_float), "value": value}
                     metrics.log_sample(period_name, desc, {}, sample)
 
@@ -230,7 +228,7 @@ def process_profiler_data(trial, period_name, metrics):
                                 value -= prev_val
                                 value /= (ts_float - prev_float)
 
-                        desc = {"class": pm["class"], "source": source, "type": pm["type"]}
+                        desc = {"class": pm["class"], "source": source, "type": pm["type"], "default-aggregation": pm["default-aggregation"]}
                         sample = {"end": int(ts_float), "begin": int(prev_float), "value": value}
                         names = {pm["extra_field"]: port}
                         metrics.log_sample(period_name, desc, names, sample)
@@ -256,7 +254,7 @@ def process_profiler_data(trial, period_name, metrics):
                                     value -= prev_pgid_data[pm["field"]]
                                     value /= (ts_float - prev_float)
 
-                        desc = {"class": pm["class"], "source": source, "type": pm["type"]}
+                        desc = {"class": pm["class"], "source": source, "type": pm["type"], "default-aggregation": pm["default-aggregation"]}
                         sample = {"end": int(ts_float), "begin": int(prev_float), "value": value}
                         names = {pm["extra_field"]: pgid}
                         metrics.log_sample(period_name, desc, names, sample)
@@ -283,7 +281,7 @@ def process_profiler_data(trial, period_name, metrics):
                                         value -= prev_pgid_subkey[port]
                                         value /= (ts_float - prev_float)
 
-                            desc = {"class": pm["class"], "source": source, "type": pm["type"]}
+                            desc = {"class": pm["class"], "source": source, "type": pm["type"], "default-aggregation": pm["default-aggregation"]}
                             sample = {"end": int(ts_float), "begin": int(prev_float), "value": value}
                             names = {pm["field"]: pgid, pm["extra_field"]: port}
                             metrics.log_sample(period_name, desc, names, sample)
@@ -358,14 +356,14 @@ def main():
             print("ASTF trial detected -- extracting ASTF metrics")
             astf_stats = trial["stats"]["astf"]
             for am in TRIAL_STATS_ASTF_METRICS:
-                desc = {"class": am["class"], "source": "trafficgen", "type": am["type"]}
+                desc = {"class": am["class"], "source": "trafficgen", "type": am["type"], "default-aggregation": am["default-aggregation"]}
                 value = astf_stats.get(am["field"], 0) or 0
                 sample = {"end": trial_end, "begin": trial_begin, "value": value}
                 metrics.log_sample(period_name, desc, {}, sample)
         else:
             for dev_pair in trial["trial_params"].get("test_dev_pairs", []):
                 for tsdm in TRIAL_STATS_DEVICE_METRICS:
-                    desc = {"class": tsdm["class"], "source": "trafficgen", "type": tsdm["type"]}
+                    desc = {"class": tsdm["class"], "source": "trafficgen", "type": tsdm["type"], "default-aggregation": tsdm["default-aggregation"]}
                     value = trial["stats"].get(str(dev_pair[tsdm["key"]]), {}).get(tsdm["field"], 0)
                     sample = {"end": trial_end, "begin": trial_begin, "value": value}
                     names = {"tx_port": dev_pair["tx"], "rx_port": dev_pair["rx"], "port_pair": dev_pair["dev_pair"]}
@@ -389,14 +387,14 @@ def main():
 
                 for lm in TRIAL_LATENCY_METRICS:
                     if lm["field"] in dir_stats:
-                        desc = {"class": lm["class"], "source": "trafficgen-ptp-latency", "type": lm["type"]}
+                        desc = {"class": lm["class"], "source": "trafficgen-ptp-latency", "type": lm["type"], "default-aggregation": lm["default-aggregation"]}
                         sample = {"end": trial_end, "begin": trial_begin, "value": dir_stats[lm["field"]]}
                         metrics.log_sample(period_name, desc, names, sample)
 
                 for pm in TRIAL_LATENCY_PERCENTILE_METRICS:
                     pct_val = dir_stats.get("percentiles", {}).get(pm["pct"])
                     if pct_val is not None:
-                        desc = {"class": pm["class"], "source": "trafficgen-ptp-latency", "type": pm["type"]}
+                        desc = {"class": pm["class"], "source": "trafficgen-ptp-latency", "type": pm["type"], "default-aggregation": pm["default-aggregation"]}
                         sample = {"end": trial_end, "begin": trial_begin, "value": pct_val}
                         metrics.log_sample(period_name, desc, names, sample)
 
