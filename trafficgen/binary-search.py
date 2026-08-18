@@ -566,6 +566,12 @@ def process_options ():
                         help='Should device stats be used instead of stream stats',
                         action = 'store_true',
                         )
+    parser.add_argument('--negative-packet-loss-tolerance',
+                        dest='negative_packet_loss_tolerance',
+                        help='Maximum excess RX packets per direction/device tolerated before triggering a negative loss failure (absorbs constant hardware counter biases such as i40e +2/port from LLDP/FDIR control packets)',
+                        default = 0,
+                        type = int
+                        )
     parser.add_argument('--enable-segment-monitor',
                         dest='enable_segment_monitor',
                         help='Should individual segments be monitored for pass/fail status relative to --max-loss-pct in order to short circuit trials',
@@ -2063,9 +2069,6 @@ def handle_trial_process_stderr(process, trial_params, stats, tmp_stats, streams
 
                                                 if stream_type == "latency":
                                                      stats[device_pair['tx']]['tx_latency_packets'] += int(results["flow_stats"][str(pg_id)]["tx_pkts"][str(device_pair['tx'])])
-                                                     if not trial_params['use_device_stats']:
-                                                          stats['directional'][device_pair['direction']]['tx_packets'] += int(results["flow_stats"][str(pg_id)]["tx_pkts"][str(device_pair['tx'])])
-                                                          stats['directional'][device_pair['direction']]['active'] = True
                                            else:
                                                 stats_error_append_pg_id(stats[device_pair['tx']], 'tx_missing', pg_id)
 
@@ -2077,9 +2080,6 @@ def handle_trial_process_stderr(process, trial_params, stats, tmp_stats, streams
 
                                                 if stream_type == "latency":
                                                      stats[device_pair['rx']]['rx_latency_packets'] += int(results["flow_stats"][str(pg_id)]["rx_pkts"][str(device_pair['rx'])])
-                                                     if not trial_params['use_device_stats']:
-                                                          stats['directional'][device_pair['direction']]['rx_packets'] += int(results["flow_stats"][str(pg_id)]["rx_pkts"][str(device_pair['rx'])])
-                                                          stats['directional'][device_pair['direction']]['active'] = True
 
                                                      stats[device_pair['rx']]['rx_latency_average'] += int(results["flow_stats"][str(pg_id)]["rx_pkts"][str(device_pair['rx'])]) * float(results["latency"][str(pg_id)]["latency"]["average"])
 
@@ -2794,30 +2794,38 @@ def evaluate_trial(trial_params, trial_stats):
                                trial_stats[dev_pair['rx']]['rx_negative_loss_error']))
 
           if trial_params['loss_granularity'] == 'device' and trial_stats[dev_pair['rx']]['rx_active']:
-               if trial_stats[dev_pair['rx']]['rx_lost_packets_pct'] < 0:
+               if trial_stats[dev_pair['rx']]['rx_lost_packets'] < -trial_params['negative_packet_loss_tolerance']:
                     if trial_params['negative_packet_loss_mode'] == 'quit':
                          trial_result = 'abort'
-                         bs_logger("\t(critical requirement failure, negative device packet loss, device pair: %d -> %d, trial result: %s)" %
+                         bs_logger("\t(critical requirement failure, negative device packet loss, device pair: %d -> %d, excess_rx: %d, tolerance: %d, trial result: %s)" %
                                    (dev_pair['tx'],
                                     dev_pair['rx'],
+                                    abs(trial_stats[dev_pair['rx']]['rx_lost_packets']),
+                                    trial_params['negative_packet_loss_tolerance'],
                                     trial_result))
                     else:
-                         bs_logger("\t(trial information, negative device packet loss, device pair: %d -> %d)" %
+                         bs_logger("\t(trial information, negative device packet loss, device pair: %d -> %d, excess_rx: %d, tolerance: %d)" %
                                    (dev_pair['tx'],
-                                    dev_pair['rx']))
+                                    dev_pair['rx'],
+                                    abs(trial_stats[dev_pair['rx']]['rx_lost_packets']),
+                                    trial_params['negative_packet_loss_tolerance']))
 
      if trial_params['loss_granularity'] == 'direction':
           for direction in trial_stats['directional']:
                if trial_stats['directional'][direction]['active']:
-                    if trial_stats['directional'][direction]['rx_lost_packets_pct'] < 0:
+                    if trial_stats['directional'][direction]['rx_lost_packets'] < -trial_params['negative_packet_loss_tolerance']:
                          if trial_params['negative_packet_loss_mode'] == 'quit':
                               trial_result = 'abort'
-                              bs_logger("\t(critical requirement failure, negative direction packet loss, direction: %s, trial result: %s)" %
+                              bs_logger("\t(critical requirement failure, negative direction packet loss, direction: %s, excess_rx: %d, tolerance: %d, trial result: %s)" %
                                         (direction,
+                                         abs(trial_stats['directional'][direction]['rx_lost_packets']),
+                                         trial_params['negative_packet_loss_tolerance'],
                                          trial_result))
                          else:
-                              bs_logger("\t(trial information, negative direction packet loss, direction: %s)" %
-                                        (direction))
+                              bs_logger("\t(trial information, negative direction packet loss, direction: %s, excess_rx: %d, tolerance: %d)" %
+                                        (direction,
+                                         abs(trial_stats['directional'][direction]['rx_lost_packets']),
+                                         trial_params['negative_packet_loss_tolerance']))
                     elif trial_stats['directional'][direction]['rx_lost_packets_pct'] == 100.00:
                          trial_result = 'abort'
                          bs_logger("\t(critical requirement failure, 100%% RX packet loss, direction: %s, trial result: %s)" %
@@ -2962,10 +2970,12 @@ def evaluate_trial(trial_params, trial_stats):
      if trial_params['loss_granularity'] == 'direction':
           for direction in trial_stats['directional']:
                if trial_stats['directional'][direction]['active']:
-                    if trial_stats['directional'][direction]['rx_lost_packets_pct'] < 0:
+                    if trial_stats['directional'][direction]['rx_lost_packets'] < -trial_params['negative_packet_loss_tolerance']:
                          trial_result = trial_params['negative_packet_loss_mode']
-                         bs_logger("\t(trial failed requirement, negative direction packet loss, direction: %s, trial result status: modified, trial result: %s)" %
+                         bs_logger("\t(trial failed requirement, negative direction packet loss, direction: %s, excess_rx: %d, tolerance: %d, trial result status: modified, trial result: %s)" %
                                    (direction,
+                                    abs(trial_stats['directional'][direction]['rx_lost_packets']),
+                                    trial_params['negative_packet_loss_tolerance'],
                                     trial_result))
 
                     requirement_msg = "passed"
@@ -3246,6 +3256,7 @@ def main():
          setup_config_var('teaching_warmup_packet_type', t_global.args.teaching_warmup_packet_type, trial_params)
          setup_config_var('teaching_measurement_packet_type', t_global.args.teaching_measurement_packet_type, trial_params)
          setup_config_var("use_device_stats", t_global.args.use_device_stats, trial_params)
+         setup_config_var("negative_packet_loss_tolerance", t_global.args.negative_packet_loss_tolerance, trial_params)
          setup_config_var('send_teaching_warmup', t_global.args.send_teaching_warmup, trial_params)
          setup_config_var('send_teaching_measurement', t_global.args.send_teaching_measurement, trial_params)
 

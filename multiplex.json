@@ -105,7 +105,8 @@
 	"positive_integer": {
 	    "description": "any positive integer value",
 	    "args": [ "validation-runtime", "search-runtime", "sniff-runtime", "latency-rate",
-		      "trial-gap", "max-retries", "uniform-trial-runtime" ],
+		      "trial-gap", "max-retries", "uniform-trial-runtime",
+		      "negative-packet-loss-tolerance" ],
 	    "vals": [ "^[0-9]+$" ]
 	},
 	"positive_integer_list": {
