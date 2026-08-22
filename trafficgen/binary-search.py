@@ -566,6 +566,16 @@ def process_options ():
                         help='Should device stats be used instead of stream stats',
                         action = 'store_true',
                         )
+    parser.add_argument('--disable-device-stats-unwrap',
+                        dest='unwrap_device_stats',
+                        help='Do not correct 32-bit wrap in TRex device-stat packet counters (use-device-stats only). Unwrap is on by default for all frame sizes.',
+                        action = 'store_false',
+                        )
+    parser.add_argument('--disable-tx-ceiling-detection',
+                        dest='tx_ceiling_detection',
+                        help='Do not auto-detect and cap the search at the NIC TX rate ceiling. When enabled (the default), binary-search detects NIC saturation (queue_full + timeout + rate tolerance failure) and automatically lowers the search upper bound to the observed maximum TX rate.',
+                        action = 'store_false',
+                        )
     parser.add_argument('--enable-segment-monitor',
                         dest='enable_segment_monitor',
                         help='Should individual segments be monitored for pass/fail status relative to --max-loss-pct in order to short circuit trials',
@@ -2001,6 +2011,7 @@ def handle_trial_process_stderr(process, trial_params, stats, tmp_stats, streams
                        stats['global']['timeout'] = results['global']['timeout']
                        stats['global']['early_exit'] = results['global']['early_exit']
                        stats['global']['force_quit'] = results['global']['force_quit']
+                       stats['global']['queue_full'] = results['global'].get('queue_full', 0)
 
                        for device_pair in trial_params['test_dev_pairs']:
                             stream_types = []
@@ -2010,25 +2021,59 @@ def handle_trial_process_stderr(process, trial_params, stats, tmp_stats, streams
                                  stats[device_pair['rx']]['rx_active'] = True
                                  stats['directional'][device_pair['direction']]['active'] = True
 
-                                 stats[device_pair['tx']]['tx_packets'] += int(results[str(device_pair['tx'])]['opackets'])
-                                 stats['directional'][device_pair['direction']]['tx_packets'] += int(results[str(device_pair['tx'])]['opackets'])
+                                 runtime = float(results['global']['runtime'])
+                                 tx_port = results[str(device_pair['tx'])]
+                                 rx_port = results[str(device_pair['rx'])]
+                                 tx_raw = int(tx_port['opackets'])
+                                 rx_raw = int(rx_port['ipackets'])
 
-                                 stats[device_pair['rx']]['rx_packets'] += int(results[str(device_pair['rx'])]['ipackets'])
-                                 stats['directional'][device_pair['direction']]['rx_packets'] += int(results[str(device_pair['rx'])]['ipackets'])
+                                 if trial_params.get('unwrap_device_stats', True):
+                                      # Compute expected packet counts for unwrap.
+                                      # TRex pps fields are instantaneous snapshots that
+                                      # underestimate true averages under NIC saturation.
+                                      # tx_pps_target is the rate binary-search asked TRex
+                                      # to achieve (already computed by calculate_tx_pps_target
+                                      # for every rate unit and stream layout), so it stays
+                                      # accurate when queue_full > 0. Use max(snapshot,
+                                      # target) * runtime so the magnet remains valid.
+                                      tx_pps_snap = float(tx_port.get('tx_pps', 0) or 0)
+                                      rx_pps_snap = float(rx_port.get('rx_pps', 0) or 0)
+                                      target_pps = float(stats[device_pair['tx']].get('tx_pps_target', 0.0) or 0.0)
+
+                                      tx_expected = max(tx_pps_snap * runtime, target_pps * runtime)
+                                      rx_expected = max(rx_pps_snap * runtime, target_pps * runtime)
+
+                                      tx_result = unwrap_u32_counter(tx_raw, tx_expected)
+                                      rx_result = unwrap_u32_counter(rx_raw, rx_expected)
+                                      if tx_result['k'] or tx_result['signed_steps']:
+                                           bs_logger("Device Pair: %s | Device stats unwrap TX | raw=%s expected=%s k=%s signed_steps=%s unwrapped=%s" % (device_pair['path'], commify(tx_result['raw']), commify(tx_result['expected']), tx_result['k'], tx_result['signed_steps'], commify(tx_result['unwrapped'])))
+                                      if rx_result['k'] or rx_result['signed_steps']:
+                                           bs_logger("Device Pair: %s | Device stats unwrap RX | raw=%s expected=%s k=%s signed_steps=%s unwrapped=%s" % (device_pair['path'], commify(rx_result['raw']), commify(rx_result['expected']), rx_result['k'], rx_result['signed_steps'], commify(rx_result['unwrapped'])))
+                                      tx_pkts = tx_result['unwrapped']
+                                      rx_pkts = rx_result['unwrapped']
+                                 else:
+                                      tx_pkts = tx_raw
+                                      rx_pkts = rx_raw
+
+                                 stats[device_pair['tx']]['tx_packets'] += tx_pkts
+                                 stats['directional'][device_pair['direction']]['tx_packets'] += tx_pkts
+
+                                 stats[device_pair['rx']]['rx_packets'] += rx_pkts
+                                 stats['directional'][device_pair['direction']]['rx_packets'] += rx_pkts
 
                                  stats[device_pair['rx']]['rx_lost_packets'] = stats[device_pair['tx']]['tx_packets'] - stats[device_pair['rx']]['rx_packets']
                                  stats[device_pair['rx']]['rx_lost_packets_pct'] = 100.0 * stats[device_pair['rx']]['rx_lost_packets'] / stats[device_pair['tx']]['tx_packets']
 
-                                 stats[device_pair['tx']]['tx_pps'] = float(stats[device_pair['tx']]['tx_packets']) / float(results['global']['runtime'])
-                                 stats[device_pair['rx']]['rx_pps'] = float(stats[device_pair['rx']]['rx_packets']) / float(results['global']['runtime'])
+                                 stats[device_pair['tx']]['tx_pps'] = float(stats[device_pair['tx']]['tx_packets']) / runtime
+                                 stats[device_pair['rx']]['rx_pps'] = float(stats[device_pair['rx']]['rx_packets']) / runtime
 
-                                 stats[device_pair['rx']]['rx_lost_pps'] = float(stats[device_pair['rx']]['rx_lost_packets']) / float(results['global']['runtime'])
+                                 stats[device_pair['rx']]['rx_lost_pps'] = float(stats[device_pair['rx']]['rx_lost_packets']) / runtime
 
-                                 stats[device_pair['tx']]['tx_l1_bps'] += (int(results[str(device_pair['tx'])]['opackets']) * tmp_stats[device_pair['tx']]['packet_overhead_bytes']) + int(results[str(device_pair['tx'])]['obytes'])
-                                 stats[device_pair['rx']]['rx_l1_bps'] += (int(results[str(device_pair['rx'])]['ipackets']) * tmp_stats[device_pair['tx']]['packet_overhead_bytes']) + int(results[str(device_pair['rx'])]['ibytes'])
+                                 stats[device_pair['tx']]['tx_l1_bps'] += (tx_pkts * tmp_stats[device_pair['tx']]['packet_overhead_bytes']) + int(tx_port['obytes'])
+                                 stats[device_pair['rx']]['rx_l1_bps'] += (rx_pkts * tmp_stats[device_pair['tx']]['packet_overhead_bytes']) + int(rx_port['ibytes'])
 
-                                 stats[device_pair['tx']]['tx_l2_bps'] += int(results[str(device_pair['tx'])]['obytes']) - (int(results[str(device_pair['tx'])]['opackets']) * tmp_stats[device_pair['tx']]['crc_bytes'])
-                                 stats[device_pair['rx']]['rx_l2_bps'] += int(results[str(device_pair['rx'])]['ibytes']) - (int(results[str(device_pair['rx'])]['ipackets']) * tmp_stats[device_pair['tx']]['crc_bytes'])
+                                 stats[device_pair['tx']]['tx_l2_bps'] += int(tx_port['obytes']) - (tx_pkts * tmp_stats[device_pair['tx']]['crc_bytes'])
+                                 stats[device_pair['rx']]['rx_l2_bps'] += int(rx_port['ibytes']) - (rx_pkts * tmp_stats[device_pair['tx']]['crc_bytes'])
 
                                  stats[device_pair['tx']]['tx_l1_bps'] = float(stats[device_pair['tx']]['tx_l1_bps']) / float(results['global']['runtime']) * tmp_stats[device_pair['tx']]['bits_per_byte']
                                  stats[device_pair['rx']]['rx_l1_bps'] = float(stats[device_pair['rx']]['rx_l1_bps']) / float(results['global']['runtime']) * tmp_stats[device_pair['tx']]['bits_per_byte']
@@ -2196,6 +2241,7 @@ def handle_trial_process_stderr(process, trial_params, stats, tmp_stats, streams
                        stats['global']['timeout'] = results['global']['timeout']
                        stats['global']['early_exit'] = results['global']['early_exit']
                        stats['global']['force_quit'] = results['global']['force_quit']
+                       stats['global']['queue_full'] = results['global'].get('queue_full', 0)
 
                        stream_types = []
                        stream_types.append('default')
@@ -3246,6 +3292,8 @@ def main():
          setup_config_var('teaching_warmup_packet_type', t_global.args.teaching_warmup_packet_type, trial_params)
          setup_config_var('teaching_measurement_packet_type', t_global.args.teaching_measurement_packet_type, trial_params)
          setup_config_var("use_device_stats", t_global.args.use_device_stats, trial_params)
+         setup_config_var("unwrap_device_stats", t_global.args.unwrap_device_stats, trial_params)
+         setup_config_var("tx_ceiling_detection", t_global.args.tx_ceiling_detection, trial_params)
          setup_config_var('send_teaching_warmup', t_global.args.send_teaching_warmup, trial_params)
          setup_config_var('send_teaching_measurement', t_global.args.send_teaching_measurement, trial_params)
 
@@ -3568,6 +3616,13 @@ def main():
     if trial_params['min_rate'] != 0:
          minimum_rate = trial_params['min_rate']
 
+    tx_ceiling_mpps = None
+    tx_ceiling_observations = 0
+    # Once the NIC TX ceiling is confirmed, this holds the cap expressed in
+    # the search's rate unit (% or mpps). It persists across trials and is
+    # applied as an upper bound when the search picks the next rate.
+    tx_ceiling_cap_rate = None
+
     bs_logger("Starting binary-search") # this message triggers pbench to start default tools
     try:
          retries = 0
@@ -3708,6 +3763,55 @@ def main():
               else:
                    bs_logger('(trial failed one or more requirements)')
 
+              # TX ceiling detection: when the NIC cannot sustain the
+              # requested rate (queue_full + timeout), record the observed
+              # maximum TX rate as a cap. The cap is enforced below when the
+              # search picks the next rate, so it stops probing unreachable
+              # rates. Skip once a cap is already established.
+              if (trial_params.get('tx_ceiling_detection', True) and
+                  tx_ceiling_cap_rate is None and
+                  not do_warmup and
+                  trial_result in ('fail', 'retry-to-fail') and
+                  'global' in trial_stats and
+                  trial_stats['global'].get('queue_full', 0) > 0 and
+                  trial_stats['global'].get('timeout', False)):
+                   # Find the max achieved TX rate across all active device pairs
+                   observed_max_mpps = 0.0
+                   for dev_pair in trial_params['test_dev_pairs']:
+                        if trial_stats[dev_pair['tx']]['tx_active']:
+                             achieved = trial_stats[dev_pair['tx']]['tx_pps'] / 1000000.0
+                             if achieved > observed_max_mpps:
+                                  observed_max_mpps = achieved
+                   if observed_max_mpps > 0:
+                        tx_ceiling_mpps, tx_ceiling_observations = detect_tx_ceiling(
+                             observed_max_mpps, tx_ceiling_mpps, tx_ceiling_observations)
+
+                        if tx_ceiling_observations >= TX_CEILING_MIN_OBSERVATIONS:
+                             if trial_params.get('rate_unit') == '%':
+                                  # Convert the Mpps ceiling to a percentage of
+                                  # line rate using this trial's target as the
+                                  # reference.
+                                  target_mpps = 0.0
+                                  for dev_pair in trial_params['test_dev_pairs']:
+                                       if trial_stats[dev_pair['tx']]['tx_active']:
+                                            target_mpps = trial_stats[dev_pair['tx']]['tx_pps_target'] / 1000000.0
+                                            break
+                                  cap_rate = ceiling_to_rate_pct(tx_ceiling_mpps, target_mpps, rate)
+                                  cap_unit = '%'
+                             else:
+                                  cap_rate = tx_ceiling_mpps
+                                  cap_unit = ' Mpps'
+
+                             if cap_rate is not None and cap_rate < prev_fail_rate:
+                                  tx_ceiling_cap_rate = cap_rate
+                                  bs_logger("TX ceiling detected: NIC saturates at %s Mpps. Capping search upper bound at %s%s." %
+                                            (commify(tx_ceiling_mpps), commify(cap_rate), cap_unit))
+                                  # A saturated trial can never satisfy its
+                                  # requirements, so stop burning retries on it.
+                                  if trial_result == 'retry-to-fail':
+                                       retries = 0
+                                       trial_result = 'fail'
+
               if t_global.args.one_shot == 1 and not do_warmup:
                    bs_logger("Finished binary-search") # this message triggers pbench to stop default tools
                    break
@@ -3757,7 +3861,17 @@ def main():
                    else:
                         do_search = True
                         do_sniff = False
-                   prev_fail_rate = rate
+                   # Never probe above a confirmed NIC TX ceiling: cap both
+                   # the next rate and the upper bound used for pass jumps.
+                   if tx_ceiling_cap_rate is not None:
+                        if next_rate > tx_ceiling_cap_rate:
+                             next_rate = tx_ceiling_cap_rate
+                        if rate > tx_ceiling_cap_rate:
+                             prev_fail_rate = tx_ceiling_cap_rate
+                        else:
+                             prev_fail_rate = rate
+                   else:
+                        prev_fail_rate = rate
                    prev_rate = rate
                    rate = next_rate
                    retries = 0

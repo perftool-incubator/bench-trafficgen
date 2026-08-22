@@ -45,12 +45,20 @@ Uses TRex and testpmd with binary search optimization for:
 - ASTF traffic profiles: Python `.py` files in `trafficgen/astf-profiles/` (NOT validated by JSON schema)
 - TRex version is mode-based: STL backends use v3.08, ASTF uses v3.04. Both are pre-installed in the engine image (`client-workshop.json`). Version constants (`TREX_VER_STL`, `TREX_VER_ASTF`) live in `trafficgen-infra`; runtime switches the `/opt/trex/current` symlink only
 - Mellanox NICs require `trex-software-mode=on` and `trex-mellanox-support=on` for performance (enables multi-queue RX via RSS instead of single-queue hardware filter mode)
+- **Device-stat 32-bit wrap**: with `use-device-stats` (required on ice/E810; auto-forced for `net_ixgbe`), TRex `opackets`/`ipackets` can wrap at 2^32. `binary-search.py` unwraps them by default using `tx_pps`/`rx_pps * runtime` (all frame sizes). Opt out with `disable-device-stats-unwrap=ON`. This is not the same as i40e +2 RX bias (`negative-packet-loss`). 64-byte NDR with `trex-software-mode=off` is still limited by TRex TX ceiling (~39% of 100G on typical E810 setups), which is a generator limit, not wrap.
 - Default Grout version is configured in `trafficgen/install-grout.sh` (v0.16.0); the bundled RPM at `trafficgen/grout/grout.x86_64.rpm` is installed offline at image build time; a different version can be requested at runtime via the `--grout-version` runfile parameter (triggers a GitHub download only when the requested version differs from bundled)
 - Server `switch-type` controls the DUT: `testpmd` (L2 forwarding), `grout` (L3 IPv4/IPv6 forwarding via Grout DPDK router), or `null` (no DUT)
 - Grout parameters use `--grout-*` prefix: `--grout-ip-addrs`, `--grout-routes`, `--grout-forward-mode`, `--grout-rxqs`, `--grout-qsize`, `--grout-datapath-cpus`, `--grout-control-cpus`, `--grout-static-arp`, `--grout-version`
 - Grout integration is purely server-side; all three TRex backends (trex-txrx, trex-txrx-profile, trex-astf) work with Grout unmodified
 - Grout CPU affinity (`affinity cpus set`) is ONLY applied when `--grout-datapath-cpus` is explicitly set; automatic fallback to WORKLOAD_CPUS is intentionally avoided to prevent graph restarts
 - **Auto MAC/IP collection**: When `--grout-static-arp` is omitted from the runfile, `trafficgen-server-start` auto-generates nexthop entries from the TRex infra message (MACs + IPs sent by `trafficgen-infra`). Similarly, `trafficgen-client` auto-collects Grout's port MACs from the server message and overrides any manually-specified `--dst-macs`. This eliminates the need for manual MAC/IP configuration in most Grout runfiles. The `--src-ips` param (client-role) is embedded in the infra message so the server knows which IPs to pair with each TRex MAC for nexthop entries. If `--src-ips` is not set, IPs are derived from the Grout subnet (host part replaced with `.100`). Manual `--grout-static-arp` and `--dst-macs` in the runfile still work as overrides.
+
+## Known Issues (Device stats)
+
+| Issue | Impact | Workaround |
+|-------|--------|------------|
+| ice/E810 (and other Intel) port packet counters are 32-bit | Long `use-device-stats` trials report ~2^32 lost packets and fail `max-loss-pct` even when rates match | Unwrap is **on by default**; logs `Device stats unwrap TX/RX`. Set `disable-device-stats-unwrap=ON` only to debug |
+| 64-byte STL with `trex-software-mode=off` on E810 | TRex TX tops out well below line rate (~39% of 100G observed); 50%/100% miss rate-tolerance | **Auto-detected by default** (`tx_ceiling_detection`): binary-search caps the upper bound at the observed ceiling after 2 consistent saturated trials. Disable with `disable-tx-ceiling-detection=ON` |
 
 ## Known Issues (Grout Integration)
 

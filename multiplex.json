@@ -234,7 +234,7 @@
 	},
 	"on_off": {
 	    "description": "parameters that should be set to ON or OFF -- handled by rickshaw.json param regex",
-	    "args": [ "use-device-stats", "enable-segment-monitor", "disable-flow-cache",
+	    "args": [ "use-device-stats", "disable-device-stats-unwrap", "disable-tx-ceiling-detection", "enable-segment-monitor", "disable-flow-cache",
 		      "send-teaching-warmup", "send-teaching-measurement", "disable-trex-profiler",
 		      "process-all-profiler-data", "repeat-final-validation", "warmup-trial",
 		      "disable-upward-search", "no-promisc", "compress-files",
