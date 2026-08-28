@@ -114,6 +114,65 @@ def test_missing_expected():
      return failures
 
 
+def test_high_loss_binary_search_expectation():
+     """Verify the binary-search expectation calculation does not cause
+     false unwrap when RX is low due to genuine DUT loss."""
+     runtime = 90.0
+     target_pps = 148.8e6
+     tx_pps_snap = 148.0e6
+     rx_pps_snap = 29.76e6
+
+     raw_tx = int(round(tx_pps_snap * runtime))
+     raw_rx = int(round(rx_pps_snap * runtime))
+
+     # Fixed calculation (what binary-search.py should do):
+     tx_expected = (tx_pps_snap * runtime) if tx_pps_snap > 0 else (target_pps * runtime)
+     rx_expected = rx_pps_snap * runtime
+
+     tx = unwrap_u32_counter(raw_tx, tx_expected)
+     rx = unwrap_u32_counter(raw_rx, rx_expected)
+
+     failures = 0
+     failures += _check("high-loss-path rx k=0", rx['k'] == 0,
+                        "k=%s (would be 2 with buggy max() floor)" % rx['k'])
+     failures += _check("high-loss-path tx k=0", tx['k'] == 0,
+                        "k=%s" % tx['k'])
+     loss_pct = 100.0 * (tx['unwrapped'] - rx['unwrapped']) / float(tx['unwrapped'])
+     failures += _check("high-loss-path preserves ~80% loss", 79.0 <= loss_pct <= 81.0,
+                        "loss_pct=%s" % loss_pct)
+
+     # Buggy calculation (confirms the old code would fail):
+     buggy_rx_expected = max(rx_pps_snap * runtime, target_pps * runtime)
+     buggy_rx = unwrap_u32_counter(raw_rx, buggy_rx_expected)
+     failures += _check("high-loss-path buggy rx k>0 (confirms bug)", buggy_rx['k'] > 0,
+                        "buggy k=%s (expected >0 to prove the bug)" % buggy_rx['k'])
+     return failures
+
+
+def test_saturation_tx_not_falsely_unwrapped():
+     """TX at NIC ceiling (58 Mpps) but target is 100 Mpps.
+     With buggy max() floor, TX would get a false +2^32 wrap."""
+     runtime = 90.0
+     target_pps = 100e6
+     tx_pps_snap = 58e6
+     raw_tx = int(round(tx_pps_snap * runtime))
+
+     # Fixed path:
+     tx_expected = (tx_pps_snap * runtime) if tx_pps_snap > 0 else (target_pps * runtime)
+     tx = unwrap_u32_counter(raw_tx, tx_expected)
+     failures = 0
+     failures += _check("saturation-tx k=0", tx['k'] == 0,
+                        "k=%s (would be 1 with buggy max() floor)" % tx['k'])
+     failures += _check("saturation-tx unwrapped==raw", tx['unwrapped'] == raw_tx)
+
+     # Buggy path:
+     buggy_tx_expected = max(tx_pps_snap * runtime, target_pps * runtime)
+     buggy_tx = unwrap_u32_counter(raw_tx, buggy_tx_expected)
+     failures += _check("saturation-tx buggy k>0 (confirms bug)", buggy_tx['k'] > 0,
+                        "buggy k=%s" % buggy_tx['k'])
+     return failures
+
+
 def main():
      failures = 0
      failures += test_trial6_signed_wrap()
@@ -122,6 +181,8 @@ def main():
      failures += test_real_80pct_loss_not_unwrapped()
      failures += test_jumbo_no_wrap()
      failures += test_missing_expected()
+     failures += test_high_loss_binary_search_expectation()
+     failures += test_saturation_tx_not_falsely_unwrapped()
      if failures:
           print("%d check(s) failed" % (failures))
           return 1

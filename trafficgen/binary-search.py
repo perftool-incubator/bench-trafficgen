@@ -2034,20 +2034,21 @@ def handle_trial_process_stderr(process, trial_params, stats, tmp_stats, streams
                                  rx_raw = int(rx_port['ipackets'])
 
                                  if trial_params.get('unwrap_device_stats', True):
-                                      # Compute expected packet counts for unwrap.
-                                      # TRex pps fields are instantaneous snapshots that
-                                      # underestimate true averages under NIC saturation.
-                                      # tx_pps_target is the rate binary-search asked TRex
-                                      # to achieve (already computed by calculate_tx_pps_target
-                                      # for every rate unit and stream layout), so it stays
-                                      # accurate when queue_full > 0. Use max(snapshot,
-                                      # target) * runtime so the magnet remains valid.
+                                      # Compute expected packet counts for unwrap magnet.
+                                      # Use the measured pps snapshot as the primary
+                                      # estimate. For TX, fall back to target_pps only
+                                      # if the snapshot is missing. For RX, always use
+                                      # the snapshot since RX can be legitimately lower
+                                      # than the TX target due to real DUT loss.
+                                      # unwrap_u32_counter only needs expected within
+                                      # +/-2^31 of truth for round() to select the
+                                      # correct k (a +/-23.8 Mpps margin at 90s).
                                       tx_pps_snap = float(tx_port.get('tx_pps', 0) or 0)
                                       rx_pps_snap = float(rx_port.get('rx_pps', 0) or 0)
                                       target_pps = float(stats[device_pair['tx']].get('tx_pps_target', 0.0) or 0.0)
 
-                                      tx_expected = max(tx_pps_snap * runtime, target_pps * runtime)
-                                      rx_expected = max(rx_pps_snap * runtime, target_pps * runtime)
+                                      tx_expected = (tx_pps_snap * runtime) if tx_pps_snap > 0 else (target_pps * runtime)
+                                      rx_expected = rx_pps_snap * runtime
 
                                       tx_result = unwrap_u32_counter(tx_raw, tx_expected)
                                       rx_result = unwrap_u32_counter(rx_raw, rx_expected)
