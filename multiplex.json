@@ -100,7 +100,7 @@
 	"frame_size": {
 	    "description": "frame size is unique in that it is either an integer or a specific string",
 	    "args": [ "frame-size" ],
-	    "vals": [ "^[1-9][0-9]*$|^IMIX$" ]
+	    "vals": [ "^([1-9][0-9]*|IMIX)$" ]
 	},
 	"positive_integer": {
 	    "description": "any positive integer value",
@@ -117,13 +117,13 @@
 	"nonzero_positive_float": {
 	    "description": "any non-zero positive floating point value",
 	    "args": [ "search-granularity", "rate", "teaching-measurement-interval", "trex-profiler-interval" ],
-	    "vals": [ "^([1-9][0-9]*\\.?[0-9]*)|(0?\\.[0-9]+)$" ]
+	    "vals": [ "^(([1-9][0-9]*\\.?[0-9]*)|(0?\\.[0-9]+))$" ]
 	},
 	"positive_float": {
 	    "description": "any positive floating point value",
 	    "args": [ "min-rate", "rate-tolerance", "runtime-tolerance", "max-loss-pct", "random-seed",
 		      "astf-max-cps-deviation-pct", "astf-max-udp-drop-pct" ],
-	    "vals": [ "^([1-9][0-9]*\\.?[0-9]*)|(0?\\.[0-9]+)|(0)$" ]
+	    "vals": [ "^(([1-9][0-9]*\\.?[0-9]*)|(0?\\.[0-9]+)|0)$" ]
 	},
 	"mac_address_list": {
 	    "description": "1 or more (comma separated) list of mac addresses",
@@ -142,7 +142,7 @@
 		      "use-encap-src-ip-flows", "use-encap-dst-ip-flows", "use-encap-src-mac-flows",
 		      "use-encap-dst-mac-flows",
 		      "one-shot", "measure-latency" ],
-	    "vals": [ "^[0,1]$" ]
+	    "vals": [ "^(0|1)$" ]
 	},
 	"traffic_direction": {
 	    "description": "available traffic directions",
@@ -189,7 +189,7 @@
 	"astf_positive_float": {
 	    "description": "ASTF positive float parameters",
 	    "args": [ "astf-max-error-pct", "astf-max-retransmit-pct", "astf-udp-percent" ],
-	    "vals": [ "^([1-9][0-9]*\\.?[0-9]*)|(0?\\.[0-9]+)|(0)$" ]
+	    "vals": [ "^(([1-9][0-9]*\\.?[0-9]*)|(0?\\.[0-9]+)|0)$" ]
 	},
 	"astf_on_off": {
 	    "description": "ASTF ON/OFF flag parameters",
