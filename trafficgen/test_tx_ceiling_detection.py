@@ -9,6 +9,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from tg_lib import (detect_tx_ceiling, ceiling_to_rate_pct,
+                    negative_packet_exceeds_tolerance, tx_rate_outside_tolerance,
                     TX_CEILING_CONSISTENCY_TOLERANCE, TX_CEILING_MIN_OBSERVATIONS)
 
 
@@ -112,6 +113,22 @@ def test_scenario_02da9ca1():
      return failures
 
 
+def test_failure_gates():
+     """Only rate-tolerance failures should qualify for ceiling detection."""
+     failures = 0
+     failures += _check("stream bias within tolerance",
+                        not negative_packet_exceeds_tolerance(100, 102, 2))
+     failures += _check("stream bias over tolerance",
+                        negative_packet_exceeds_tolerance(100, 103, 2))
+     failures += _check("rate tolerance pass",
+                        not tx_rate_outside_tolerance(58.0, 58.0, 5))
+     failures += _check("rate tolerance fail",
+                        tx_rate_outside_tolerance(50.0, 58.0, 5))
+     return failures
+
+
+
+
 if __name__ == "__main__":
      total_failures = 0
      total_failures += test_first_observation()
@@ -121,6 +138,7 @@ if __name__ == "__main__":
      total_failures += test_ceiling_to_rate_pct_e810()
      total_failures += test_ceiling_to_rate_pct_at_50pct()
      total_failures += test_ceiling_to_rate_pct_invalid()
+     total_failures += test_failure_gates()
      total_failures += test_scenario_02da9ca1()
      print("\n%d total failures" % total_failures)
      sys.exit(0 if total_failures == 0 else 1)

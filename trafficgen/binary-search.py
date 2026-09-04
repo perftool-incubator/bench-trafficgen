@@ -2157,12 +2157,17 @@ def handle_trial_process_stderr(process, trial_params, stats, tmp_stats, streams
                                                      stats[device_pair['rx']]['rx_latency_l2_bps'] += int(results["flow_stats"][str(pg_id)]["rx_pkts"][str(device_pair['rx'])]) * (frame_size - tmp_stats[device_pair['tx']]['crc_bytes'])
 
                                            if results["flow_stats"][str(pg_id)]["loss"]["pct"][device_pair['path']] != "N/A":
-                                                if float(results["flow_stats"][str(pg_id)]["loss"]["pct"][device_pair['path']]) < 0:
-                                                     stats_error_append_pg_id(stats[device_pair['rx']], 'rx_negative_loss', pg_id)
-                                                elif float(results["flow_stats"][str(pg_id)]["loss"]["pct"][device_pair['path']]) == 100.0:
+                                                stream_loss_pct = float(results["flow_stats"][str(pg_id)]["loss"]["pct"][device_pair['path']])
+                                                if stream_loss_pct < 0:
+                                                     tx_stream_packets = int(results["flow_stats"][str(pg_id)].get("tx_pkts", {}).get(str(device_pair['tx']), 0))
+                                                     rx_stream_packets = int(results["flow_stats"][str(pg_id)].get("rx_pkts", {}).get(str(device_pair['rx']), 0))
+                                                     if negative_packet_exceeds_tolerance(tx_stream_packets, rx_stream_packets, trial_params['negative_packet_loss_tolerance']):
+                                                          stats_error_append_pg_id(stats[device_pair['rx']], 'rx_negative_loss', pg_id)
+                                                elif stream_loss_pct == 100.0:
                                                      stats_error_append_pg_id(stats[device_pair['rx']], 'rx_total_loss', pg_id)
-                                                elif float(results["flow_stats"][str(pg_id)]["loss"]["pct"][device_pair['path']]) > trial_params["max_loss_pct"]:
+                                                elif stream_loss_pct > trial_params["max_loss_pct"]:
                                                      stats_error_append_pg_id(stats[device_pair['rx']], 'rx_loss', pg_id)
+
 
                             if not trial_params['use_device_stats'] and 'bits_per_byte' in tmp_stats[device_pair['tx']]:
                                  stats[device_pair['tx']]['tx_active'] = True
@@ -2321,17 +2326,20 @@ def handle_trial_process_stderr(process, trial_params, stats, tmp_stats, streams
                                                      stats[device_pair['rx']]['rx_latency_l2_bps'] += int(results["flow_stats"][str(pg_id)]["rx_pkts"][str(device_pair['rx'])]) * (frame_size - tmp_stats[device_pair['tx']]['crc_bytes'])
 
                                            if results["flow_stats"][str(pg_id)]["loss"]["pct"][device_pair['path']] != "N/A":
-                                                if float(results["flow_stats"][str(pg_id)]["loss"]["pct"][device_pair['path']]) < 0:
-                                                     stats_error_append_pg_id(stats[device_pair['rx']], 'rx_negative_loss', pg_id)
-                                                else:
-                                                     if traffic_type == 'measurement':
-                                                          if float(results["flow_stats"][str(pg_id)]["loss"]["pct"][device_pair['path']]) == 100.0:
-                                                               stats_error_append_pg_id(stats[device_pair['rx']], 'rx_total_loss', pg_id)
-                                                          elif float(results["flow_stats"][str(pg_id)]["loss"]["pct"][device_pair['path']]) > trial_params["max_loss_pct"]:
-                                                               stats_error_append_pg_id(stats[device_pair['rx']], 'rx_loss', pg_id)
-                                                     elif traffic_type == 'ddos':
-                                                          if float(results["flow_stats"][str(pg_id)]["loss"]["pct"][device_pair['path']]) != 100.0:
-                                                               stats_error_append_pg_id(stats[device_pair['rx']], 'ddos_rx', pg_id)
+                                                stream_loss_pct = float(results["flow_stats"][str(pg_id)]["loss"]["pct"][device_pair['path']])
+                                                if stream_loss_pct < 0:
+                                                     tx_stream_packets = int(results["flow_stats"][str(pg_id)].get("tx_pkts", {}).get(str(device_pair['tx']), 0))
+                                                     rx_stream_packets = int(results["flow_stats"][str(pg_id)].get("rx_pkts", {}).get(str(device_pair['rx']), 0))
+                                                     if negative_packet_exceeds_tolerance(tx_stream_packets, rx_stream_packets, trial_params['negative_packet_loss_tolerance']):
+                                                          stats_error_append_pg_id(stats[device_pair['rx']], 'rx_negative_loss', pg_id)
+                                                elif traffic_type == 'measurement':
+                                                     if stream_loss_pct == 100.0:
+                                                          stats_error_append_pg_id(stats[device_pair['rx']], 'rx_total_loss', pg_id)
+                                                     elif stream_loss_pct > trial_params["max_loss_pct"]:
+                                                          stats_error_append_pg_id(stats[device_pair['rx']], 'rx_loss', pg_id)
+                                                elif traffic_type == 'ddos':
+                                                     if stream_loss_pct != 100.0:
+                                                          stats_error_append_pg_id(stats[device_pair['rx']], 'ddos_rx', pg_id)
 
                             if 'bits_per_byte' in tmp_stats[device_pair['tx']]:
                                  stats[device_pair['tx']]['tx_active'] = True
@@ -2955,7 +2963,8 @@ def evaluate_trial(trial_params, trial_stats):
                if t_global.args.traffic_generator == 'trex-txrx' or t_global.args.traffic_generator == 'trex-txrx-profile':
                     tolerance_min = (trial_stats[dev_pair['tx']]['tx_pps_target'] / 1000000) * ((100.0 - trial_params['rate_tolerance']) / 100)
                     tolerance_max = (trial_stats[dev_pair['tx']]['tx_pps_target'] / 1000000) * ((100.0 + trial_params['rate_tolerance']) / 100)
-                    if tx_rate > tolerance_max or tx_rate < tolerance_min:
+                    if tx_rate_outside_tolerance(tx_rate, trial_stats[dev_pair['tx']]['tx_pps_target'] / 1000000, trial_params['rate_tolerance']):
+                         trial_stats['global']['tx_rate_tolerance_failed'] = True
                          requirement_msg = "failed"
                          result_msg = "modified"
                          trial_result = "retry-to-%s" % trial_params['rate_tolerance_failure']
@@ -3785,6 +3794,7 @@ def main():
                   not do_warmup and
                   trial_result in ('fail', 'retry-to-fail') and
                   'global' in trial_stats and
+                  trial_stats['global'].get('tx_rate_tolerance_failed', False) and
                   trial_stats['global'].get('queue_full', 0) > 0 and
                   trial_stats['global'].get('timeout', False)):
                    # Find the max achieved TX rate across all active device pairs

@@ -182,3 +182,15 @@ def ceiling_to_rate_pct(ceiling_mpps, target_mpps, rate_pct):
      return (ceiling_mpps / line_rate_mpps) * 100.0
 
 
+def negative_packet_exceeds_tolerance(tx_packets, rx_packets, tolerance):
+     """Return whether RX excess exceeds the allowed counter bias."""
+     return int(rx_packets) - int(tx_packets) > int(tolerance)
+
+
+def tx_rate_outside_tolerance(tx_pps, target_pps, tolerance_pct):
+     """Return whether achieved TX PPS is outside its target percentage."""
+     lower = float(target_pps) * (100.0 - float(tolerance_pct)) / 100.0
+     upper = float(target_pps) * (100.0 + float(tolerance_pct)) / 100.0
+     return float(tx_pps) < lower or float(tx_pps) > upper
+
+
