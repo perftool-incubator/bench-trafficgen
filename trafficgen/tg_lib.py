@@ -109,10 +109,9 @@ def calculate_latency_pps (dividend, divisor, total_rate, protocols):
 # TRex device-stat packet counters on some NICs (ice/E810, i40e, ixgbe)
 # are 32-bit. JSON may dump values above 2^31 as signed negatives.
 UINT32_RANGE = 2 ** 32
-DEVICE_STATS_UNWRAP_MAX_K = 4
 
 
-def unwrap_u32_counter(raw, expected, max_wraps=DEVICE_STATS_UNWRAP_MAX_K):
+def unwrap_u32_counter(raw, expected):
      """Align a possibly wrapped 32-bit packet counter toward expected.
 
      Average TRex rate fields (tx_pps / rx_pps) do not wrap. Callers should
@@ -123,23 +122,15 @@ def unwrap_u32_counter(raw, expected, max_wraps=DEVICE_STATS_UNWRAP_MAX_K):
      k remains 0.
 
      Returns a dict with raw, expected, k, signed_steps, and unwrapped.
-     k is the number of +2^32 steps after signed normalization, clamped to
-     [0, max_wraps].
+     k is the number of +2^32 steps after signed normalization.
      """
      raw = int(raw)
-     value = raw
-     signed_steps = 0
-     while value < 0 and signed_steps < max_wraps:
-          value += UINT32_RANGE
-          signed_steps += 1
+     signed_steps = (-raw + UINT32_RANGE - 1) // UINT32_RANGE if raw < 0 else 0
+     value = raw + signed_steps * UINT32_RANGE
 
      k = 0
      if expected is not None and expected > 0:
-          k = int(round((float(expected) - float(value)) / float(UINT32_RANGE)))
-          if k < 0:
-               k = 0
-          elif k > max_wraps:
-               k = max_wraps
+          k = max(0, int(round((float(expected) - float(value)) / float(UINT32_RANGE))))
           value = value + (k * UINT32_RANGE)
 
      return {

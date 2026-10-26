@@ -173,6 +173,24 @@ def test_saturation_tx_not_falsely_unwrapped():
      return failures
 
 
+def test_long_trial_more_than_four_wraps():
+     """A 180-second 100G trial needs six wrap additions."""
+     expected = 26800000000
+     raw = expected % UINT32_RANGE
+     signed_raw = raw if raw < (UINT32_RANGE // 2) else raw - UINT32_RANGE
+
+     failures = 0
+     for name, counter in (("unsigned", raw), ("signed", signed_raw)):
+          result = unwrap_u32_counter(counter, expected)
+          failures += _check("%s long-trial wrap count" % name,
+                             result['k'] == expected // UINT32_RANGE,
+                             "k=%s" % result['k'])
+          failures += _check("%s long-trial restored count" % name,
+                             result['unwrapped'] == expected,
+                             "unwrapped=%s expected=%s" % (result['unwrapped'], expected))
+     return failures
+
+
 def main():
      failures = 0
      failures += test_trial6_signed_wrap()
@@ -183,6 +201,7 @@ def main():
      failures += test_missing_expected()
      failures += test_high_loss_binary_search_expectation()
      failures += test_saturation_tx_not_falsely_unwrapped()
+     failures += test_long_trial_more_than_four_wraps()
      if failures:
           print("%d check(s) failed" % (failures))
           return 1
