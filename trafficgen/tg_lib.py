@@ -106,3 +106,82 @@ def calculate_latency_pps (dividend, divisor, total_rate, protocols):
      return int((float(dividend) / float(divisor) * total_rate / protocols))
 
 
+# TRex device-stat packet counters on some NICs (ice/E810, i40e, ixgbe)
+# are 32-bit. JSON may dump values above 2^31 as signed negatives.
+UINT32_RANGE = 2 ** 32
+
+
+def unwrap_u32_counter(raw, expected):
+     """Align a possibly wrapped 32-bit packet counter toward expected.
+
+     Average TRex rate fields (tx_pps / rx_pps) do not wrap. Callers should
+     pass expected = pps * runtime. The correction is packet-count based and
+     does not depend on frame size.
+
+     Real loss is preserved: if expected stays near the reported counter,
+     k remains 0.
+
+     Returns a dict with raw, expected, k, signed_steps, and unwrapped.
+     k is the number of +2^32 steps after signed normalization.
+     """
+     raw = int(raw)
+     signed_steps = (-raw + UINT32_RANGE - 1) // UINT32_RANGE if raw < 0 else 0
+     value = raw + signed_steps * UINT32_RANGE
+
+     k = 0
+     if expected is not None and expected > 0:
+          k = max(0, int(round((float(expected) - float(value)) / float(UINT32_RANGE))))
+          value = value + (k * UINT32_RANGE)
+
+     return {
+          'raw': raw,
+          'expected': expected,
+          'k': k,
+          'signed_steps': signed_steps,
+          'unwrapped': value,
+     }
+
+
+TX_CEILING_CONSISTENCY_TOLERANCE = 0.10
+TX_CEILING_MIN_OBSERVATIONS = 2
+
+
+def detect_tx_ceiling(observed_mpps, current_ceiling_mpps, observations):
+     """Update TX ceiling state with a new observation.
+
+     Returns (ceiling_mpps, observations) tuple.  The ceiling is confirmed
+     when observations >= TX_CEILING_MIN_OBSERVATIONS.
+     """
+     if current_ceiling_mpps is None:
+          return (observed_mpps, 1)
+
+     if abs(observed_mpps - current_ceiling_mpps) / current_ceiling_mpps < TX_CEILING_CONSISTENCY_TOLERANCE:
+          return (max(current_ceiling_mpps, observed_mpps), observations + 1)
+
+     return (observed_mpps, 1)
+
+
+def ceiling_to_rate_pct(ceiling_mpps, target_mpps, rate_pct):
+     """Convert a ceiling in Mpps to a percentage of line rate.
+
+     target_mpps is the TX target for the current trial at rate_pct.
+     Line rate = target_mpps / (rate_pct / 100).
+     """
+     if target_mpps <= 0 or rate_pct <= 0:
+          return None
+     line_rate_mpps = target_mpps / (rate_pct / 100.0)
+     return (ceiling_mpps / line_rate_mpps) * 100.0
+
+
+def negative_packet_exceeds_tolerance(tx_packets, rx_packets, tolerance):
+     """Return whether RX excess exceeds the allowed counter bias."""
+     return int(rx_packets) - int(tx_packets) > int(tolerance)
+
+
+def tx_rate_outside_tolerance(tx_pps, target_pps, tolerance_pct):
+     """Return whether achieved TX PPS is outside its target percentage."""
+     lower = float(target_pps) * (100.0 - float(tolerance_pct)) / 100.0
+     upper = float(target_pps) * (100.0 + float(tolerance_pct)) / 100.0
+     return float(tx_pps) < lower or float(tx_pps) > upper
+
+

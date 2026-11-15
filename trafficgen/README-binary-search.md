@@ -63,6 +63,73 @@ Minimum required options for STL mode:
 
 Note that you must use two physical devices connected to a DUT or loopback.
 
+## Device stats (`--use-device-stats`)
+
+Use NIC port counters instead of TRex stream/flow stats. This is required on
+NICs whose hardware flow stats are unreliable (Intel ice/E810, and
+automatically forced for `net_ixgbe` / 82599).
+
+Those port packet counters are 32-bit on several Intel drivers. During a long
+trial they wrap, which binary-search used to treat as enormous packet loss
+(often exactly `2^32` lost packets) even when TRex `tx_pps`/`rx_pps` still
+matched. Frame size only changes *when* wrap happens (64-byte trials wrap
+sooner than jumbo); the correction is packet-count based and applies to all
+frame sizes.
+
+By default, when `--use-device-stats` is on, binary-search unwraps
+`opackets`/`ipackets` using the non-wrapping rate fields (`pps * runtime`)
+before computing loss. Wrap events are logged as
+`Device stats unwrap TX|RX`. Disable only to debug or on NICs with proven
+64-bit port counters:
+
+```
+--disable-device-stats-unwrap
+```
+
+Run file (rickshaw `ON`/`OFF`):
+
+```json
+{ "arg": "use-device-stats", "vals": ["ON"], "role": "client" },
+{ "arg": "disable-device-stats-unwrap", "vals": ["OFF"], "role": "client" }
+```
+
+Omit `disable-device-stats-unwrap` or set it `OFF` to keep unwrap enabled.
+This does not raise the TRex 64-byte TX ceiling in hardware mode; that is a
+generator limit, not a counter-wrap bug.
+
+## TX ceiling detection (`--disable-tx-ceiling-detection`)
+
+Some NICs (notably Intel E810 with `net_ice` in hardware mode) cannot sustain
+the theoretical line rate at small frame sizes. For example, E810 100G ports
+typically saturate at ~58 Mpps with 64-byte frames — only ~39% of the 148.8
+Mpps line rate. When binary-search requests a rate above this ceiling, the TRex
+TX queue fills up (`queue_full > 0`), the trial times out, and rate tolerance
+checks fail.
+
+By default, binary-search detects this condition: two consecutive trials with
+both `queue_full > 0` AND timeout at a consistent achieved TX rate
+automatically caps the search upper bound to the observed hardware ceiling.
+This prevents wasting trials on unreachable rates and avoids TRex stability
+issues from prolonged saturation.
+
+Detection is logged as:
+```
+TX ceiling detected: NIC saturates at 58.5 Mpps. Capping search upper bound at 39.3%.
+```
+
+Disable only when investigating NIC performance or when the ceiling is expected
+to be transient:
+
+```
+--disable-tx-ceiling-detection
+```
+
+Run file:
+
+```json
+{ "arg": "disable-tx-ceiling-detection", "vals": ["OFF"], "role": "client" }
+```
+
 ## Running (ASTF Mode)
 
 For stateful traffic (OVS+conntrack, NAT, firewalls):
